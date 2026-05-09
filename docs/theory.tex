@@ -1,0 +1,1204 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\phat}{\hat{\mb{p}}}
+\newcommand{\zhat}{\hat{z}}
+\newcommand{\Heff}{\mb{H}_{\text{eff}}}
+\newcommand{\Hex}{\mb{H}_{\text{ex}}}
+\newcommand{\Hdmi}{\mb{H}_{\text{DMI}}}
+\newcommand{\Hanis}{\mb{H}_{\text{anis}}}
+\newcommand{\Hdemag}{\mb{H}_{\text{demag}}}
+\newcommand{\Hrkky}{\mb{H}_{\text{RKKY}}}
+\newcommand{\Hext}{\mb{H}_{\text{ext}}}
+\newcommand{\tCo}{t_{\text{Co}}}
+\newcommand{\Keff}{K_{\text{eff}}}
+\newcommand{\Aex}{A_{\text{ex}}}
+\newcommand{\Ms}{M_s}
+
+\title{Theoretical Background:\\
+SAF Skyrmion Simulator}
+\author{Rui Barreira}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+
+%======================================================================
+\section{Magnetic Skyrmions in Synthetic Antiferromagnets}
+%======================================================================
+
+Magnetic skyrmions are topologically non-trivial chiral spin textures
+with a topological charge $S = \pm 1$. In a skyrmion, the
+magnetization rotates smoothly from one out-of-plane direction at the
+core to the opposite direction in the surrounding domain.
+
+A synthetic antiferromagnet (SAF) consists of two ferromagnetic layers
+(Co) separated by a non-magnetic spacer (Ru), coupled
+antiferromagnetically via the Ruderman--Kittel--Kasuya--Yosida (RKKY)
+interaction. In a SAF, skyrmions in the two layers have opposite core
+polarities and opposite topological charges, leading to a cancellation
+of the Magnus force and a vanishing skyrmion Hall
+effect~\cite{pham2024}.
+
+The SAF stack modeled here is Pt/Co/Ru/Pt/Co/Ru, following the
+experimental system in~\cite{pham2024}.
+
+%======================================================================
+\section{Hamiltonian}
+%======================================================================
+
+The total magnetic energy of the SAF system is the sum of
+contributions from both layers
+($\ell = \text{top}, \text{bot}$) plus the interlayer coupling:
+%
+\begin{equation}
+\mathcal{H} = \sum_{\ell} \left(
+    \mathcal{H}_{\text{ex}}^{(\ell)}
+    + \mathcal{H}_{\text{DMI}}^{(\ell)}
+    + \mathcal{H}_{\text{anis}}^{(\ell)}
+    + \mathcal{H}_{\text{demag}}^{(\ell)}
+    + \mathcal{H}_{\text{Z}}^{(\ell)}
+\right)
++ \mathcal{H}_{\text{RKKY}}
+\end{equation}
+
+The effective field entering the LLGS equation is obtained from the
+variational derivative of the energy with respect to the
+magnetization:
+%
+\begin{equation}
+\Heff = -\frac{1}{\Ms}
+    \frac{\delta \mathcal{H}}{\delta \mb{m}}
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Exchange Energy}
+
+The Heisenberg exchange favors parallel alignment of neighboring
+spins:
+%
+\begin{equation}
+\mathcal{H}_{\text{ex}} = \Aex \int \left[
+    (\nabla m_x)^2 + (\nabla m_y)^2 + (\nabla m_z)^2
+\right] dV
+\end{equation}
+
+On the discrete 2D lattice with lattice constant $a$ and film
+thickness $\tCo$:
+%
+\begin{equation}
+\mathcal{H}_{\text{ex}} = -\Aex \, \tCo
+    \sum_{\langle i,j \rangle} \mb{m}_i \cdot \mb{m}_j
+\end{equation}
+%
+where the sum runs over nearest-neighbor pairs.
+
+%----------------------------------------------------------------------
+\subsection{Dzyaloshinskii--Moriya Interaction Energy}
+
+The interfacial (N\'{e}el-type) DMI at the Pt/Co interface introduces
+chirality:
+%
+\begin{equation}
+\mathcal{H}_{\text{DMI}} = D \, \tCo \int \left[
+    m_z \, (\nabla \cdot \mb{m})
+    - (\mb{m} \cdot \nabla) m_z
+\right] dS
+\end{equation}
+
+On the discrete lattice this becomes a sum over nearest-neighbor bonds
+with bond-direction-dependent cross products:
+%
+\begin{equation}
+\mathcal{H}_{\text{DMI}} = -D \, \tCo
+    \sum_{\langle i,j \rangle}
+    (\hat{r}_{ij} \times \zhat) \cdot
+    (\mb{m}_i \times \mb{m}_j)
+\end{equation}
+%
+where $\hat{r}_{ij}$ is the unit vector from site $i$ to site $j$.
+
+%----------------------------------------------------------------------
+\subsection{Anisotropy Energy}
+
+Uniaxial perpendicular magnetic anisotropy (PMA) along the film
+normal:
+%
+\begin{equation}
+\mathcal{H}_{\text{anis}} = -K \, \tCo \int m_z^2 \, dS
+\end{equation}
+
+On the lattice:
+%
+\begin{equation}
+\mathcal{H}_{\text{anis}} = -K \, \tCo \, a^2 \sum_i m_{z,i}^2
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Demagnetization Energy}
+
+In the thin-film limit ($\tCo \ll$ lateral dimensions), the
+magnetostatic energy reduces to a local shape anisotropy:
+%
+\begin{equation}
+\mathcal{H}_{\text{demag}} = \frac{\mu_0 \Ms^2}{2} \, \tCo
+    \int m_z^2 \, dS
+\end{equation}
+
+This opposes out-of-plane magnetization.  Since both the anisotropy
+and demagnetization energies are proportional to $m_z^2$, they merge
+into a single effective anisotropy:
+%
+\begin{equation}
+\mathcal{H}_{\text{anis}} + \mathcal{H}_{\text{demag}} =
+    -\underbrace{\left(K - \frac{\mu_0 \Ms^2}{2}\right)}_{\Keff}
+    \, \tCo \int m_z^2 \, dS
+\end{equation}
+%
+Three regimes arise depending on the sign of $\Keff$:
+%
+\begin{itemize}[nosep]
+\item $K > \mu_0 \Ms^2/2$: $\Keff > 0$
+    --- anisotropy wins, magnetization points out-of-plane.
+\item $K < \mu_0 \Ms^2/2$: $\Keff < 0$
+    --- demagnetization wins, magnetization lies in-plane.
+\item $K \approx \mu_0 \Ms^2/2$: $\Keff \approx 0$
+    --- spin reorientation transition (SRT); domain walls and
+    skyrmions cost very little energy to form.
+\end{itemize}
+%
+For the Co/Pt system in~\cite{pham2024},
+$K \approx 1.3 \times 10^6$~J/m$^3$ and
+$\mu_0 \Ms^2/2 \approx 1.286 \times 10^6$~J/m$^3$, giving
+$\Keff \approx 10^4$~J/m$^3$ --- barely positive, right at the SRT.
+This is why the system can host skyrmions.
+
+%----------------------------------------------------------------------
+\subsection{Zeeman Energy}
+
+Interaction with an external field $\mb{B}_{\text{ext}}$:
+%
+\begin{equation}
+\mathcal{H}_{\text{Z}} = -\Ms \, \tCo \int
+    \mb{m} \cdot \mb{B}_{\text{ext}} \, dS
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{RKKY Interlayer Coupling Energy}
+
+The antiferromagnetic RKKY exchange between the two Co layers across
+the Ru spacer:
+%
+\begin{equation}
+\mathcal{H}_{\text{RKKY}} = J_{\text{RKKY}} \int
+    \mb{m}_{\text{top}} \cdot \mb{m}_{\text{bot}} \, dS
+\end{equation}
+%
+where $J_{\text{RKKY}} > 0$ for antiferromagnetic coupling. The
+coupling field is related to the coupling constant by
+$\mu_0 H_{\text{RKKY}} = J_{\text{RKKY}} / (\Ms \, \tCo)$.
+
+%----------------------------------------------------------------------
+\subsection{Total Energy on the Discrete Lattice}
+
+Combining all contributions, the total energy per layer on the 2D
+lattice is:
+%
+\begin{equation}
+\mathcal{H}^{(\ell)} = \tCo \, a^2 \sum_i \left[
+    -\frac{\Aex}{a^2} \sum_{\delta}
+        \mb{m}_i \cdot \mb{m}_{i+\delta}
+    - \frac{D}{a} \sum_{\delta}
+        (\hat{\delta} \times \zhat) \cdot
+        (\mb{m}_i \times \mb{m}_{i+\delta})
+    - \Keff \, m_{z,i}^2
+    - \Ms \, \mb{m}_i \cdot \mb{B}_{\text{ext}}
+\right]
+\end{equation}
+%
+where $\delta$ runs over the four nearest neighbors
+$\{\pm\hat{x}, \pm\hat{y}\}$, and the interlayer RKKY term adds
+$J_{\text{RKKY}} \, a^2 \sum_i
+    \mb{m}_{\text{top},i} \cdot \mb{m}_{\text{bot},i}$.
+
+%======================================================================
+\section{From Hamiltonian to Effective Field}
+\label{sec:variational}
+%======================================================================
+
+The Hamiltonian (Section~2) defines \emph{what} the system wants to
+minimize.  The LLGS equation (Section~4) describes \emph{how} the
+magnetization evolves in time.  The bridge between the two is the
+\textbf{effective field}, obtained from the variational derivative of
+the energy with respect to the magnetization.
+
+%----------------------------------------------------------------------
+\subsection{Variational Derivative}
+
+Consider a small perturbation
+$\mb{m} \to \mb{m} + \delta\mb{m}$ (subject to the constraint
+$|\mb{m}| = 1$, so $\mb{m} \cdot \delta\mb{m} = 0$).  The
+corresponding change in energy is:
+%
+\begin{equation}
+\delta\mathcal{H} = \int
+    \frac{\delta\mathcal{H}}{\delta\mb{m}}
+    \cdot \delta\mb{m} \; dV
+\end{equation}
+%
+The effective magnetic field is defined such that:
+%
+\begin{equation}\label{eq:heff_def}
+\boxed{\;
+\Heff = -\frac{1}{\Ms}
+    \frac{\delta\mathcal{H}}{\delta\mb{m}}
+\;}
+\end{equation}
+%
+so that $\delta\mathcal{H} = -\Ms \int \Heff \cdot
+\delta\mb{m} \; dV$.  The factor $1/\Ms$ gives $\Heff$ the
+dimensions of magnetic field (Tesla in our convention).
+
+%----------------------------------------------------------------------
+\subsection{Derivation of the Exchange Field}
+
+Starting from the exchange energy:
+%
+\begin{equation}
+\mathcal{H}_{\text{ex}} = \Aex \int
+    |\nabla\mb{m}|^2 \; dV
+\end{equation}
+%
+Perturbing $\mb{m} \to \mb{m} + \delta\mb{m}$:
+%
+\begin{equation}
+\delta\mathcal{H}_{\text{ex}} = 2\Aex \int
+    \nabla\mb{m} : \nabla(\delta\mb{m}) \; dV
+\end{equation}
+%
+where the colon denotes the tensor double contraction
+$\nabla\mb{m} : \nabla(\delta\mb{m})
+= \sum_\alpha \nabla m_\alpha \cdot \nabla(\delta m_\alpha)$.
+Integrating by parts (boundary terms vanish for periodic boundary
+conditions):
+%
+\begin{equation}
+\delta\mathcal{H}_{\text{ex}} =
+    -2\Aex \int \nabla^2\mb{m} \cdot \delta\mb{m} \; dV
+\end{equation}
+%
+Reading off the variational derivative and applying~\eqref{eq:heff_def}:
+%
+\begin{equation}
+\frac{\delta\mathcal{H}_{\text{ex}}}{\delta\mb{m}}
+    = -2\Aex \, \nabla^2\mb{m}
+\qquad\Longrightarrow\qquad
+\Hex = \frac{2\Aex}{\Ms} \nabla^2\mb{m}
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Derivation of the DMI Field}
+
+From the interfacial DMI energy:
+%
+\begin{equation}
+\mathcal{H}_{\text{DMI}} = D \int \left[
+    m_z (\nabla \cdot \mb{m})
+    - (\mb{m} \cdot \nabla) m_z
+\right] dV
+\end{equation}
+%
+Expanding each term under the variation
+$\mb{m} \to \mb{m} + \delta\mb{m}$ and collecting contributions
+from $\delta m_x$, $\delta m_y$, and $\delta m_z$ separately (using
+integration by parts where needed):
+%
+\begin{equation}
+\frac{\delta\mathcal{H}_{\text{DMI}}}{\delta m_x}
+    = -2D\,\frac{\partial m_z}{\partial x}, \quad
+\frac{\delta\mathcal{H}_{\text{DMI}}}{\delta m_y}
+    = -2D\,\frac{\partial m_z}{\partial y}, \quad
+\frac{\delta\mathcal{H}_{\text{DMI}}}{\delta m_z}
+    = 2D\left(
+        \frac{\partial m_x}{\partial x}
+        + \frac{\partial m_y}{\partial y}
+    \right)
+\end{equation}
+%
+Applying~\eqref{eq:heff_def}:
+%
+\begin{equation}
+\Hdmi = \frac{2D}{\Ms} \left(
+    \frac{\partial m_z}{\partial x}\,\hat{x}
+    + \frac{\partial m_z}{\partial y}\,\hat{y}
+    - \left(
+        \frac{\partial m_x}{\partial x}
+        + \frac{\partial m_y}{\partial y}
+    \right)\hat{z}
+\right)
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Derivation of the Anisotropy Field}
+
+From the anisotropy energy $\mathcal{H}_{\text{anis}} = -K \int
+m_z^2 \, dV$:
+%
+\begin{equation}
+\delta\mathcal{H}_{\text{anis}} = -2K \int
+    m_z \, \delta m_z \; dV
+    = -2K \int (m_z \, \zhat) \cdot \delta\mb{m} \; dV
+\end{equation}
+%
+Therefore:
+%
+\begin{equation}
+\Hanis = \frac{2K}{\Ms} \, m_z \, \zhat
+\end{equation}
+%
+The demagnetization field follows identically with
+$K \to -\mu_0\Ms^2/2$, giving
+$\Hdemag = -\mu_0\Ms \, m_z \, \zhat$, and the combined field uses
+$\Keff = K - \mu_0\Ms^2/2$.
+
+%----------------------------------------------------------------------
+\subsection{Derivation of the Zeeman and RKKY Fields}
+
+The Zeeman energy
+$\mathcal{H}_{\text{Z}} = -\Ms \int \mb{m} \cdot
+\mb{B}_{\text{ext}} \, dV$ is linear in $\mb{m}$:
+%
+\begin{equation}
+\delta\mathcal{H}_{\text{Z}} = -\Ms \int
+    \mb{B}_{\text{ext}} \cdot \delta\mb{m} \; dV
+\qquad\Longrightarrow\qquad
+\Hext = \mb{B}_{\text{ext}}
+\end{equation}
+
+Similarly, the RKKY energy
+$\mathcal{H}_{\text{RKKY}} = J_{\text{RKKY}} \int
+\mb{m}_{\text{top}} \cdot \mb{m}_{\text{bot}} \, dV$ gives,
+when varying $\mb{m}_{\text{top}}$:
+%
+\begin{equation}
+\mb{H}_{\text{RKKY, on top}} =
+    -\frac{J_{\text{RKKY}}}{\Ms}\,\mb{m}_{\text{bot}}
+    = -H_{\text{RKKY}}\,\mb{m}_{\text{bot}}
+\end{equation}
+%
+and symmetrically for the bottom layer.
+
+%----------------------------------------------------------------------
+\subsection{Physical Interpretation of the LLG Equation}
+
+With the effective field defined, the LLG equation
+\begin{equation}
+\frac{d\mb{m}}{dt} =
+    \underbrace{-\gamma\,\mb{m} \times \Heff}_{\text{precession}}
+    + \underbrace{\alpha\,\mb{m} \times
+        \frac{d\mb{m}}{dt}}_{\text{damping}}
+\end{equation}
+has a clear energetic interpretation:
+
+\begin{itemize}[nosep]
+\item \textbf{Precession term}
+    $(-\gamma\,\mb{m}\times\Heff)$:
+    The torque is perpendicular to both $\mb{m}$ and $\Heff$,
+    so the magnetization precesses around the effective field.
+    Since $\mb{m} \cdot d\mb{m}/dt = 0$ (from $|\mb{m}|=1$)
+    and the torque does no work on the field
+    ($\Heff \cdot (\mb{m}\times\Heff) = 0$), this term
+    \textbf{conserves energy}.
+
+\item \textbf{Damping term}
+    $(\alpha\,\mb{m}\times d\mb{m}/dt)$:
+    This produces a torque component that tilts $\mb{m}$ toward
+    $\Heff$.  One can show that the energy dissipation rate is:
+    %
+    \begin{equation}
+    \frac{d\mathcal{H}}{dt} =
+        -\frac{\alpha\Ms}{\gamma}
+        \int \left|\frac{d\mb{m}}{dt}\right|^2 dV
+        \leq 0
+    \end{equation}
+    %
+    Energy is always dissipated ($d\mathcal{H}/dt \leq 0$),
+    driving the system toward the energy minimum.
+\end{itemize}
+
+Together, the two terms describe a \textbf{damped precession}:
+the magnetization spirals around the effective field while
+gradually aligning with it.  The Hamiltonian defines the energy
+landscape; the effective field is the local gradient of that
+landscape; and the LLG equation is the equation of motion that
+navigates the magnetization toward equilibrium.
+
+The Slonczewski spin-transfer torque terms (Section~6) add a
+non-conservative driving force from the electric current, which
+can sustain steady-state motion (e.g.\ skyrmion translation)
+against the damping.
+
+%======================================================================
+\section{Landau--Lifshitz--Gilbert--Slonczewski Equation (LLGS)}
+%======================================================================
+
+The magnetization dynamics of each layer are governed by the LLGS
+equation. For the unit magnetization vector
+$\mb{m} = \mb{M}/\Ms$:
+%
+\begin{equation}\label{eq:llgs}
+\frac{d\mb{m}}{dt} =
+    -\gamma \, \mb{m} \times \Heff
+    + \alpha \, \mb{m} \times \frac{d\mb{m}}{dt}
+    + H_{\text{DL}}
+        \frac{\mb{m} \times (\phat \times \mb{m})}
+             {|\phat \times \mb{m}|}
+    + H_{\text{FL}}
+        \frac{\phat \times \mb{m}}
+             {|\phat \times \mb{m}|}
+\end{equation}
+%
+where:
+\begin{itemize}[nosep]
+\item $\gamma$ is the gyromagnetic ratio (rad/s/T),
+\item $\alpha$ is the Gilbert damping constant,
+\item $\Heff$ is the effective magnetic field (Tesla),
+\item $H_{\text{DL}} = \chi_{\text{DL}} \cdot J$ is the damping-like
+    (DL) SOT field,
+\item $H_{\text{FL}} = \chi_{\text{FL}} \cdot J$ is the field-like
+    (FL) SOT field,
+\item $\phat$ is the spin polarization direction
+    ($\phat = \zhat \times \hat{J}$).
+\end{itemize}
+
+%----------------------------------------------------------------------
+\subsection{Explicit Form}
+
+The implicit form~\eqref{eq:llgs} is converted to an explicit
+equation by substituting $d\mb{m}/dt$ into the damping term. Using
+$|\mb{m}| = 1$ and $\mb{m} \cdot d\mb{m}/dt = 0$:
+%
+\begin{equation}\label{eq:llgs_explicit}
+\frac{d\mb{m}}{dt} = \frac{\gamma}{1 + \alpha^2} \Big[
+    -(\mb{m} \times \mb{H})
+    - \alpha \, \mb{m} \times (\mb{m} \times \mb{H})
+    + (H_{\text{DL}} + \alpha H_{\text{FL}})
+        (\mb{m} \times \mb{s})
+    + (H_{\text{FL}} - \alpha H_{\text{DL}}) \, \mb{s}
+\Big]
+\end{equation}
+%
+where
+$\mb{s} = (\phat \times \mb{m}) / |\phat \times \mb{m}|$,
+and $H_{\text{DL}}$, $H_{\text{FL}}$ are the SOT effective fields in
+Tesla.
+
+%======================================================================
+\section{Effective Field Contributions}
+%======================================================================
+
+The total effective field for each layer is:
+%
+\begin{equation}
+\Heff = \Hex + \Hdmi + \Hanis + \Hext + \Hrkky + \Hdemag
+\end{equation}
+%
+All fields are computed in Tesla.
+
+%----------------------------------------------------------------------
+\subsection{Exchange Field}
+
+On a 2D square lattice with lattice constant $a$, the discrete
+exchange field is the lattice Laplacian:
+%
+\begin{equation}
+\Hex = \frac{2\Aex}{\Ms \, a^2}
+    \left(
+        \mb{m}_{+x} + \mb{m}_{-x}
+        + \mb{m}_{+y} + \mb{m}_{-y}
+        - 4\mb{m}
+    \right)
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Dzyaloshinskii--Moriya Interaction}
+
+The discrete interfacial (N\'{e}el-type) DMI field:
+%
+\begin{align}
+H_{\text{DMI},x} &= \frac{D}{\Ms \, a}
+    (m_{+x,z} - m_{-x,z}) \\
+H_{\text{DMI},y} &= \frac{D}{\Ms \, a}
+    (m_{+y,z} - m_{-y,z}) \\
+H_{\text{DMI},z} &= -\frac{D}{\Ms \, a}
+    (m_{+x,x} - m_{-x,x} + m_{+y,y} - m_{-y,y})
+\end{align}
+%
+where $D > 0$ favors left-handed N\'{e}el skyrmions, consistent with
+the Pt/Co interface.
+
+%----------------------------------------------------------------------
+\subsection{Perpendicular Magnetic Anisotropy}
+
+Uniaxial anisotropy along the film normal ($\zhat$):
+%
+\begin{equation}
+\Hanis = \frac{2K}{\Ms} \, m_z \, \zhat
+\end{equation}
+
+%----------------------------------------------------------------------
+\subsection{Thin-Film Demagnetization}
+
+In a thin film, the demagnetizing field is:
+%
+\begin{equation}
+\Hdemag = -\mu_0 \Ms \, m_z \, \zhat
+\end{equation}
+
+The combined anisotropy + demagnetization field uses the effective
+anisotropy:
+%
+\begin{equation}
+\Keff = K - \frac{\mu_0 \Ms^2}{2}
+\qquad\Longrightarrow\qquad
+\mb{H}_{\text{anis+demag}} =
+    \frac{2\Keff}{\Ms} \, m_z \, \zhat
+\end{equation}
+
+The system in~\cite{pham2024} is close to the spin reorientation
+transition ($\Keff \approx 0$), which favors skyrmion formation.
+
+%----------------------------------------------------------------------
+\subsection{Zeeman Field}
+
+A uniform external magnetic field $\Hext$ (in Tesla), identical at all
+lattice sites.
+
+%----------------------------------------------------------------------
+\subsection{RKKY Interlayer Coupling}
+
+The antiferromagnetic RKKY interaction promotes antiparallel alignment:
+%
+\begin{align}
+\mb{H}_{\text{RKKY, on top}} &=
+    -H_{\text{RKKY}} \, \mb{m}_{\text{bot}} \\
+\mb{H}_{\text{RKKY, on bot}} &=
+    -H_{\text{RKKY}} \, \mb{m}_{\text{top}}
+\end{align}
+
+%======================================================================
+\section{Spin-Orbit Torques}
+%======================================================================
+
+The spin-orbit torques (SOT) are the mechanism by which an electric
+current drives skyrmion motion.  They originate from the
+\textbf{spin Hall effect} (SHE) in the heavy-metal Pt layers
+adjacent to the ferromagnetic Co.
+
+\subsection{Spin Hall Effect}
+
+When an in-plane charge current density $\mb{J}$ flows through the
+Pt layer, the strong spin-orbit coupling deflects spin-up and
+spin-down electrons in opposite transverse directions.  This
+generates a transverse \emph{spin current} that accumulates at the
+Pt/Co interface.  The spin polarization direction is perpendicular
+to both the current and the film normal:
+%
+\begin{equation}
+\phat = \zhat \times \hat{J}
+\end{equation}
+%
+For current along $\hat{x}$, the spin polarization is
+$\phat = \hat{y}$.  The efficiency of the conversion from charge
+current to spin current is characterized by the spin Hall angle
+$\theta_{\text{SH}}$, which is encapsulated in the experimentally
+measured SOT coefficients $\chi_{\text{DL}}$ and $\chi_{\text{FL}}$.
+
+\subsection{SOT Torques in the LLGS Equation}
+
+The spin current accumulated at the interface exerts two distinct
+torques on the Co magnetization, which enter as the Slonczewski
+terms in the LLGS equation:
+%
+\begin{itemize}[nosep]
+\item \textbf{Damping-like (DL) torque}:
+    $\tau_{\text{DL}} = H_{\text{DL}} \,
+    \mb{m} \times (\phat \times \mb{m})
+    / |\phat \times \mb{m}|$.
+    This acts like an additional damping (or anti-damping) that
+    pushes the magnetization toward or away from $\phat$.  It is
+    the dominant torque driving skyrmion motion.
+
+\item \textbf{Field-like (FL) torque}:
+    $\tau_{\text{FL}} = H_{\text{FL}} \,
+    (\phat \times \mb{m})
+    / |\phat \times \mb{m}|$.
+    This is equivalent to an effective magnetic field along $\phat$
+    and is typically smaller in magnitude.
+\end{itemize}
+
+The SOT effective field magnitudes are proportional to the applied
+current density:
+%
+\begin{equation}
+H_{\text{DL}} = \chi_{\text{DL}} \cdot J,
+\qquad
+H_{\text{FL}} = \chi_{\text{FL}} \cdot J
+\end{equation}
+%
+where $\chi_{\text{DL}}$ and $\chi_{\text{FL}}$ are the SOT
+coefficients (in T\,A$^{-1}$\,m$^2$) measured experimentally.
+These coefficients encapsulate the spin Hall angle, the spin
+diffusion length, and the interface spin transparency into a single
+effective parameter.
+
+\subsection{SOT Terms in the Explicit LLGS}
+
+In the explicit form of the LLGS equation~\eqref{eq:llgs_explicit},
+the SOT terms appear as the last two contributions:
+%
+\begin{equation}
+\frac{d\mb{m}}{dt} = \frac{\gamma}{1+\alpha^2} \Big[
+    \underbrace{
+        -\mb{m} \times \mb{H}
+        - \alpha\,\mb{m} \times (\mb{m} \times \mb{H})
+    }_{\text{precession + damping}}
+    + \underbrace{
+        (H_{\text{DL}} + \alpha H_{\text{FL}})
+            (\mb{m} \times \mb{s})
+        + (H_{\text{FL}} - \alpha H_{\text{DL}})\,\mb{s}
+    }_{\text{SHE-driven SOT}}
+\Big]
+\end{equation}
+%
+where $\mb{s} = (\phat \times \mb{m})/|\phat \times \mb{m}|$.
+Without the SHE ($J = 0$), the SOT terms vanish and the skyrmion
+relaxes to its equilibrium configuration.  With nonzero current,
+the DL-SOT exerts a net force on the skyrmion domain wall, driving
+translational motion.  In the SAF geometry, the opposite topological
+charges of the two layers cancel the Magnus force, resulting in
+motion along the current direction with no skyrmion Hall
+effect~\cite{pham2024}.
+
+%======================================================================
+\section{Magnus Force and the Thiele Equation}
+%======================================================================
+
+The Magnus force is not a separate term in the LLGS equation --- it
+\emph{emerges} from it when skyrmion motion is analyzed as a
+collective coordinate problem.  If the skyrmion moves rigidly with
+velocity $\mb{v}$, integrating the LLGS torque equation over the
+skyrmion area yields the Thiele equation~(42):
+%
+\begin{equation}\label{eq:thiele}
+\mb{F}_{\text{SOT}} + \mb{G} \times \mb{v}
+    + \alpha [\mb{D}] \mb{v} = 0
+\end{equation}
+%
+The three terms represent:
+%
+\begin{itemize}[nosep]
+\item $\mb{F}_{\text{SOT}}$: the driving force from the spin-orbit
+    torque, directed along the current.
+\item $\mb{G} \times \mb{v}$: the \textbf{Magnus force}, directed
+    perpendicular to the skyrmion velocity.  The gyrovector is
+    $\mb{G} = G\,\zhat$ with $G = 4\pi Q$, where $Q$ is the
+    topological charge.  This force is analogous to the Magnus
+    effect on a spinning ball and is a direct consequence of the
+    skyrmion's non-trivial topology.
+\item $\alpha[\mb{D}]\mb{v}$: the dissipative drag from Gilbert
+    damping, where $[\mb{D}]$ is the dissipation tensor.
+\end{itemize}
+%
+The Magnus force deflects the skyrmion sideways relative to the
+driving force --- this is the \textbf{skyrmion Hall effect}.  From
+\eqref{eq:thiele}, the skyrmion Hall angle is:
+%
+\begin{equation}
+\tan\theta_{\text{SkHE}} = \frac{v_y}{v_x}
+    = \frac{G}{\alpha D}
+\end{equation}
+%
+where $D$ is the diagonal component of the dissipation tensor.
+
+In a \textbf{single ferromagnetic layer} with $Q = \pm 1$, the
+gyrovector $G = \pm 4\pi \neq 0$, and the skyrmion is deflected
+at a significant angle to the current (experimentally up to
+$60^\circ$--$85^\circ$ at high velocities~\cite{pham2024}).
+
+In the \textbf{SAF}, the two layers carry opposite topological
+charges ($Q_{\text{top}} = -Q_{\text{bot}}$), so their gyrovectors
+cancel:
+%
+\begin{equation}
+G_{\text{net}} = G_{\text{top}} + G_{\text{bot}}
+    = 4\pi Q_{\text{top}} + 4\pi Q_{\text{bot}} = 0
+\end{equation}
+%
+The Magnus forces on the two layers point in opposite directions
+and cancel exactly.  The skyrmion moves straight along the current
+direction with $\theta_{\text{SkHE}} = 0$.  This is the key
+advantage of the SAF geometry for skyrmion-based devices, as
+confirmed both experimentally
+($\theta_{\text{SkHE}} = 6.4^\circ \pm 16.4^\circ$) and in our
+simulations ($\theta_{\text{SkHE}} = 0.3^\circ$).
+
+%======================================================================
+\section{Topological Charge}
+%======================================================================
+
+The topological charge (skyrmion number) is:
+%
+\begin{equation}
+Q = \frac{1}{4\pi} \int \mb{m} \cdot \left(
+    \frac{\partial \mb{m}}{\partial x} \times
+    \frac{\partial \mb{m}}{\partial y}
+\right) dx \, dy
+\end{equation}
+%
+For a single skyrmion, $Q = \pm 1$. In the SAF, the two layers carry
+opposite topological charges
+($Q_{\text{top}} = -Q_{\text{bot}}$), leading to a net topological
+charge of zero and hence no skyrmion Hall effect.
+
+%======================================================================
+\section{Skyrmion Profile (Initial Condition)}
+%======================================================================
+
+The initial N\'{e}el skyrmion profile is parametrized by:
+%
+\begin{equation}
+\theta(r) = \begin{cases}
+    \pi \left(1 - \dfrac{r}{R}\right) & r < R \\[6pt]
+    0 & r \geq R
+\end{cases}
+\end{equation}
+%
+\begin{equation}
+m_x = \sin\theta \, \cos\varphi, \quad
+m_y = \sin\theta \, \sin\varphi, \quad
+m_z = \cos\theta
+\end{equation}
+%
+where $r$ is the distance from the skyrmion center, $R$ is the
+skyrmion radius, and
+$\varphi = \text{atan2}(y - y_0, x - x_0)$ is the azimuthal angle
+(N\'{e}el helicity).
+
+The top layer has core down ($m_z = -1$ at center), the bottom layer
+has core up ($m_z = +1$ at center), consistent with antiferromagnetic
+RKKY coupling.
+
+%======================================================================
+\section{Time Integration}
+%======================================================================
+
+The explicit LLGS equation~\eqref{eq:llgs_explicit} is integrated
+using the classical 4th-order Runge--Kutta (RK4) method. At each
+substep, the spin configuration is renormalized to enforce
+$|\mb{m}| = 1$:
+%
+\begin{align}
+\mb{k}_1 &= \Delta t \, f(\mb{m}) \\
+\mb{k}_2 &= \Delta t \, f\!\left(
+    \text{norm}\!\left(
+        \mb{m} + \tfrac{\mb{k}_1}{2}
+    \right)\right) \\
+\mb{k}_3 &= \Delta t \, f\!\left(
+    \text{norm}\!\left(
+        \mb{m} + \tfrac{\mb{k}_2}{2}
+    \right)\right) \\
+\mb{k}_4 &= \Delta t \, f\!\left(
+    \text{norm}\!\left(
+        \mb{m} + \mb{k}_3
+    \right)\right) \\
+\mb{m}^{n+1} &= \text{norm}\!\left(
+    \mb{m}^n + \frac{
+        \mb{k}_1 + 2\mb{k}_2 + 2\mb{k}_3 + \mb{k}_4
+    }{6}\right)
+\end{align}
+%
+Both SAF layers are evolved simultaneously, as the RKKY coupling
+makes them interdependent.
+
+%======================================================================
+\section{Boundary Conditions}
+%======================================================================
+
+Periodic boundary conditions (PBC) are applied in both $x$ and $y$
+directions, implemented via \texttt{np.roll} on the spin arrays.
+
+%======================================================================
+\section{Simulation Parameters}
+%======================================================================
+
+All material parameters are taken from~\cite{pham2024} for the
+optimized SAF stack
+Pt(3)/Co(1.58)/Ru(0.85)/Pt(0.5)/Co(1.58)/Ru(0.85)
+(thicknesses in nm).
+
+\begin{table}[h!]
+\centering
+\caption{Material parameters from~\cite{pham2024}.}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Parameter & Symbol & Value & Unit \\
+\midrule
+Saturation magnetization
+    & $\Ms$ & $1.43 \times 10^6$ & A/m \\
+Exchange stiffness
+    & $\Aex$ & $16 \times 10^{-12}$ & J/m \\
+DMI constant
+    & $D$ & $0.62 \times 10^{-3}$ & J/m$^2$ \\
+Anisotropy (top layer)
+    & $K_{\text{top}}$ & $1.294 \times 10^6$ & J/m$^3$ \\
+Anisotropy (bottom layer)
+    & $K_{\text{bot}}$ & $1.31 \times 10^6$ & J/m$^3$ \\
+Gilbert damping
+    & $\alpha$ & 0.14 & -- \\
+Co layer thickness
+    & $\tCo$ & 1.3 & nm \\
+Gyromagnetic ratio
+    & $\gamma$ & $194.8 \times 10^9$ & rad/(s\,T) \\
+RKKY coupling field
+    & $\mu_0 H_{\text{RKKY}}$ & 205 & mT \\
+DL-SOT coefficient
+    & $\chi_{\text{DL}}$
+    & $2.21 \times 10^{-14}$
+    & T\,A$^{-1}$\,m$^2$ \\
+FL-SOT coefficient
+    & $\chi_{\text{FL}}$
+    & $0.53 \times 10^{-14}$
+    & T\,A$^{-1}$\,m$^2$ \\
+Domain wall width
+    & $\Delta$ & 27 & nm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Derived quantities}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Quantity & Formula & Value \\
+\midrule
+$K_{\text{eff, top}}$
+    & $K_{\text{top}} - \mu_0 \Ms^2 / 2$
+    & $\approx 9.2 \times 10^3$ J/m$^3$ \\
+$K_{\text{eff, bot}}$
+    & $K_{\text{bot}} - \mu_0 \Ms^2 / 2$
+    & $\approx 2.5 \times 10^4$ J/m$^3$ \\
+Domain wall width
+    & $\Delta = \sqrt{\Aex / \Keff}$
+    & $\approx 30.5$ nm \\
+Skyrmion diameter
+    & (from paper formula)
+    & $\approx 197$ nm (paper), 160 nm (sim) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Numerical parameters}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Parameter & Value & Description \\
+\midrule
+$n_x \times n_y$ & $256 \times 256$ & Lattice sites \\
+$a$ & 2 nm & Lattice constant \\
+$\Delta t$ & $5 \times 10^{-14}$ s & Time step \\
+Relaxation steps & 10\,000 & 500 ps at $J = 0$ \\
+Drive steps & 5\,000 & 250 ps with current \\
+Current density & $4 \times 10^{11}$ A/m$^2$ & \\
+Spin polarization & $\phat = \hat{y}$
+    & From spin Hall effect \\
+Initial skyrmion radius & 80 nm
+    & Relaxes to equilibrium \\
+Domain wall width (init.) & 27 nm
+    & From paper (Table S2) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Stability condition}
+
+The RK4 time step must satisfy:
+%
+\begin{equation}
+\omega_{\text{max}} \cdot \Delta t < 2.8
+\end{equation}
+%
+where $\omega_{\text{max}} = \gamma \cdot H_{\text{max}}$ and
+$H_{\text{max}} \approx 4 C_{\text{ex}} \approx 90$~T (exchange
+field at the skyrmion core boundary). With the chosen parameters,
+$\omega_{\text{max}} \cdot \Delta t \approx 0.87$, within the RK4
+stability region.
+
+%======================================================================
+\section{Simulation Results vs.\ Paper}
+%======================================================================
+
+\begin{table}[h!]
+\centering
+\caption{Comparison of simulation results with~\cite{pham2024}.}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Quantity & Simulation & Paper \\
+\midrule
+Equilibrium diameter & 160 nm & 197 nm \\
+Velocity ($J = 4 \times 10^{11}$ A/m$^2$)
+    & 500 m/s & $\sim$400 m/s (micromagnetic) \\
+Skyrmion Hall angle & $0.3^\circ$ & $\sim 0^\circ$ (SAF) \\
+Topological charge & $\pm 0.999$ & $\pm 1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The diameter discrepancy (160 vs 197~nm) arises from the thin-film
+demagnetization approximation (local $N_z = 1$) compared to the full
+magnetostatic FFT calculation in MuMax3, and from parameter
+uncertainties ($D$ has $\pm 39\%$ error bars, $K$ has $\pm 7\%$).
+The velocity is within the uncertainty band of the damping constant
+($\alpha = 0.14 \pm 0.04$).
+
+%======================================================================
+\section{Output Format}
+%======================================================================
+
+Spin configurations are written in LAMMPS dump format. Since OVITO
+does not natively support spin degrees of freedom, the three spin
+components ($m_x$, $m_y$, $m_z$) are written as force components
+(\texttt{fx}, \texttt{fy}, \texttt{fz}), which OVITO can render as
+vector arrows. Positions are output in nanometers.
+
+Type~1 corresponds to the top Co layer ($z = 0$), type~2 to the
+bottom Co layer ($z = -\tCo$).
+
+%======================================================================
+\appendix
+\section{Derivation of the Domain Wall Profile}
+\label{app:dw}
+%======================================================================
+
+The skyrmion initial condition uses the one-dimensional domain wall
+profile obtained from the Euler--Lagrange equation.  This appendix
+derives that profile from first principles.
+
+\subsection*{From 3D energy to 1D energy density}
+
+The starting point is the three-dimensional micromagnetic energy for
+a thin film with exchange and effective anisotropy (Sections~2.1
+and~2.3--2.4):
+%
+\begin{equation}
+E = \int_V \left[
+    \Aex \left|\nabla \mb{m}\right|^2
+    - \Keff \, m_z^2
+\right] dV
+\end{equation}
+%
+For a domain wall that varies only along~$x$ in a film of
+thickness~$\tCo$ and cross-sectional area~$L_y \, \tCo$, the volume
+integral reduces to:
+%
+\begin{equation}
+E = L_y \, \tCo \int_{-\infty}^{+\infty} \left[
+    \Aex \left|\frac{d\mb{m}}{dx}\right|^2
+    - \Keff \, m_z^2
+\right] dx
+\end{equation}
+%
+We parametrize the unit magnetization by the polar angle
+$\theta(x)$ and azimuthal angle $\phi(x)$:
+%
+\begin{equation}
+\mb{m} = \big(
+    \sin\theta\cos\phi, \;
+    \sin\theta\sin\phi, \;
+    \cos\theta
+\big)
+\end{equation}
+%
+Computing the gradient magnitude:
+%
+\begin{equation}
+\left|\frac{d\mb{m}}{dx}\right|^2
+    = \left(\frac{d\theta}{dx}\right)^{\!2}
+    + \sin^2\!\theta
+      \left(\frac{d\phi}{dx}\right)^{\!2}
+\end{equation}
+%
+For a N\'{e}el wall (or Bloch wall), the azimuthal angle is
+constant ($d\phi/dx = 0$), so the second term vanishes.
+Substituting $m_z = \cos\theta$ and noting that
+$-\Keff \cos^2\!\theta = -\Keff + \Keff \sin^2\!\theta$
+(dropping the constant), the energy per unit cross-section becomes:
+%
+\begin{equation}
+\frac{E}{L_y \, \tCo}
+    = \int_{-\infty}^{+\infty} \varepsilon(x) \, dx
+\end{equation}
+%
+with the one-dimensional energy density:
+%
+\begin{equation}\label{eq:dw_energy}
+\boxed{\;
+\varepsilon = \Aex
+    \left(\frac{d\theta}{dx}\right)^{\!2}
+    + \Keff \sin^2\!\theta
+\;}
+\end{equation}
+%
+The first term is the exchange cost of spatial variations in
+$\theta$; the second is the anisotropy cost for deviating from the
+easy-axis directions $\theta = 0$ ($m_z = +1$) or $\theta = \pi$
+($m_z = -1$).
+
+\subsection*{Euler--Lagrange equation}
+
+Minimizing the total energy
+$E = \int_{-\infty}^{+\infty} \varepsilon \, dx$
+with respect to $\theta(x)$ gives the Euler--Lagrange equation:
+%
+\begin{equation}\label{eq:dw_EL}
+2\Aex \frac{d^2\theta}{dx^2} = \Keff \sin(2\theta)
+\end{equation}
+
+\subsection*{First integral}
+
+Multiplying both sides by $d\theta/dx$ and integrating once yields a
+first integral (conservation of ``energy'' in the mechanical analogy):
+%
+\begin{equation}
+\Aex \left(\frac{d\theta}{dx}\right)^{\!2}
+    = \Keff \sin^2\!\theta
+\end{equation}
+%
+which gives:
+%
+\begin{equation}\label{eq:dw_ode}
+\frac{d\theta}{dx} = -\frac{\sin\theta}{\Delta},
+\qquad
+\Delta \equiv \sqrt{\frac{\Aex}{\Keff}}
+\end{equation}
+%
+The negative sign ensures $\theta$ decreases from $\pi$ to $0$ as
+$x$ increases (wall centered at $x = 0$).
+
+\subsection*{Exact solution}
+
+Separating variables in~\eqref{eq:dw_ode}:
+%
+\begin{equation}
+\int \frac{d\theta}{\sin\theta} = -\frac{x}{\Delta} + C
+\end{equation}
+%
+Using the identity
+$\int \csc\theta \, d\theta
+    = \ln|\tan(\theta/2)|$:
+%
+\begin{equation}
+\ln\!\left|\tan\frac{\theta}{2}\right|
+    = -\frac{x}{\Delta}
+\end{equation}
+%
+where the integration constant is fixed by requiring $\theta(0)
+= \pi/2$ (wall center). Solving for~$\theta$:
+%
+\begin{equation}\label{eq:dw_solution}
+\boxed{\;
+\theta(x) = 2\arctan\!\left(
+    \exp\!\left(-\frac{x}{\Delta}\right)
+\right)
+\;}
+\end{equation}
+
+\subsection*{Properties}
+
+The solution~\eqref{eq:dw_solution} has the following limits:
+%
+\begin{itemize}[nosep]
+\item $x \to -\infty$: $\theta \to \pi$
+    \quad ($m_z = -1$, down domain)
+\item $x = 0$: $\theta = \pi/2$
+    \quad ($m_z = 0$, wall center)
+\item $x \to +\infty$: $\theta \to 0$
+    \quad ($m_z = +1$, up domain)
+\end{itemize}
+%
+The magnetization component $m_z = \cos\theta$ transitions
+smoothly as:
+%
+\begin{equation}
+m_z(x) = -\tanh\!\left(\frac{x}{\Delta}\right)
+\end{equation}
+%
+confirming that $\Delta$ is the characteristic wall width.  Using
+the parameters from~\cite{pham2024},
+$\Delta = \sqrt{\Aex / \Keff} \approx 27$~nm.
+
+\subsection*{Extension to a skyrmion}
+
+For a radially symmetric skyrmion centered at the origin, the full
+2D variational problem has no closed-form solution because the DMI
+and the curvature of the domain wall add additional terms.  However,
+the radial profile $\theta(r)$ is well approximated by wrapping the
+1D wall into a circle at the skyrmion radius~$R_{sk}$:
+%
+\begin{equation}\label{eq:sk_profile}
+\theta(r) = 2\arctan\!\left(
+    \exp\!\left(-\frac{r - R_{sk}}{\Delta}\right)
+\right)
+\end{equation}
+%
+This gives:
+%
+\begin{itemize}[nosep]
+\item $r \ll R_{sk}$: $\theta \to \pi$
+    \quad (core, $m_z = -1$)
+\item $r = R_{sk}$: $\theta = \pi/2$
+    \quad ($m_z = 0$ contour)
+\item $r \gg R_{sk}$: $\theta \to 0$
+    \quad (background, $m_z = +1$)
+\end{itemize}
+
+The skyrmion radius $R_{sk}$ is not a free parameter --- it is
+determined by the balance of exchange, DMI, and anisotropy energies.
+In MuMax3, this equilibrium is found numerically: an arbitrary
+initial guess is evolved under the LLG equation with high damping
+until the system relaxes to the energy minimum.  Our simulator
+performs the same relaxation during the $J = 0$ phase.  The
+profile~\eqref{eq:sk_profile} simply provides a physically
+motivated initial condition that is already close to equilibrium,
+minimizing the relaxation time needed.
+
+%======================================================================
+\begin{thebibliography}{1}
+\bibitem{pham2024}
+V.~T.~Pham, N.~Sisodia, I.~Di~Manici,
+J.~Urrestarazu-Larra\~{n}aga et al.,
+``Fast current-induced skyrmion motion in synthetic
+antiferromagnets,''
+\emph{Nature Physics} (2024).
+\end{thebibliography}
+
+\end{document}

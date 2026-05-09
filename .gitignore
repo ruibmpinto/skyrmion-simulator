@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+output/
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.fdb_latexmk
+docs/*.fls
+docs/*.synctex.gz
+.ipynb_checkpoints/
