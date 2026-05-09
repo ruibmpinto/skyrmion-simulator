@@ -20,11 +20,11 @@ import time
 # Third-party
 import numpy as np
 # Local
-from src.parameters import default_params
-from src.lattice import lattice_positions
-from src.initial_conditions import saf_skyrmion
-from src.integrator import rk4_step
-from src.io_ovito import write_dump
+from src.simulator.parameters import default_params
+from src.simulator.lattice import lattice_positions
+from src.simulator.initial_conditions import saf_skyrmion
+from src.simulator.integrator import rk4_step
+from src.simulator.io_ovito import write_dump
 
 #
 #                                                   Authorship & Credits

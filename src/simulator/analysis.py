@@ -21,10 +21,10 @@ import sys
 # Third-party
 import numpy as np
 # Local
-from src.parameters import default_params
-from src.initial_conditions import saf_skyrmion
-from src.integrator import rk4_step
-from src.main import topological_charge
+from src.simulator.parameters import default_params
+from src.simulator.initial_conditions import saf_skyrmion
+from src.simulator.integrator import rk4_step
+from src.simulator.main import topological_charge
 
 #
 #                                                   Authorship & Credits

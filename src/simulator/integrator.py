@@ -19,7 +19,7 @@ rk4_step
 # Third-party
 import numpy as np
 # Local
-from src.fields import effective_field
+from src.simulator.fields import effective_field
 
 #
 #                                                   Authorship & Credits

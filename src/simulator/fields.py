@@ -25,7 +25,7 @@ effective_field
 # Third-party
 import numpy as np
 # Local
-from src.lattice import neighbors
+from src.simulator.lattice import neighbors
 
 #
 #                                                   Authorship & Credits
