@@ -65,6 +65,7 @@ def default_params():
     p.K_bot = 1.31e6       # J/m^3, anisotropy (bottom)
     p.alpha = 0.14         # Gilbert damping
     p.t_Co = 1.3e-9        # m, Co layer thickness
+    p.d_Ru = 0.8e-9        # m, Ru spacer thickness
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Constants
     p.mu0 = 4.0 * np.pi * 1e-7  # T*m/A

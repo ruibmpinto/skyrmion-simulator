@@ -46,9 +46,6 @@ __status__ = 'Development'
 # =====================================================================
 #
 # =====================================================================
-# Default Ru spacer thickness (m). Used when `p.d_Ru` is
-# not set on the parameters namespace.
-_DEFAULT_D_RU = 0.8e-9
 
 
 def precompute_demag_kernels(p):
@@ -57,9 +54,10 @@ def precompute_demag_kernels(p):
     Parameters
     ----------
     p : SimpleNamespace
-        Parameters namespace. Reads `nx`, `ny`, `a`, `t_Co`,
-        `Ms`, `mu0`, and (optionally) `d_Ru`. If `d_Ru` is
-        absent a default of 0.8 nm is used.
+        Parameters namespace. Must expose `nx`, `ny`, `a`,
+        `t_Co`, `d_Ru`, `Ms`, and `mu0`. A missing attribute
+        raises `AttributeError` at access time so silent
+        defaulting does not corrupt the kernels.
 
     Returns
     -------
@@ -80,7 +78,15 @@ def precompute_demag_kernels(p):
     nx, ny = p.nx, p.ny
     a = p.a
     t = p.t_Co
-    d_Ru = getattr(p, 'd_Ru', _DEFAULT_D_RU)
+    d_Ru = p.d_Ru
+    if t <= 0.0:
+        raise RuntimeError(
+            f'p.t_Co must be positive, got {t}.'
+        )
+    if d_Ru < 0.0:
+        raise RuntimeError(
+            f'p.d_Ru must be non-negative, got {d_Ru}.'
+        )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # 2D k-grid in rad/m
     kx = 2.0 * np.pi * np.fft.fftfreq(nx, d=a)

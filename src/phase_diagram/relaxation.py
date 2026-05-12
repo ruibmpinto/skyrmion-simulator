@@ -139,10 +139,16 @@ def relax(m_top, m_bot, p, kernels,
     tau_max : float
         Final maximum tangential torque in Tesla.
     """
+    if not hasattr(p, 'H_DL') or not hasattr(p, 'H_FL'):
+        raise RuntimeError(
+            'Parameters namespace must expose `H_DL` and '
+            '`H_FL` (precomputed by `parameters._precompute` '
+            'or `make_params`). Got an incomplete `p`.'
+        )
     alpha_save = p.alpha
     gamma_p_save = p.gamma_p
-    H_DL_save = getattr(p, 'H_DL', 0.0)
-    H_FL_save = getattr(p, 'H_FL', 0.0)
+    H_DL_save = p.H_DL
+    H_FL_save = p.H_FL
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Disable SOT and apply optional damping override
     p.H_DL = 0.0

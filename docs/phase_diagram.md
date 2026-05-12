@@ -74,8 +74,9 @@ infinite slab produces no field outside itself).
 | Phase | Signature |
 |-------|-----------|
 | FM±   | \|⟨m_z⟩\| > 0.95 |
-| iSk   | \|Q\| ∈ [0.5, 1.5] |
-| SkX   | dominant FFT peak with 6-fold angular harmonic |
+| iSk   | \|Q\| ∈ [0.5, 1.5] (single or few isolated skyrmions) |
+| SkX   | 6-fold FFT angular harmonic *and* \|Q\| / N_periods ≥ 0.5 |
+| BX    | 6-fold FFT angular harmonic *but* \|Q\| / N_periods < 0.5 (bubble lattice, topologically trivial) |
 | SS    | dominant FFT peak with 2-fold angular harmonic |
 | Lab   | dominant FFT ring with no clean angular order |
 
@@ -131,14 +132,24 @@ Decision tree in `classifier.classify`:
 1. \|⟨m_z⟩\| > 0.95 → FM±.
 2. 0.5 ≤ \|Q\| ≤ 1.5 → iSk.
 3. Otherwise: locate the dominant non-zero FFT peak at k*;
-   sample azimuthal power on the ring of width ±5 % around
-   k*; compute the n=2 and n=6 angular harmonics relative
-   to the mean ring power.
-   * P_6 / P_iso > 2 and P_6 > P_2 → SkX.
+   sample azimuthal power on a Gaussian ring of width
+   `1.5 · dk_grid` around k*; compute the n=2 and n=6
+   angular harmonics relative to the mean ring power.
+   * P_6 / P_iso > 2 and P_6 > P_2:
+     * \|Q\| / N_periods ≥ 0.5 → SkX (true skyrmion lattice).
+     * else → BX (bubble lattice; periodic but Q=0 per
+       period, no topological protection).
    * P_2 / P_iso > 2 and P_2 > P_6 → SS.
    * Otherwise periodic-but-isotropic → Lab.
-4. Fallbacks: \|Q\| > 1.5 → SkX; \|Q\| ≈ 0 → Lab; else
+4. Fallbacks: \|Q\| > 1.5 without 6-fold ordering → iSk
+   (multi-isolated skyrmions); \|Q\| ≈ 0 → Lab; else
    `undetermined`.
+
+`N_periods = (k* L_x / 2π) · (k* L_y / 2π)` estimates the
+number of principal periods of the dominant texture in the
+field of view. Hexagonal skyrmion lattices satisfy
+`|Q| / N_periods ≈ 1`; bubble lattices satisfy
+`|Q| / N_periods ≈ 0`.
 
 ## 4. Implementation map
 
@@ -242,6 +253,8 @@ corresponding test runs. Commit hashes link to the run.
 
 ## 8. Known limitations
 
+- **Default material parameters give K_eff ≈ 0** (K_top − μ₀Ms²/2 ≈ 9 kJ/m³). With explicit demag the antiparallel SAF "FM" state has zero Zeeman coupling (net moment cancels) and the marginal anisotropy is not enough to suppress demag-driven textures, so FM is *not* the ground state even at large \|H_z\|. To recover a textbook FM region, raise `K_top, K_bot` to ~1.6 MJ/m³ (or set quality factor Q_PMA ≈ 0.2–0.5) via
+  `make_params(K_top=..., K_bot=...)`.
 - T=0 only. Thermal fluctuations would require a stochastic LLG, not implemented.
 - Thin-film demag uses the `(1 - e^{-kt})/(kt)` shape function, accurate when the in-plane texture varies on scales ≫ a but not exact for the discretized lattice. Future work: full Newell tensor.
 - Periodic boundaries enforce commensurability of stripe / SkX states with the lattice; finite-size shifts of phase boundaries are expected (validation item 7).

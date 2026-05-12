@@ -53,7 +53,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Third-party
 import numpy as np
 # Local
-from src.phase_diagram.classifier import classify
+from src.phase_diagram.classifier import classify, PHASE_LABELS
 from src.phase_diagram.fields_demag import (
     effective_field_demag_pair,  # noqa: F401  (used in workers)
 )
@@ -79,9 +79,7 @@ __status__ = 'Development'
 # =====================================================================
 #
 # =====================================================================
-_PHASE_LABELS = (
-    'FM+', 'FM-', 'iSk', 'SkX', 'SS', 'Lab', 'undetermined',
-)
+_PHASE_LABELS = PHASE_LABELS
 
 
 def _grid(name):
@@ -92,12 +90,16 @@ def _grid(name):
     elif name == 'fine':
         D = np.linspace(0.0, 2.0e-3, 50)
         H = np.linspace(-0.5, 0.5, 50)
+    elif name == 'medium':
+        D = np.linspace(0.0, 2.0e-3, 8)
+        H = np.linspace(-0.5, 0.5, 8)
     elif name == 'test':
         D = np.linspace(0.0, 2.0e-3, 4)
         H = np.linspace(-0.5, 0.5, 4)
     else:
         raise RuntimeError(
-            f"Unknown grid {name!r}. Use coarse, fine, or test."
+            f"Unknown grid {name!r}. "
+            f'Use coarse, medium, fine, or test.'
         )
     return D, H
 
@@ -116,7 +118,8 @@ def _ic_specs():
 
 # ---------------------------------------------------------------------
 def build_tasks(grid_name, nx=None, ny=None,
-                max_steps=None, tol_torque=None, tol_dE=None):
+                max_steps=None, tol_torque=None, tol_dE=None,
+                alpha_relax=None):
     """Build the flat task list for a grid sweep.
 
     Returns
@@ -142,6 +145,7 @@ def build_tasks(grid_name, nx=None, ny=None,
                     'max_steps': max_steps,
                     'tol_torque': tol_torque,
                     'tol_dE': tol_dE,
+                    'alpha_relax': alpha_relax,
                 })
     return tasks, D_arr, H_arr
 
@@ -202,6 +206,8 @@ def run_one(task):
         relax_kwargs['tol_torque'] = float(task['tol_torque'])
     if task['tol_dE'] is not None:
         relax_kwargs['tol_dE'] = float(task['tol_dE'])
+    if task['alpha_relax'] is not None:
+        relax_kwargs['alpha_relax'] = float(task['alpha_relax'])
     m_top, m_bot, converged, n_steps, E, tau = relax(
         m_top, m_bot, p, kernels, **relax_kwargs,
     )
@@ -226,6 +232,8 @@ def run_one(task):
         'P_6': obs['P_6'],
         'P_iso': obs['P_iso'],
         'peak_over_bg': obs['peak_over_bg'],
+        'n_periods': obs['n_periods'],
+        'q_per_period': obs['q_per_period'],
         'm_top': m_top.astype(np.float32),
         'm_bot': m_bot.astype(np.float32),
     }
@@ -243,6 +251,13 @@ def _allocate_arrays(n_D, n_H, n_IC, ny, nx):
         'Q': np.zeros((n_D, n_H, n_IC)),
         'mz_top': np.zeros((n_D, n_H, n_IC)),
         'mz_bot': np.zeros((n_D, n_H, n_IC)),
+        'k_star': np.zeros((n_D, n_H, n_IC)),
+        'P_2': np.zeros((n_D, n_H, n_IC)),
+        'P_6': np.zeros((n_D, n_H, n_IC)),
+        'P_iso': np.zeros((n_D, n_H, n_IC)),
+        'peak_over_bg': np.zeros((n_D, n_H, n_IC)),
+        'n_periods': np.zeros((n_D, n_H, n_IC)),
+        'q_per_period': np.zeros((n_D, n_H, n_IC)),
         'tau_max': np.full((n_D, n_H, n_IC), np.nan),
         'n_steps': np.zeros((n_D, n_H, n_IC), dtype=np.int32),
         'converged': np.zeros((n_D, n_H, n_IC), dtype=bool),
@@ -265,12 +280,13 @@ def _allocate_arrays(n_D, n_H, n_IC, ny, nx):
 def sweep(grid_name='coarse', nx=None, ny=None,
           workers=None, out_path=None,
           max_steps=None, tol_torque=None, tol_dE=None,
-          verbose=True):
+          alpha_relax=None, verbose=True):
     """Run the (D, H_z) sweep and write `<grid>.npz`."""
     tasks, D_arr, H_arr = build_tasks(
         grid_name, nx=nx, ny=ny,
         max_steps=max_steps,
         tol_torque=tol_torque, tol_dE=tol_dE,
+        alpha_relax=alpha_relax,
     )
     if not tasks:
         raise RuntimeError('Empty task list.')
@@ -307,6 +323,13 @@ def sweep(grid_name='coarse', nx=None, ny=None,
         arr['Q'][i, j, k] = r['Q']
         arr['mz_top'][i, j, k] = r['mz_top']
         arr['mz_bot'][i, j, k] = r['mz_bot']
+        arr['k_star'][i, j, k] = r['k_star']
+        arr['P_2'][i, j, k] = r['P_2']
+        arr['P_6'][i, j, k] = r['P_6']
+        arr['P_iso'][i, j, k] = r['P_iso']
+        arr['peak_over_bg'][i, j, k] = r['peak_over_bg']
+        arr['n_periods'][i, j, k] = r['n_periods']
+        arr['q_per_period'][i, j, k] = r['q_per_period']
         arr['tau_max'][i, j, k] = r['tau_max']
         arr['n_steps'][i, j, k] = r['n_steps']
         arr['converged'][i, j, k] = r['converged']
@@ -370,7 +393,8 @@ def _parse_args(argv=None):
         ),
     )
     parser.add_argument(
-        '--grid', choices=('coarse', 'fine', 'test'),
+        '--grid',
+        choices=('coarse', 'medium', 'fine', 'test'),
         default='coarse',
     )
     parser.add_argument('--nx', type=int, default=None)
@@ -387,6 +411,11 @@ def _parse_args(argv=None):
     parser.add_argument(
         '--tol-de', type=float, default=None, dest='tol_dE',
     )
+    parser.add_argument(
+        '--alpha-relax', type=float, default=None,
+        dest='alpha_relax',
+        help='Override Gilbert damping during relaxation.',
+    )
     parser.add_argument('--out', type=str, default=None)
     return parser.parse_args(argv)
 
@@ -398,6 +427,7 @@ def main(argv=None):
         workers=args.workers, out_path=args.out,
         max_steps=args.max_steps,
         tol_torque=args.tol_torque, tol_dE=args.tol_dE,
+        alpha_relax=args.alpha_relax,
     )
 
 

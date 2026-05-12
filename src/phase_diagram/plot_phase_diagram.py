@@ -49,6 +49,7 @@ _PHASE_COLORS = {
     'FM-': '#4575b4',
     'iSk': '#fdae61',
     'SkX': '#fee090',
+    'BX':  '#762a83',
     'SS':  '#74add1',
     'Lab': '#a6d96a',
     'undetermined': '#bdbdbd',

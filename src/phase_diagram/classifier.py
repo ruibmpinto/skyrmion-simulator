@@ -1,13 +1,17 @@
 """Phase classification of relaxed SAF spin textures.
 
 Combines four order parameters to label a configuration as
-one of five magnetic phases:
+one of six magnetic phases:
 
     FM+/-      ferromagnetic, single-domain
     iSk        isolated skyrmion (single localized core)
-    SkX        skyrmion lattice (multi-skyrmion + 6-fold FFT)
-    SS         spin spiral (Q~0, 2-fold FFT peaks)
-    Lab        labyrinthine domains (Q~0, isotropic FFT ring)
+    SkX        skyrmion lattice (6-fold FFT *and* nonzero Q
+               per principal period)
+    BX         bubble lattice (6-fold FFT but Q~0 per
+               period; topologically trivial)
+    SS         spin spiral (2-fold FFT peaks)
+    Lab        labyrinthine domains (isotropic FFT ring or
+               Q~0 without ordering)
 
 The order parameters are:
 
@@ -15,12 +19,17 @@ The order parameters are:
     Q       topological charge of the top layer
     P_n(k*) angular harmonic content at the dominant FFT
             wavevector k* (n=2 and n=6 harmonics give SS vs
-            SkX; uniform azimuthal power gives Lab)
+            SkX/BX; uniform azimuthal power gives Lab)
+    Q_per_period
+            |Q| / N_periods, where N_periods is estimated
+            from k* and the lattice area; distinguishes
+            true skyrmion lattices (Q_per_period ~ 1) from
+            bubble lattices (Q_per_period ~ 0).
 
 Functions
 ---------
 order_parameters
-    Compute (<m_z>, Q, k_star, P_2, P_6, P_iso, peak_power).
+    Compute the order parameters as a dict.
 classify
     Return the phase label given a relaxed (m_top, m_bot)
     pair and the parameters namespace.
@@ -43,6 +52,12 @@ __status__ = 'Development'
 # =====================================================================
 #
 # =====================================================================
+# Canonical phase labels. Single source of truth used by
+# the sweep aggregator and the plot module.
+PHASE_LABELS = (
+    'FM+', 'FM-', 'iSk', 'SkX', 'BX', 'SS', 'Lab',
+    'undetermined',
+)
 # Decision-tree thresholds. Tuned against canonical
 # textures (uniform FM, single skyrmion, SkX lattice, helix,
 # random labyrinth) at 256x256.
@@ -52,6 +67,8 @@ _TH_ISK_Q_HI = 1.5       # iSk upper bound on |Q|
 _TH_HARMONIC_RATIO = 2.0 # min ratio P_n / P_iso for SkX/SS
 _TH_PEAK_OVER_BG = 3.0   # min ratio peak/background to call
                          # ordering present in the FFT
+_TH_Q_PER_PERIOD = 0.5   # min |Q| / N_periods for SkX
+                         # (else 6-fold + Q~0 -> BX)
 
 
 def _radial_power(power, K_radius):
@@ -198,11 +215,31 @@ def order_parameters(m_top, m_bot, p):
     # n=3 -> hex skyrmion lattice (6-fold).
     P_2 = float(P_n[1]) if len(P_n) > 1 else 0.0
     P_6 = float(P_n[3]) if len(P_n) > 3 else 0.0
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Estimated number of principal periods in the field
+    # of view. For an in-plane wavevector k*, a 2D periodic
+    # texture has ~(k* L / 2*pi)^2 unit cells in an L x L
+    # box. Falls back to 0 when no peak is detected.
+    L_x = nx * p.a
+    L_y = ny * p.a
+    if k_star > 0.0:
+        n_periods = (
+            (k_star * L_x / (2.0 * np.pi))
+            * (k_star * L_y / (2.0 * np.pi))
+        )
+    else:
+        n_periods = 0.0
+    if n_periods > 0.0:
+        q_per_period = abs(Q) / n_periods
+    else:
+        q_per_period = 0.0
     return {
         'mz_top': mz_top, 'mz_bot': mz_bot, 'Q': Q,
         'k_star': k_star, 'P_iso': P_iso,
         'P_2': P_2, 'P_6': P_6,
         'peak_over_bg': peak_over_bg,
+        'n_periods': float(n_periods),
+        'q_per_period': float(q_per_period),
     }
 
 
@@ -239,7 +276,10 @@ def classify(m_top, m_bot, p, obs=None):
     if abs(mz) > _TH_FM_MZ:
         return ('FM+' if mz > 0 else 'FM-'), obs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 2. Single skyrmion
+    # 2. Single skyrmion (or a few isolated skyrmions when
+    #    |Q| falls in the iSk window). Periodicity is not
+    #    required: a single skyrmion has a broad FFT, not a
+    #    ring.
     if _TH_ISK_Q_LO <= abs(Q) <= _TH_ISK_Q_HI:
         return 'iSk', obs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -250,10 +290,14 @@ def classify(m_top, m_bot, p, obs=None):
         ratio_2 = obs['P_2'] / P_iso
         ratio_6 = obs['P_6'] / P_iso
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # 6-fold dominant => skyrmion lattice
+        # 6-fold dominant: skyrmion lattice if topology
+        # carries one full charge per principal period;
+        # otherwise topologically trivial bubble lattice.
         if (ratio_6 > _TH_HARMONIC_RATIO
                 and ratio_6 > ratio_2):
-            return 'SkX', obs
+            if obs['q_per_period'] >= _TH_Q_PER_PERIOD:
+                return 'SkX', obs
+            return 'BX', obs
         # 2-fold dominant => spin spiral
         if (ratio_2 > _TH_HARMONIC_RATIO
                 and ratio_2 > ratio_6):
@@ -261,9 +305,12 @@ def classify(m_top, m_bot, p, obs=None):
         # Periodic but no clean angular order => labyrinth
         return 'Lab', obs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 4. No ordering and not FM -> labyrinth or undetermined
+    # 4. No clean periodic ordering and not FM.
+    #    High |Q| without ordering: a packed gas of
+    #    skyrmions; label as iSk (multi-skyrmion family)
+    #    rather than SkX which now demands periodicity.
     if abs(Q) > _TH_ISK_Q_HI:
-        return 'SkX', obs
+        return 'iSk', obs
     if abs(Q) < _TH_ISK_Q_LO:
         return 'Lab', obs
     return 'undetermined', obs

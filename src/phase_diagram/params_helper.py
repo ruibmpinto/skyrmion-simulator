@@ -46,6 +46,9 @@ def make_params(**overrides):
         (e.g. `D`, `K_top`, `Ms`, `a`, `alpha`,
         `J_current`, `H_ext`) and structural constants
         (e.g. `nx`, `ny`, `t_Co`, `d_Ru`) are accepted.
+        Unknown keys raise `RuntimeError` so typos are
+        caught immediately instead of silently doing
+        nothing.
 
     Returns
     -------
@@ -71,11 +74,25 @@ def make_params(**overrides):
     `src.simulator.energy.bare_anis_prefactors`.
     """
     p = copy.deepcopy(default_params())
+    known_keys = set(vars(p).keys())
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Reject unknown override keys to catch typos.
+    unknown = set(overrides) - known_keys
+    if unknown:
+        raise RuntimeError(
+            f'Unknown make_params override(s): {sorted(unknown)}. '
+            f'Valid keys: {sorted(known_keys)}.'
+        )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Apply user overrides.
     for key, value in overrides.items():
         if key == 'H_ext':
             value = np.asarray(value, dtype=float)
+            if value.shape != (3,):
+                raise RuntimeError(
+                    f'H_ext override must have shape (3,), '
+                    f'got {value.shape}.'
+                )
         setattr(p, key, value)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Re-derive prefactors (mirrors parameters._precompute)
