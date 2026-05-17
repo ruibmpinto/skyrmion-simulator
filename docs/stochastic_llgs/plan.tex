@@ -1,0 +1,658 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    columns=fullflexible,
+    breaklines=true,
+    breakatwhitespace=true,
+    frame=single,
+    framerule=0.3pt,
+    rulecolor=\color{gray!50},
+    backgroundcolor=\color{gray!5},
+    xleftmargin=0.5em,
+    xrightmargin=0.5em,
+    aboveskip=0.6em,
+    belowskip=0.6em
+}
+
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\Heff}{\mb{H}_{\text{eff}}}
+\newcommand{\hth}{\mb{h}_{\text{th}}}
+\newcommand{\Ms}{M_s}
+\newcommand{\Aex}{A_{\text{ex}}}
+\newcommand{\Keff}{K_{\text{eff}}}
+\newcommand{\Vcell}{V_{\text{cell}}}
+\newcommand{\tCo}{t_{\text{Co}}}
+\newcommand{\Rth}{R_{\text{th}}}
+\newcommand{\jcur}{j}
+\newcommand{\kB}{k_B}
+
+\title{Stochastic LLGS Solver for Thermal Skyrmion Dynamics:\\
+Theory, Implementation Plan, and Reasoning}
+\author{Rui Barreira}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+\bigskip\hrule\bigskip
+
+%======================================================================
+\section{Motivation and questions to answer}
+%======================================================================
+
+The deterministic LLGS simulator in \texttt{src/simulator/} reproduces
+the $T = 0$ dynamics of a SAF skyrmion under SOT drive but cannot
+address the following physics questions:
+
+\begin{enumerate}[leftmargin=2em]
+    \item[\textbf{Q1}] At room temperature, can the same drive current
+    sustain the same skyrmion velocity as at $T = 0$, or must the
+    drive be reduced?
+    \item[\textbf{Q2}] At high drive velocity, is the directional
+    control preserved? In a SAF the topological Hall force cancels
+    between layers; thermal fluctuations partially break this
+    cancellation. How does the skyrmion Hall angle $\theta_H$ and the
+    transverse position variance $\sigma_y(t)$ behave as $T$ and
+    $\jcur$ grow?
+    \item[\textbf{Q3}] Does the skyrmion size affect velocity and
+    inter-skyrmion interactions? The skyrmion radius $R$ is set by
+    the balance of $\Aex$, $D$, $\Keff$ and (in our parameterization)
+    the applied field $H_z$. The radius enters the pair potential
+    through the domain-wall width $\Delta = \sqrt{\Aex/\Keff}$.
+    \item[\textbf{Q4}] Is there an optimal temperature that maximizes
+    drift speed while preserving the skyrmion against thermal
+    annihilation?
+\end{enumerate}
+
+Answering these requires solving the \emph{stochastic} LLGS equation
+of Brown~\cite{brown1963} on the SAF lattice, with Joule heating
+coupling the drive current density to the local temperature.
+
+%======================================================================
+\section{Theory}
+%======================================================================
+
+\subsection{Brown's stochastic LLG equation}
+
+Magnetic fluctuations at finite temperature are modeled by augmenting
+the deterministic effective field with a Gaussian white-noise field
+$\hth(\mb{r}, t)$ that satisfies the fluctuation--dissipation theorem:
+%
+\begin{equation}\label{eq:sllg}
+\frac{d\mb{m}}{dt} = -\gamma' \, \mb{m} \times (\Heff + \hth)
+- \gamma' \alpha \, \mb{m} \times \big[\mb{m} \times (\Heff + \hth)\big]
++ \bm{\tau}_{\text{SOT}},
+\end{equation}
+%
+with $\gamma' = \gamma / (1 + \alpha^2)$. The thermal field has zero
+mean and is delta-correlated in space and time:
+%
+\begin{equation}\label{eq:fdt}
+\langle h_{\text{th},i}^{(\ell)}(\mb{r}, t)\, h_{\text{th},j}^{(\ell')}(\mb{r}', t') \rangle
+= \sigma^2 \, \delta_{ij}\, \delta_{\ell\ell'}\,
+\delta(\mb{r} - \mb{r}')\, \delta(t - t'),
+\end{equation}
+%
+with $\ell \in \{\text{top}, \text{bot}\}$ indexing the two SAF
+layers. The noise variance is fixed by the FDT in the form
+appropriate to the simulator's units (effective field in Tesla,
+$\gamma$ in rad/s/T):
+%
+\begin{equation}\label{eq:sigma}
+\boxed{\;
+\sigma^2 = \frac{2\, \alpha\, \kB T}{\gamma\, \Ms\, \Vcell},
+\qquad
+\Vcell = a^2 \, \tCo.
+\;}
+\end{equation}
+%
+A short derivation of~\eqref{eq:sigma} is given in
+Appendix~\ref{app:fdt}. The two layers of the SAF have independent
+thermal baths.
+
+\subsection{Stratonovich interpretation}
+
+The noise in~\eqref{eq:sllg} multiplies $\mb{m}$ through the cross
+product, so this is a multiplicative-noise SDE. The constraint
+$|\mb{m}|=1$ is preserved only under the \emph{Stratonovich}
+interpretation; an It\^{o} interpretation introduces a spurious drift
+that violates the norm. We adopt Stratonovich throughout. The
+practical consequence is that any midpoint or predictor-corrector
+scheme that evaluates the noise term at both the predictor and
+corrector stages \emph{with the same noise sample} converges to the
+Stratonovich solution, and renormalization at each step keeps the
+constraint to machine precision.
+
+\subsection{Drive: SOT plus Joule heating}
+
+The drive is the existing Slonczewski damping-like plus field-like
+spin--orbit torque already encoded in \texttt{src/simulator/integrator.py}:
+%
+\begin{equation}
+\bm{\tau}_{\text{SOT}} =
+\gamma'\, \big[ (H_{DL} + \alpha H_{FL})\, \mb{m} \times \mb{s}
++ (H_{FL} - \alpha H_{DL})\, \mb{s} \big],
+\end{equation}
+%
+with $\mb{s} = (\hat{\mb{p}} \times \mb{m})/|\hat{\mb{p}} \times \mb{m}|$,
+$H_{DL} = c_{DL}\, \jcur$, $H_{FL} = c_{FL}\, \jcur$.
+
+Joule self-heating raises the lattice temperature above the substrate
+temperature:
+%
+\begin{equation}\label{eq:joule}
+T(\jcur) = T_{\text{sub}} + \Rth\, \jcur^2,
+\end{equation}
+%
+where $\Rth$ is a stack-dependent thermal resistance. We carry $\Rth$
+as a free, user-specified parameter. No literature-anchored value for
+this Pt/Co/Ru SAF is assumed; sensitivity to $\Rth$ is part of the
+final output. Through~\eqref{eq:joule}, increasing $\jcur$ both
+strengthens the drive and raises $T$, so the trade-off in Q4 is
+non-trivial.
+
+\subsection{Observables}
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Drift velocity}
+    $\mb{v} = \langle d\mb{r}_c / dt \rangle$ from
+    \texttt{skyrmion\_center} unwrapped against periodic boundaries.
+    \item \textbf{Hall angle}
+    $\theta_H = \arctan(\langle v_y \rangle / \langle v_x \rangle)$
+    measured on the second half of the trajectory.
+    \item \textbf{Transverse variance}
+    $\sigma_y^2(t) = \langle (y_c(t) - \langle y_c(t)\rangle)^2 \rangle$.
+    \item \textbf{Survival probability}
+    $P_{\text{surv}}(T, \jcur) = \Pr(|Q(t_{\max})| > 0.5)$ across the
+    ensemble.
+    \item \textbf{Pair potential} $V(r)$ from short-time forced-pair
+    runs at $\jcur = 0$, $T = 300$~K (Q3).
+\end{itemize}
+
+%======================================================================
+\section{Numerical scheme}
+%======================================================================
+
+\subsection{Stochastic Heun predictor--corrector}
+
+For Stratonovich SDEs with multiplicative noise, the stochastic Heun
+scheme is the standard order-1.0 method. For the SAF pair
+$(\mb{m}_t, \mb{m}_b)$ at step $n$, per layer:
+%
+\begin{enumerate}[leftmargin=2em]
+    \item Sample a noise increment $\hth$ for each lattice cell with
+    cell-wise standard deviation $\sigma / \sqrt{\Delta t}$. The
+    \emph{same} sample is reused in both stages below.
+    \item Compute $\Heff$ from the existing
+    \texttt{effective\_field} (no noise inside the field assembly).
+    Form $H_{\text{total}} = \Heff + \hth$ and call
+    $f \equiv \texttt{llgs\_rhs}(\mb{m}, H_{\text{total}}, p)$.
+    The $\mb{m}\times(\cdot)$ and $\mb{m}\times(\mb{m}\times(\cdot))$
+    structure inside \texttt{llgs\_rhs} distributes the noise across
+    the precession and damping terms, matching PysLLG's \texttt{Gfunc}
+    form $\propto -\mb{m}\times(\hth + \alpha\, \mb{m}\times\hth)$.
+    \item Predictor: $\tilde{\mb{m}} = \mb{m} + \Delta t \, f$.
+    \emph{Do not} renormalize the predictor.
+    \item Corrector (same noise sample, $\Heff$ recomputed at
+    $\tilde{\mb{m}}$):
+    $\mb{m}^{n+1} = \mb{m} + \tfrac{\Delta t}{2}
+    \big[ f(\mb{m}, \Heff(\mb{m}) + \hth) +
+          f(\tilde{\mb{m}}, \Heff(\tilde{\mb{m}}) + \hth) \big]$.
+    \item Before normalizing, log
+    $\max_{i,j} \big|\,\|\mb{m}^{n+1}_{ij}\| - 1\,\big|$ and raise
+    \texttt{RuntimeError} if it exceeds a user-supplied tolerance
+    \texttt{tol\_norm}. Then renormalize once.
+\end{enumerate}
+%
+Single end-of-step renormalization matches PysLLG and the standard
+Stratonovich-Heun derivation; renormalizing the predictor introduces
+an $O(\sigma^2 \Delta t)$ bias to the corrector evaluation that the
+single-end version avoids. The two SAF layers carry independent
+noise draws; within a step, each layer's draw is shared by its own
+predictor and corrector.
+
+\subsection{Time step}
+
+We retain the deterministic $\Delta t = 5\times 10^{-14}$~s as a
+starting point and verify a posteriori that the equilibrium
+$\langle m_z^2 \rangle$ matches the Langevin prediction to within
+5\%. If it does not, halve $\Delta t$ and re-run the Langevin
+validation. No automatic step-size adaptation is used; the time step
+is user-supplied.
+
+\subsection{Reproducibility}
+
+Each trajectory consumes one explicit \texttt{numpy.random.Generator}
+constructed from a user-supplied integer seed. Ensembles fold the
+trajectory index into the seed (e.g., \texttt{seed\_base + traj\_idx})
+so that any single trajectory is byte-reproducible without rerunning
+the rest of the ensemble.
+
+%======================================================================
+\section{Implementation plan}
+%======================================================================
+
+\subsection{Scope and constraints}
+
+\begin{itemize}[leftmargin=2em]
+    \item All new code lives in \texttt{src/stochastic\_llgs/}.
+    Existing files are \emph{read} and imported but never modified.
+    \item Reuse \texttt{effective\_field} from
+    \texttt{src/simulator/fields.py}, \texttt{llgs\_rhs} from
+    \texttt{src/simulator/integrator.py}, and
+    \texttt{effective\_field\_demag\_pair} from
+    \texttt{src/phase\_diagram/fields\_demag.py}. Reuse
+    \texttt{skyrmion\_center} and \texttt{skyrmion\_diameter} from
+    \texttt{src/simulator/analysis.py}, \texttt{topological\_charge}
+    from \texttt{src/simulator/main.py}, and \texttt{saf\_skyrmion}
+    from \texttt{src/simulator/initial\_conditions.py}.
+    \item No \texttt{argparse}. Every runnable module has a
+    \texttt{main()} that opens with a labeled User Configuration
+    block of snake\_case Python variables.
+    \item No default argument values anywhere. Every function
+    parameter is provided explicitly by the caller. Missing or
+    invalid inputs raise \texttt{RuntimeError} with a precise message
+    naming the offending field.
+    \item No silent failure paths. No \texttt{try/except} that logs
+    and continues. No \texttt{dict.get(key, fallback)}. The
+    end-of-step norm-drift check logs
+    $\max\big|\,\|\mb{m}\| - 1\,\big|$ and raises
+    \texttt{RuntimeError} if it exceeds a user-supplied
+    \texttt{tol\_norm}, instead of letting renormalization mask a
+    too-coarse $\Delta t$.
+    \item Units SI/Tesla throughout.
+    \item Backend strategy is \emph{hybrid}: NumPy stochastic Heun
+    first (Phase 1--5). A JAX/\texttt{diffrax} port is implemented
+    only if Phase 5 wall time exceeds the working budget (Phase 6,
+    optional).
+\end{itemize}
+
+\subsection{File layout (new code only)}
+
+\begin{lstlisting}
+src/stochastic_llgs/
+  __init__.py
+  parameters_thermal.py     # attach T, R_th, sigma to a p that
+                            # the caller has already populated
+  thermal_field.py          # sample_thermal_field(rng, shape,
+                            #                     sigma, dt)
+  integrator_sllg.py        # heun_stochastic_step for the SAF
+                            # pair, with optional demag kernels
+  joule_heating.py          # T_of_j(j, T_sub, R_th)
+  diagnostics.py            # PBC-unwrapped trajectory, Q track,
+                            # annihilation flag, Hall angle fit
+  ensemble.py               # ProcessPoolExecutor ensemble driver
+  io.py                     # NPZ writers
+  validation/
+    __init__.py
+    macrospin.py
+    test_langevin.py
+    test_brown_reversal.py
+    test_equipartition.py
+    test_t0_limit.py
+  production/
+    __init__.py
+    run_single.py
+    scan_tj.py
+    scan_radius.py
+    pair_potential.py
+  jax_backend/              # Phase 6 only; absent until needed
+    fields_jax.py
+    integrator_diffrax.py
+\end{lstlisting}
+
+\subsection{Phase 1 --- Noise generator and macrospin solver}
+
+\begin{enumerate}[leftmargin=2em]
+    \item \texttt{parameters\_thermal.attach\_thermal(p, T, R\_th, seed)}
+    attaches \texttt{p.T, p.R\_th, p.seed, p.V\_cell, p.k\_B,
+    p.sigma\_noise}. All four arguments required; validate finite and
+    positive; raise \texttt{RuntimeError} naming any offender.
+    \item \texttt{thermal\_field.sample\_thermal\_field(rng, shape,
+    sigma, dt)} returns Gaussian noise of shape
+    \texttt{(ny, nx, 3)} with std $\sigma/\sqrt{\Delta t}$. The
+    \texttt{rng} is supplied by the caller; constructing one
+    silently is forbidden.
+    \item \texttt{integrator\_sllg.heun\_stochastic\_step(m\_top,
+    m\_bot, dt, p, rng, demag\_kernels)} implements the predictor and
+    corrector with the same noise sample for both layers and both
+    stages.
+\end{enumerate}
+
+Phase 1 gates on the macrospin Langevin check
+(Section~\ref{sec:val}).
+
+\subsection{Phase 2 --- Lattice noise and equipartition}
+
+Phase 2 verifies that the noise field has the correct cell-resolved
+amplitude. A $16 \times 16$ ferromagnetic patch at $T = 10$~K is
+equilibrated, then the mode-resolved energy of low-$k$ magnons is
+compared to the Rayleigh--Jeans equipartition $\langle E_k \rangle =
+\kB T / 2$. Passing within 20\% on modes with $k < \pi/(4a)$ is the
+gate.
+
+\subsection{Phase 3 --- SAF, $T=0$ reproducibility (split)}
+
+The stochastic stepper accepts an optional
+\texttt{demag\_kernels} argument. When \texttt{None}, the stepper
+calls \texttt{effective\_field} (no demag) for each layer. When a
+populated dict from \texttt{precompute\_demag\_kernels(p)} is
+supplied, the stepper calls \texttt{effective\_field\_demag\_pair}
+from \texttt{src/phase\_diagram/fields\_demag.py}.
+
+\textbf{Phase 3a (no-demag baseline).} Set $T=0$,
+\texttt{demag\_kernels=None}, and run the same SOT-driven analysis
+as \texttt{src/simulator/analysis.py:run\_analysis}. \textbf{Pass:}
+equilibrium diameter, drift velocity, Hall angle, $Q$ each agree
+with the deterministic RK4 to within 2\%.
+
+\textbf{Phase 3b (demag pathway).} Set $T=0$ and pass
+\texttt{precompute\_demag\_kernels(p)}. The reference is generated
+on the fly by driving the existing \texttt{rk4\_step} with
+\texttt{effective\_field\_demag\_pair} for the same duration; no
+existing code is modified. \textbf{Pass:} 2\% on each observable.
+
+\subsection{Phase 4 --- Diagnostics and Joule heating}
+
+\begin{itemize}[leftmargin=2em]
+    \item \texttt{diagnostics.track\_skyrmion} unwraps the center
+    against periodic boundaries via the phase of the circular mean
+    $\langle e^{i 2\pi x_c / L}\rangle$ before differencing.
+    \item \texttt{diagnostics.detect\_annihilation(Q\_history,
+    q\_threshold, k\_consecutive)} requires both
+    \texttt{q\_threshold} and \texttt{k\_consecutive} from the
+    caller. It returns the first step index $n$ such that
+    $|Q[m]| < $\,\texttt{q\_threshold} holds for all $m \in
+    [n - k_c + 1, n]$, or $-1$ if the skyrmion survives. The
+    consecutive-step guard suppresses false positives from
+    finite-$T$ topological-charge fluctuations.
+    \item \texttt{joule\_heating.T\_of\_j(j, T\_sub, R\_th)}
+    implements~\eqref{eq:joule} as a uniform global temperature
+    (one scalar $T$ per run); spatially resolved heating is not
+    modeled in this phase.
+\end{itemize}
+
+\subsection{Phase 5 --- Production runs (NumPy)}
+
+Shared configuration: lattice $256 \times 256$,
+$N_{\text{ens}} = 10$ per cell, $\Delta t = 5\times 10^{-14}$~s,
+$t_{\max} = 2$~ns. Joule heating is uniform and global,
+$T = T_{\text{sub}} + R_{\text{th}} \jcur^2$.
+
+\begin{itemize}[leftmargin=2em]
+    \item \texttt{run\_single.py}: one $(T_{\text{sub}}, \jcur)$
+    trajectory. Demag is a user-set boolean in the User
+    Configuration block.
+
+    \item \texttt{scan\_tj.py} (Q1, Q2, Q4): \textbf{demag OFF}.
+    Grid $T_{\text{sub}} \in \{200, 250, 300, 350, 400\}$~K $\times$
+    $\jcur \in \{1, 2, 4, 8, 16\} \times 10^{11}$~A/m$^2$. Per cell:
+    $\langle v\rangle, \sigma_v, \theta_H, \sigma_{\theta_H}$, and
+    $P_{\text{surv}} = (\#\text{alive at }t_{\max})/N_{\text{ens}}$
+    using the \texttt{detect\_annihilation} guard.
+
+    \item \texttt{scan\_arrhenius.py} (stability, dedicated): demag
+    OFF, $\jcur = 0$, $N_{\text{ens}} = 30$. Sweep $T \in \{300,
+    350, 400, 450, 500\}$~K (high $T$ chosen so annihilation events
+    occur within $t_{\max}$). Each trajectory runs to $t_{\max}$ or
+    annihilation, whichever comes first. Fit $\log \tau$ vs $1/T$
+    and report $\Delta E_{\text{barrier}}$ and the Brown prefactor
+    $\tau_0$. This is the canonical SAF skyrmion thermal-stability
+    figure.
+
+    \item \texttt{scan\_radius.py} (Q3): \textbf{demag ON}. At
+    $T = 300$~K, sweep $(D, H_z)$ to span
+    $R \in \{40, 60, 80, 120\}$~nm. Report $v(R), \theta_H(R),
+    P_{\text{surv}}(R)$.
+
+    \item \texttt{pair\_potential.py} (Q3): \textbf{demag ON}.
+    Forced-pair runs at $T = 300$~K, $\jcur = 0$. Reconstruct
+    $V(r)$ from short-time radial force measurements.
+\end{itemize}
+
+\paragraph{Why demag-off for the stability scans, demag-on for
+radius.} The thin-film shape-anisotropy correction $-\mu_0 \Ms$ is
+already folded into the precomputed $C_{\text{anis}}$ in
+\texttt{parameters.py:132}, capturing the leading-order
+uniform-magnetization demag. The non-uniform residual from
+in-plane spin divergence in the domain wall shifts the skyrmion
+radius by 5--10\%, $\langle v \rangle$ and $\theta_H$ by $<5\%$,
+and does not change the qualitative trend of $P_{\text{surv}}(T,
+\jcur)$ or $\tau(T)$. For Q3 the radius itself is the observable,
+so the demag pathway is enabled there.
+
+\subsection{Phase 6 --- JAX/diffrax port (only if needed)}
+
+Triggered only if the Phase 5 wall time on the production grid
+exceeds the user's working budget. Port \texttt{effective\_field}
+and the demag convolution to JAX; use \texttt{diffrax.MultiTerm}
+with the \texttt{GeneralShARK} solver and a
+\texttt{VirtualBrownianTree} keyed by seed; \texttt{jax.vmap} over
+the ensemble axis. Regress against a single NumPy cell before
+swapping.
+
+%======================================================================
+\section{Validation gates}\label{sec:val}
+%======================================================================
+
+Every gate must produce its named NPZ artifact and pass its
+quantitative criterion before the next phase begins.
+
+\subsection{Langevin macrospin (Phase 1)}
+
+Single spin in a Zeeman field $B \hat{z}$, no anisotropy, $\alpha=1$.
+For each $T \in \{50, 100, 200, 300, 500\}$~K and several $B$ values,
+run $\geq 200$ trajectories of length
+$\gtrsim 100 / (\alpha \gamma B)$. Compare the time- and
+ensemble-averaged $\langle m_z \rangle$ to the Langevin function
+$L(\mu B / \kB T)$ with $\mu = \Ms \Vcell$.
+\textbf{Pass:} RMS$(\langle m_z\rangle_{\text{sim}} - L)/L < 0.05$.
+
+\subsection{Brown reversal time (Phase 1)}
+
+Uniaxial macrospin with $K = K_{\text{top}}$, no field. For
+temperatures yielding $K\Vcell/\kB T \in \{3, 5, 8\}$ (higher
+barriers are uncomputably slow), measure the mean first-passage time
+across $\geq 100$ trajectories and compare to Brown's high-barrier
+formula
+%
+\begin{equation}
+\tau \;\sim\; \frac{(1+\alpha^2)}{\alpha\gamma}\,
+\sqrt{\frac{\pi \kB T}{K \Vcell}}\,
+\exp\!\Big(\frac{K \Vcell}{\kB T}\Big).
+\end{equation}
+%
+\textbf{Pass:} $|\log_{10}(\tau_{\text{sim}} / \tau_{\text{Brown}})|
+< 0.5$ at each barrier.
+
+\subsection{Spin-wave equipartition (Phase 2)}
+
+$16 \times 16$ ferromagnetic patch, single layer (RKKY $= 0$), no
+DMI, $K = 0$, weak $H_z$. Equilibrate at $T = 10$~K, then accumulate
+$\langle |\delta m_k|^2 \omega_k^2 \rangle$. \textbf{Pass:} match to
+$\kB T / 2$ within 20\% for modes with $k < \pi/(4a)$.
+
+\subsection{$T=0$ deterministic limit (Phase 3a, no demag)}
+
+Set $T = 0$, \texttt{demag\_kernels = None}, and run the same
+SOT-driven analysis as \texttt{src/simulator/analysis.py:run\_analysis}.
+\textbf{Pass:} equilibrium diameter, drift velocity, Hall angle, and
+$Q$ each agree with the deterministic RK4 to within 2\%.
+
+\subsection{$T=0$ deterministic limit (Phase 3b, with demag)}
+
+Same setup but with \texttt{precompute\_demag\_kernels(p)} passed
+in. The reference is generated by driving the existing
+\texttt{rk4\_step} with \texttt{effective\_field\_demag\_pair} for
+the same duration; no edits to existing code. \textbf{Pass:} 2\% on
+each observable.
+
+%======================================================================
+\section{Run-script conventions (no argparse)}
+%======================================================================
+
+Every runnable module's \texttt{main()} opens with a labeled User
+Configuration block of snake\_case Python variables. The user edits
+the file to reconfigure a run. SLURM array indices, when needed, are
+read from environment variables with explicit \texttt{os.environ[key]}
+so a missing variable raises \texttt{KeyError} rather than silently
+defaulting.
+
+\begin{lstlisting}[language=python]
+def main():
+    # ================ User Configuration ================
+    t_kelvin    = 300.0
+    j_current   = 4.0e11        # A/m^2
+    r_th        = 1.0e-15       # K m^4 / A^2
+    t_max       = 2.0e-9        # s
+    dt          = 5.0e-14       # s
+    seed_base   = 17
+    n_ens       = 10
+    n_workers   = 8
+    nx, ny      = 256, 256
+    # ============ End User Configuration =================
+    ...
+\end{lstlisting}
+
+A sibling \texttt{.sh} SLURM wrapper loads modules and invokes
+\texttt{python -m src.stochastic\_llgs.production.scan\_tj}; per-run
+knobs (grids, ensemble size, lattice size) live inside the Python
+file itself.
+
+%======================================================================
+\section{Verification plan (end-to-end)}
+%======================================================================
+
+\begin{enumerate}[leftmargin=2em]
+    \item \textbf{Langevin gate.} Run
+    \texttt{validation/test\_langevin.py}; confirm RMS criterion.
+    \item \textbf{Brown gate.}
+    \texttt{validation/test\_brown\_reversal.py};
+    confirm log-time criterion.
+    \item \textbf{Equipartition gate.}
+    \texttt{validation/test\_equipartition.py};
+    confirm low-$k$ modes within 20\%.
+    \item \textbf{$T=0$ gates.}
+    \texttt{validation/test\_t0\_limit\_nodemag.py} and
+    \texttt{validation/test\_t0\_limit\_demag.py}; confirm 2\%
+    agreement against their respective deterministic references.
+    \item \textbf{Single-cell production.}
+    \texttt{production/run\_single.py} at $(T_{\text{sub}}, \jcur) =
+    (300~\text{K}, 4\times 10^{11}~\text{A/m}^2)$. Inspect the
+    trajectory; confirm drift, jitter, and survival.
+    \item \textbf{Cost calibration.} From the single-cell wall time,
+    estimate total cost of the production grid. If above budget,
+    trigger Phase 6.
+    \item \textbf{Production scans.}
+    \texttt{production/scan\_tj.py},
+    \texttt{production/scan\_arrhenius.py},
+    \texttt{production/scan\_radius.py},
+    \texttt{production/pair\_potential.py}.
+    \item \textbf{Answers.} A generated notebook
+    \texttt{output/stochastic\_llgs/answers.md} reads the NPZ files
+    and answers Q1--Q4 in the same order as the introduction.
+    Q4 is answered jointly from \texttt{scan\_tj} (driven survival)
+    and \texttt{scan\_arrhenius} (zero-drive barrier).
+\end{enumerate}
+
+%======================================================================
+\section{Risks and open items}
+%======================================================================
+
+\begin{itemize}[leftmargin=2em]
+    \item $\Rth$ has no literature-anchored value for this Pt/Co/Ru
+    SAF stack. We carry it as a user-supplied parameter and report
+    sensitivity to it in the final scan.
+    \item $N_{\text{ens}} = 10$ may be insufficient for cells with
+    $P_{\text{surv}}$ near 0.5; the script raises a warning and we
+    increase $N_{\text{ens}}$ to 30 for tail cells.
+    \item $\Delta t = 5\times 10^{-14}$~s is borrowed from the
+    deterministic simulator; the Langevin gate provides the
+    quantitative check that this $\Delta t$ is small enough at high
+    temperature. If it fails at $T = 500$~K, halve $\Delta t$ for the
+    full pipeline.
+    \item Production cost on $256 \times 256$ with demag, $N_{\text{ens}}
+    = 10$, $25$ $(T, \jcur)$ cells dominates the budget; the
+    single-cell calibration in step 5 of the verification plan
+    decides whether to trigger Phase 6.
+\end{itemize}
+
+%======================================================================
+\appendix
+\section{Derivation of the thermal noise variance}\label{app:fdt}
+%======================================================================
+
+Starting from the Landau--Lifshitz equation in SI form with
+$\Heff$ in Tesla and $\gamma$ in rad/s/T, the magnetization energy
+per cell is $E_{\text{cell}} = -\Ms \Vcell \, \mb{m} \cdot \Heff$ so
+that the thermal-equilibrium probability density is
+$\propto \exp(-E_{\text{cell}}/\kB T)$. The Fokker--Planck operator
+associated with~\eqref{eq:sllg} has stationary solution equal to this
+Boltzmann distribution if and only if the noise variance
+$\sigma^2$ obeys the Einstein--type relation
+%
+\begin{equation}
+\sigma^2 = \frac{2\, \alpha\, \kB T}{\gamma\, \Ms\, \Vcell},
+\end{equation}
+%
+identical to~\eqref{eq:sigma}. This is the standard
+fluctuation--dissipation result for Brown's stochastic LLG
+equation~\cite{brown1963,garcia1998}. The factor of $\Vcell = a^2
+\tCo$ converts the macrospin formula to a per-cell amplitude
+appropriate for the discretized lattice; this is why a finer lattice
+at the same $T$ gives a smaller per-cell field but the same
+integrated-energy fluctuations.
+
+%======================================================================
+\begin{thebibliography}{9}
+
+\bibitem{brown1963}
+W.~F.~Brown, ``Thermal fluctuations of a single-domain particle,''
+\emph{Physical Review} \textbf{130}, 1677 (1963).
+
+\bibitem{garcia1998}
+J.~L.~Garc\'ia-Palacios and F.~J.~L\'azaro,
+``Langevin-dynamics study of the dynamical properties of small
+magnetic particles,''
+\emph{Physical Review B} \textbf{58}, 14937 (1998).
+
+\bibitem{pham2024}
+V.~T.~Pham et al., ``Fast current-induced skyrmion motion in
+synthetic antiferromagnets,'' \emph{Science} (2024).
+
+\bibitem{litzius2017}
+K.~Litzius et al., ``Skyrmion Hall effect revealed by direct
+time-resolved X-ray microscopy,'' \emph{Nature Physics} \textbf{13},
+170 (2017).
+
+\bibitem{rohart2016}
+S.~Rohart, J.~Miltat, A.~Thiaville,
+``Path to collapse for an isolated N\'eel skyrmion,''
+\emph{Physical Review B} \textbf{93}, 214412 (2016).
+
+\bibitem{kidger2021}
+P.~Kidger, ``On Neural Differential Equations,'' PhD thesis,
+University of Oxford, 2021 (\emph{diffrax} library).
+
+\end{thebibliography}
+
+\end{document}
