@@ -1,10 +1,13 @@
 """Phase classification of relaxed SAF spin textures.
 
-Combines four order parameters to label a configuration as
-one of six magnetic phases:
+Combines five order parameters to label a configuration as
+one of seven magnetic phases:
 
-    FM+/-      ferromagnetic, single-domain
-    iSk        isolated skyrmion (single localized core)
+    FM_anti    antiparallel SAF ferromagnet
+               (m_top * m_bot ~ -1; invisible to H_z)
+    FM_par+    parallel ferromagnet aligned with +z
+    FM_par-    parallel ferromagnet aligned with -z
+    iSk        isolated skyrmion (one or a few cores)
     SkX        skyrmion lattice (6-fold FFT *and* nonzero Q
                per principal period)
     BX         bubble lattice (6-fold FFT but Q~0 per
@@ -16,6 +19,8 @@ one of six magnetic phases:
 The order parameters are:
 
     <m_z>   layer-averaged out-of-plane magnetization
+    m_dot   layer-averaged <m_top . m_bot>; +1 parallel,
+            -1 antiparallel
     Q       topological charge of the top layer
     P_n(k*) angular harmonic content at the dominant FFT
             wavevector k* (n=2 and n=6 harmonics give SS vs
@@ -55,13 +60,17 @@ __status__ = 'Development'
 # Canonical phase labels. Single source of truth used by
 # the sweep aggregator and the plot module.
 PHASE_LABELS = (
-    'FM+', 'FM-', 'iSk', 'SkX', 'BX', 'SS', 'Lab',
+    'FM_anti', 'FM_par+', 'FM_par-',
+    'iSk', 'SkX', 'BX', 'SS', 'Lab',
     'undetermined',
 )
 # Decision-tree thresholds. Tuned against canonical
 # textures (uniform FM, single skyrmion, SkX lattice, helix,
 # random labyrinth) at 256x256.
 _TH_FM_MZ = 0.95         # |<m_z>| above this means FM
+_TH_FM_DOT = 0.9         # |<m_top . m_bot>| above this means
+                         # the FM is cleanly parallel or
+                         # antiparallel (not canted)
 _TH_ISK_Q_LO = 0.5       # iSk lower bound on |Q|
 _TH_ISK_Q_HI = 1.5       # iSk upper bound on |Q|
 _TH_HARMONIC_RATIO = 2.0 # min ratio P_n / P_iso for SkX/SS
@@ -164,14 +173,19 @@ def order_parameters(m_top, m_bot, p):
     obs : dict
         Dictionary with keys:
             'mz_top', 'mz_bot' : layer-averaged m_z
+            'm_dot'            : layer-averaged
+                                 <m_top . m_bot>
             'Q'                : topological charge (top)
             'k_star'           : dominant in-plane wavevector
             'P_iso'            : mean azimuthal power at k*
             'P_2', 'P_6'       : 2-fold and 6-fold harmonics
             'peak_over_bg'     : peak-to-background ratio
+            'n_periods'        : (k* L / 2pi)^2 estimate
+            'q_per_period'     : |Q| / n_periods
     """
     mz_top = float(np.mean(m_top[..., 2]))
     mz_bot = float(np.mean(m_bot[..., 2]))
+    m_dot = float(np.mean(np.sum(m_top * m_bot, axis=-1)))
     Q = float(topological_charge(m_top, p.a))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # FFT power spectrum of m_z (top), zero-mean
@@ -234,7 +248,9 @@ def order_parameters(m_top, m_bot, p):
     else:
         q_per_period = 0.0
     return {
-        'mz_top': mz_top, 'mz_bot': mz_bot, 'Q': Q,
+        'mz_top': mz_top, 'mz_bot': mz_bot,
+        'm_dot': m_dot,
+        'Q': Q,
         'k_star': k_star, 'P_iso': P_iso,
         'P_2': P_2, 'P_6': P_6,
         'peak_over_bg': peak_over_bg,
@@ -261,8 +277,8 @@ def classify(m_top, m_bot, p, obs=None):
 
     Returns
     -------
-    label : {'FM+', 'FM-', 'iSk', 'SkX', 'SS', 'Lab',
-              'undetermined'}
+    label : {'FM_anti', 'FM_par+', 'FM_par-', 'iSk', 'SkX',
+              'BX', 'SS', 'Lab', 'undetermined'}
         Phase label.
     obs : dict
         Order parameters used for the decision.
@@ -270,11 +286,22 @@ def classify(m_top, m_bot, p, obs=None):
     if obs is None:
         obs = order_parameters(m_top, m_bot, p)
     mz = obs['mz_top']
+    m_dot = obs['m_dot']
     Q = obs['Q']
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 1. Ferromagnetic
+    # 1. Ferromagnetic (uniform). Require uniform out-of-
+    #    plane magnetization (|<m_z>| > _TH_FM_MZ) so a
+    #    textured antiparallel state (stripe / SkX / iSk
+    #    with m_dot ~ -1 cell-by-cell but |<m_z>| < 1) is
+    #    *not* swallowed as FM_anti and falls through to
+    #    the texture branches. Among uniform states, the
+    #    sign of m_dot picks parallel vs antiparallel.
     if abs(mz) > _TH_FM_MZ:
-        return ('FM+' if mz > 0 else 'FM-'), obs
+        if m_dot < -_TH_FM_DOT:
+            return 'FM_anti', obs
+        if m_dot > +_TH_FM_DOT:
+            return ('FM_par+' if mz > 0.0 else 'FM_par-'), obs
+        return 'undetermined', obs
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # 2. Single skyrmion (or a few isolated skyrmions when
     #    |Q| falls in the iSk window). Periodicity is not

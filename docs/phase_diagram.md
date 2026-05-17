@@ -71,14 +71,16 @@ infinite slab produces no field outside itself).
 
 ### 2.3 Order parameters and phase signatures
 
-| Phase | Signature |
-|-------|-----------|
-| FM±   | \|⟨m_z⟩\| > 0.95 |
-| iSk   | \|Q\| ∈ [0.5, 1.5] (single or few isolated skyrmions) |
-| SkX   | 6-fold FFT angular harmonic *and* \|Q\| / N_periods ≥ 0.5 |
-| BX    | 6-fold FFT angular harmonic *but* \|Q\| / N_periods < 0.5 (bubble lattice, topologically trivial) |
-| SS    | dominant FFT peak with 2-fold angular harmonic |
-| Lab   | dominant FFT ring with no clean angular order |
+| Phase   | Signature |
+|---------|-----------|
+| FM_anti | \|⟨m_z⟩\| > 0.95 or \|⟨m_top · m_bot⟩\| > 0.9, *and* m_top · m_bot < −0.9 (antiparallel SAF; H_z-blind) |
+| FM_par+ | parallel FM aligned +z: m_top · m_bot > +0.9 and ⟨m_z⟩ > 0 |
+| FM_par- | parallel FM aligned −z: m_top · m_bot > +0.9 and ⟨m_z⟩ < 0 |
+| iSk     | \|Q\| ∈ [0.5, 1.5] (single or few isolated skyrmions) |
+| SkX     | 6-fold FFT angular harmonic *and* \|Q\| / N_periods ≥ 0.5 |
+| BX      | 6-fold FFT angular harmonic *but* \|Q\| / N_periods < 0.5 (bubble lattice, topologically trivial) |
+| SS      | dominant FFT peak with 2-fold angular harmonic |
+| Lab     | dominant FFT ring with no clean angular order |
 
 Q is the topological charge of the top layer (reused from
 `src.simulator.main.topological_charge`).
@@ -95,19 +97,24 @@ Grid resolutions are selected via `--grid`:
 
 ### 3.2 Initial-condition ensemble
 
-Six ICs per (D, H_z) point:
+Seven ICs per (D, H_z) point:
 
 1. Random sphere, seed 11.
 2. Random sphere, seed 22.
 3. Random sphere, seed 33.
-4. Antiparallel uniform (top +z, bottom −z).
-5. SAF skyrmion seed (`saf_skyrmion`).
-6. Helical stripe with period λ = 4π·A_ex/D
+4. `fm_anti` — antiparallel SAF, top aligned with sign(H_z).
+5. `fm_par` — parallel FM, both layers aligned with sign(H_z).
+6. SAF skyrmion seed (`saf_skyrmion`).
+7. Helical stripe with period λ = 4π·A_ex/D
    (floored at 4·a when D is small).
 
-The bottom layer of every IC is the negation of the top so
-the antiferromagnetic RKKY ground state is respected at
-the start of relaxation.
+The random and skyrmion / stripe ICs use antiparallel pairing
+so the antiferromagnetic RKKY ground state is respected at
+the start. `fm_par` is the only seed that explores the
+parallel-FM basin; it is required to find the spin-flop
+transition at \|H_z\| > H_RKKY ≈ 0.21 T, above which the
+parallel-FM branch beats antiparallel-FM (Zeeman gain >
+RKKY cost).
 
 ### 3.3 Relaxation
 
@@ -178,6 +185,18 @@ bare prefactor via
 The K_eff convention on `p.C_anis_*` is left untouched so
 that `src.simulator.fields.effective_field` and any code
 that calls it without demag continues to work unchanged.
+
+K may be overridden at sweep time via three variables in
+the "User Configuration" block at the top of
+`src.phase_diagram.sweep.main()`:
+
+- `K_top`, `K_bot` (J/m³) — explicit raw anisotropies.
+- `Q_PMA` — target quality factor; resolves to
+  `K = Q_PMA · (½ μ₀ Ms²) + (½ μ₀ Ms²)`. Mutually
+  exclusive with explicit `K_top`/`K_bot`.
+
+The resolved values are stored as `K_top_raw`,
+`K_bot_raw` in the NPZ alongside `K_eff_*`, `D_c`, `H_K`.
 
 ### 4.2 Import-path correction
 
@@ -253,8 +272,8 @@ corresponding test runs. Commit hashes link to the run.
 
 ## 8. Known limitations
 
-- **Default material parameters give K_eff ≈ 0** (K_top − μ₀Ms²/2 ≈ 9 kJ/m³). With explicit demag the antiparallel SAF "FM" state has zero Zeeman coupling (net moment cancels) and the marginal anisotropy is not enough to suppress demag-driven textures, so FM is *not* the ground state even at large \|H_z\|. To recover a textbook FM region, raise `K_top, K_bot` to ~1.6 MJ/m³ (or set quality factor Q_PMA ≈ 0.2–0.5) via
-  `make_params(K_top=..., K_bot=...)`.
+- **Default material parameters give K_eff ≈ 0** (K_top − μ₀Ms²/2 ≈ 9 kJ/m³, `Q_PMA ≈ 0.007`). With explicit demag the antiparallel SAF "FM" state has zero Zeeman coupling (net moment cancels) and the marginal anisotropy is not enough to suppress demag-driven textures, so FM is *not* the ground state even at large \|H_z\|. To recover a textbook chiral-magnet phase diagram set `Q_PMA = 0.25` (or similar; the physical range for Pt/Co/Ru/Co with engineered interface anisotropy is `Q_PMA ∈ [0.2, 0.5]`) at the top of `src.phase_diagram.sweep.main()`. The sweep then resolves `K_top = K_bot ≈ 1.6 MJ/m³`, `D_c ≈ 2.86 mJ/m²`, `H_K ≈ 0.45 T`.
+- The 7-IC ensemble explores both antiparallel (`fm_anti`) and parallel (`fm_par`) FM basins, exposing the spin-flop transition at `\|H_z\| > H_RKKY ≈ 0.21 T`. Without the `fm_par` seed the parallel branch is invisible to the sweep.
 - T=0 only. Thermal fluctuations would require a stochastic LLG, not implemented.
 - Thin-film demag uses the `(1 - e^{-kt})/(kt)` shape function, accurate when the in-plane texture varies on scales ≫ a but not exact for the discretized lattice. Future work: full Newell tensor.
 - Periodic boundaries enforce commensurability of stripe / SkX states with the lattice; finite-size shifts of phase boundaries are expected (validation item 7).

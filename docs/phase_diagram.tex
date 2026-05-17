@@ -1,0 +1,627 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\zhat}{\hat{z}}
+\newcommand{\Heff}{\mb{H}_{\text{eff}}}
+\newcommand{\Hex}{\mb{H}_{\text{ex}}}
+\newcommand{\Hdmi}{\mb{H}_{\text{DMI}}}
+\newcommand{\Hanis}{\mb{H}_{\text{anis}}}
+\newcommand{\Hdemag}{\mb{H}_{\text{demag}}}
+\newcommand{\Hrkky}{\mb{H}_{\text{RKKY}}}
+\newcommand{\Hext}{\mb{H}_{\text{ext}}}
+\newcommand{\tCo}{t_{\text{Co}}}
+\newcommand{\dRu}{d_{\text{Ru}}}
+\newcommand{\Keff}{K_{\text{eff}}}
+\newcommand{\Aex}{A_{\text{ex}}}
+\newcommand{\Ms}{M_s}
+\newcommand{\HK}{H_K}
+\newcommand{\Dc}{D_c}
+\newcommand{\Qpma}{Q_{\text{PMA}}}
+\newcommand{\HRKKY}{H_{\text{RKKY}}}
+
+\title{Phase Diagram of the SAF Skyrmion Simulator:\\
+Theory, Reduced Units, and Implementation}
+\author{Rui Barreira}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note documents the theoretical content of the phase-diagram
+subsystem added to the SAF skyrmion simulator. The original
+simulator (see \texttt{docs/theory.tex}) folded the thin-film
+magnetostatic correction into the effective anisotropy
+$\Keff = K - \mu_0 \Ms^2 / 2$. The phase-diagram subsystem
+replaces that contraction with an explicit two-dimensional
+Fourier-space demag, introduces a corrected total-energy
+functional that respects the bilinear vs.\ external prefactor
+convention, and classifies relaxed textures into eight phases
+using order parameters that combine layer-averaged
+magnetization, topological charge, an interlayer dot product,
+and the angular content of the Fourier spectrum at the
+dominant wavevector. We also adopt reduced units
+$(D / \Dc,\; H_z / \HK)$ on the phase-diagram axes so the
+boundaries are material-independent, and we extend the
+initial-condition ensemble with a \emph{parallel} ferromagnet
+seed so the sweep can resolve the spin-flop transition that
+the antiparallel manifold alone cannot expose.
+\end{abstract}
+
+%======================================================================
+\section{Why a New Energy Functional}
+%======================================================================
+
+\subsection{The $\Keff$ shortcut}
+
+The base simulator computes the effective field with a single
+\emph{local} anisotropy term whose prefactor is
+$\Keff = K - \mu_0 \Ms^2 / 2$, absorbing the leading thin-film
+magnetostatic contribution into the bulk anisotropy. The
+identity that justifies this is, for a thin film of in-plane
+extent $\gg \tCo$ in the uniform limit,
+%
+\begin{equation}\label{eq:keff_uniform}
+\mathcal{H}_{\text{anis}} + \mathcal{H}_{\text{demag}}
+    = -K \tCo \int m_z^2 \, dS
+    + \frac{\mu_0 \Ms^2}{2} \, \tCo \int m_z^2 \, dS
+    = -\Keff \, \tCo \int m_z^2 \, dS.
+\end{equation}
+%
+For the uniform out-of-plane saturated state this is exact
+and recovers the textbook shape anisotropy. For a textured
+state with characteristic in-plane wavenumber $|\mb{k}| > 0$
+the contraction \emph{fails}: the magnetostatic tensor in
+Fourier space is not constant across $\mb{k}$, so the demag
+contribution to a periodic texture differs from the uniform
+prediction. Two consequences matter here:
+%
+\begin{enumerate}[nosep]
+\item Textures with finite $|\mb{k}|$ generically gain energy
+    relative to uniform FM, because the thin-film shape
+    function is bounded by one:
+    \begin{equation}\label{eq:shape_function}
+    f(|\mb{k}| \tCo) = \frac{1 - e^{-|\mb{k}|\tCo}}
+        {|\mb{k}|\tCo} \le 1,
+    \end{equation}
+    with $f \to 1$ at $|\mb{k}|\tCo \to 0$ (the uniform
+    limit) and $f \to 0$ at $|\mb{k}|\tCo \to \infty$. The
+    $\Keff$ contraction overestimates the demag penalty of a
+    short-wavelength state by a factor $1/f$.
+\item In a synthetic antiferromagnet the two layers couple
+    magnetostatically across the Ru spacer. The interlayer
+    contribution vanishes at $\mb{k} = 0$ (an infinite
+    uniformly magnetized slab produces no external field) but
+    is finite at $|\mb{k}| > 0$ with decay $e^{-|\mb{k}|\dRu}$.
+    A local-anisotropy model has no access to this term.
+\end{enumerate}
+
+\subsection{Explicit 2D Fourier demag}
+
+Each Co layer is treated as a slab of thickness $\tCo$
+embedded in vacuum with periodic in-plane boundary conditions.
+The magnetization on layer $\ell$ is decomposed in Fourier
+modes $\widetilde{\mb{m}}^{(\ell)}(\mb{k})$, and the demag
+field on layer $\ell$ from both layers reads
+%
+\begin{equation}\label{eq:demag_k}
+\widetilde{\Hdemag}^{(\ell)}(\mb{k})
+    = -\mu_0 \Ms \sum_{\ell'} \mb{N}^{(\ell, \ell')}(\mb{k})
+        \cdot \widetilde{\mb{m}}^{(\ell')}(\mb{k}),
+\end{equation}
+%
+with $\mb{N}^{(\ell, \ell')}(\mb{k})$ the dimensionless
+$3 \times 3$ thin-film magnetostatic tensor. The diagonal
+components used in the simulator are
+%
+\begin{align}
+N_{xx}^{\text{self}}(\mb{k}) &= \frac{k_x^2}{k^2}
+    \bigl(1 - f(k\tCo)\bigr), &
+N_{yy}^{\text{self}}(\mb{k}) &= \frac{k_y^2}{k^2}
+    \bigl(1 - f(k\tCo)\bigr), \nonumber\\
+N_{zz}^{\text{self}}(\mb{k}) &= f(k\tCo), &
+N_{xy}^{\text{self}}(\mb{k}) &= \frac{k_x k_y}{k^2}
+    \bigl(1 - f(k\tCo)\bigr),
+\label{eq:N_self}
+\end{align}
+%
+with $k = |\mb{k}|$ and $f$ from~\eqref{eq:shape_function}.
+The inter-layer tensor uses the same in-plane structure
+multiplied by an exponentially decaying gap factor and an
+overall sign flip on the out-of-plane component:
+%
+\begin{equation}\label{eq:N_inter}
+\mb{N}^{(\text{top, bot})}(\mb{k})
+    = S(k) \begin{pmatrix}
+        k_x^2 / k^2 & k_x k_y / k^2 & 0 \\
+        k_x k_y / k^2 & k_y^2 / k^2 & 0 \\
+        0 & 0 & -1
+    \end{pmatrix},
+\qquad
+S(k) = \frac{(1 - e^{-k\tCo})^2}{(k\tCo)^2}
+    e^{-k\dRu},
+\end{equation}
+%
+and vanishes at $\mb{k} = 0$, consistent with an infinite
+parallel-plate slab producing no field outside itself. In
+the limit $k\tCo \to 0$ on the self-tensor only,
+\eqref{eq:N_self} reduces to $N_{zz}^{\text{self}}(0) = 1$ and
+all in-plane components vanish, recovering the uniform
+shape-anisotropy result
+$(\Hdemag)_z = -\mu_0 \Ms m_z$ and
+hence the $\Keff$ relation~\eqref{eq:keff_uniform}.
+
+\subsection{Bare anisotropy at finite $\mb{k}$}
+
+Because the demag now appears explicitly, the bulk
+anisotropy prefactor used by the LLGS effective field is
+the \emph{bare} $K$, not $\Keff$:
+%
+\begin{equation}
+\Hanis^{(\ell)} = \frac{2 K_\ell}{\Ms} m_z^{(\ell)} \, \zhat,
+\qquad K_\ell \in \{K_{\text{top}}, K_{\text{bot}}\}.
+\end{equation}
+%
+The original simulator stores $\Keff$ in its anisotropy
+prefactor, so the phase-diagram code recomputes
+$2 K_\ell / \Ms$ from the raw material constants $(K_\ell,
+\Ms)$ on each parameter namespace. The legacy field path
+that uses $\Keff$ is left untouched so existing
+current-driven analyses remain unaffected.
+
+\subsection{Corrected total energy}
+
+For a system with effective field expressed in tesla
+($\mb{H}_T = \mu_0 \, \mb{H}_{A/m}$), the per-cell
+self-energy
+of a bilinear contribution $\mb{H}$ and the Zeeman term are
+%
+\begin{equation}\label{eq:E_density}
+e_{\text{self}} = -\tfrac{1}{2}\, \Ms \,
+    \mb{m} \cdot \mb{H}_T,
+\qquad
+e_Z = -\Ms \, \mb{m} \cdot \mb{H}_{\text{ext},T},
+\end{equation}
+%
+without any additional $\mu_0$ prefactor because that
+factor is already absorbed in the conversion from A/m to T.
+The total energy summed over both Co layers therefore reads
+%
+\begin{equation}\label{eq:E_total}
+\boxed{\;
+E = -\tfrac{1}{2}\, V \Ms \!
+    \sum_{\ell} \sum_{i}
+    \mb{m}_i^{(\ell)} \cdot \mb{H}_{\text{int},i}^{(\ell)}
+    - V \Ms \!
+    \sum_{\ell} \sum_{i}
+    \mb{m}_i^{(\ell)} \cdot \mb{H}_{\text{ext},T}
+\;}
+\end{equation}
+%
+with $V = \tCo a^2$ the per-site volume of one layer and
+$\mb{H}_{\text{int}} =
+\Hex + \Hdmi + \Hanis^{\text{bare}} + \Hrkky + \Hdemag$. The
+$\tfrac{1}{2}$ prefactor prevents double counting of the
+bilinear self-interactions; it is absent on the Zeeman term
+because the external field is independent of the
+magnetization. Substituting
+$\Hanis^{\text{bare}} = (2K/\Ms) m_z \zhat$ recovers the
+textbook density $-K m_z^2$, confirming the convention.
+
+%======================================================================
+\section{Reduced Units}
+%======================================================================
+
+A phase diagram in absolute $(D,\, H_z)$ collapses to a
+single universal picture once the axes are normalized by the
+material's natural scales. We adopt:
+%
+\begin{equation}\label{eq:reduced}
+\boxed{\;
+x \equiv \frac{D}{\Dc},
+\qquad
+y \equiv \frac{H_z}{\HK},
+\;}
+\end{equation}
+%
+with $\Dc$ the Bogdanov--Hubert critical DMI and $\HK$ the
+anisotropy field. Both depend only on the material; they are
+computed once per sweep and stored as scalars in the output.
+
+\subsection{Critical DMI $\Dc$ (Bogdanov--Hubert)}
+
+The uniform PMA ferromagnet is locally stable against
+spontaneous helical winding only below
+%
+\begin{equation}\label{eq:Dc}
+\Dc = \frac{4 \sqrt{\Aex \, \Keff}}{\pi},
+\qquad
+\Keff = \tfrac{1}{2}(K_{\text{top}} + K_{\text{bot}})
+    - \tfrac{1}{2} \mu_0 \Ms^2.
+\end{equation}
+%
+Above $\Dc$ the FM gains energy by canting into a
+periodic helix; below it the FM is the ground state at
+$H_z = 0$. The factor $4/\pi$ is the saddle-point result
+for a sinusoidal spiral on an infinite plane with no
+anisotropy in the easy-plane direction. We use the
+layer-averaged $\Keff$ to fold the small asymmetry between
+$K_{\text{top}}$ and $K_{\text{bot}}$ into a single scalar.
+The formula is undefined for $\Keff \le 0$; the
+implementation raises an exception in that easy-plane
+regime, since no PMA FM exists to destabilize.
+
+\subsection{Anisotropy field $\HK$}
+
+The anisotropy field is the field at which the Zeeman
+energy of a uniform out-of-plane ferromagnet equals the
+anisotropy gap. In A/m units the textbook expression is
+$\HK = 2 \Keff / (\mu_0 \Ms)$. The simulator's convention
+keeps every field in tesla, so we store
+%
+\begin{equation}\label{eq:HK}
+\HK^T = \mu_0 \HK = \frac{2 \Keff}{\Ms}
+    \quad \text{(tesla)}.
+\end{equation}
+
+\subsection{PMA quality factor}
+
+The dimensionless ratio
+%
+\begin{equation}\label{eq:Qpma}
+\Qpma = \frac{\Keff}{\tfrac{1}{2}\mu_0 \Ms^2}
+\end{equation}
+%
+sets which regime the material is in.
+Table~\ref{tab:Qpma_regimes} summarizes the qualitative
+behaviour for the SAF system; we obtain
+$\Qpma \approx 0.007$ at $K = 1.294 \times 10^6$ J/m$^3$
+(default) and $\Qpma \approx 0.245$ at
+$K = 1.60 \times 10^6$ J/m$^3$ (the value used in this
+work to access the chiral regime).
+%
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{l p{5.0cm} p{5.0cm}}
+\toprule
+$\Qpma$ range & Ground state at $H_z = 0$ &
+    Representative material \\
+\midrule
+$\lesssim 0.05$ & demag-driven bubbles / labyrinth
+    & weakly-PMA Co (too thick) \\
+$0.2$--$0.5$ & FM at large $|H_z|$;
+    SkX/iSk in a window
+    & Pt/Co/Ru/Co with engineered interface PMA \\
+$> 1$ & uniform out-of-plane FM dominates
+    & CoFeB / Heusler \\
+\bottomrule
+\end{tabular}
+\caption{Qualitative PMA regimes set by the dimensionless
+quality factor $\Qpma$ defined in~\eqref{eq:Qpma}. The
+default simulator parameters fall in the first row; the
+$K = 1.60$ MJ/m$^3$ choice used in the present sweep sits in
+the middle row.}
+\label{tab:Qpma_regimes}
+\end{table}
+
+\subsection{Material constants for the present sweep}
+
+For $K = 1.60 \times 10^6$ J/m$^3$ in both layers and the
+default $\Ms = 1.43$ MA/m, $\Aex = 16$ pJ/m, we obtain:
+%
+\begin{equation*}
+\Keff \approx 0.315\ \text{MJ/m}^3,
+\qquad
+\Dc \approx 2.86\ \text{mJ/m}^2,
+\qquad
+\HK \approx 0.441\ \text{T},
+\qquad
+\Qpma \approx 0.245.
+\end{equation*}
+%
+With $D$ swept over $[0, 6]$ mJ/m$^2$ and $H_z$ over
+$[-0.5, +0.5]$ T, the reduced-unit coverage is
+$x \in [0, 2.10]$ and $y \in [-1.13, +1.13]$, straddling
+both the chiral threshold $x = 1$ and the SAF spin-flop
+$|y| = \HRKKY / \HK \approx 0.47$.
+
+%======================================================================
+\section{Phase Classification}
+%======================================================================
+
+A relaxed configuration is labelled by a decision tree on
+five order parameters. The labels are
+$\{\text{FM\_anti}, \text{FM\_par+}, \text{FM\_par-},
+\text{iSk}, \text{SkX}, \text{BX}, \text{SS},
+\text{Lab}\}$ plus a sentinel \texttt{undetermined}.
+
+\subsection{Order parameters}
+
+For the top layer (the bottom layer is RKKY-coupled and
+follows it up to canting):
+%
+\begin{itemize}[nosep]
+\item Layer-averaged out-of-plane magnetization
+    $\langle m_z \rangle$.
+\item Layer dot product
+    $\langle \mb{m}_{\text{top}} \cdot
+    \mb{m}_{\text{bot}} \rangle$, the interlayer
+    Néel order parameter. Cleanly antiparallel SAF
+    states satisfy this $\approx -1$, parallel
+    (spin-flopped) FM states satisfy $\approx +1$.
+\item Topological charge of the top layer,
+    $Q = \frac{1}{4\pi} \int \mb{m} \cdot
+    (\partial_x \mb{m} \times \partial_y \mb{m}) \, dA$.
+\item Power spectrum of $m_z(\mb{r})$. Two summary
+    statistics are computed: a peak-to-background ratio
+    on the radial spectrum (used to gate the
+    ``periodic'' branch) and the
+    2-fold and 6-fold angular harmonics of the azimuthal
+    profile on a Gaussian ring of width
+    $\sigma = 1.5\, \Delta k_{\text{grid}}$ around the
+    dominant in-plane wavevector $k^\star$.
+\item Topological charge per principal period,
+    \begin{equation}\label{eq:q_per_period}
+    q_p \equiv \frac{|Q|}{N_p},
+    \qquad
+    N_p \equiv
+    \frac{k^\star L_x}{2\pi} \cdot
+    \frac{k^\star L_y}{2\pi}.
+    \end{equation}
+    A hexagonal skyrmion lattice has $q_p \approx 1$
+    (one full unit of charge per unit cell); a bubble
+    lattice with the same FFT signature but trivial
+    topology has $q_p \approx 0$.
+\end{itemize}
+
+\subsection{Decision tree}
+
+Let $|\langle m_z \rangle| > 0.95$ mean ``uniform'',
+$|\langle \mb{m}_{\text{top}} \cdot \mb{m}_{\text{bot}}
+\rangle| > 0.9$ mean ``clean polar'', and
+$P_6 / P_{\text{iso}} > 2$ with
+$P_6 > P_2$ mean ``6-fold periodic'' (analogously for SS).
+The classifier proceeds:
+%
+\begin{enumerate}[nosep]
+\item If uniform: pick FM by interlayer dot product.
+    Antiparallel ($\langle \mb{m}_{\text{top}} \cdot
+    \mb{m}_{\text{bot}} \rangle < -0.9$) yields
+    \textbf{FM\_anti}; parallel yields
+    \textbf{FM\_par+} or \textbf{FM\_par-} based on the
+    sign of $\langle m_z \rangle$. The uniform check is
+    \emph{and}-coupled with the dot-product check so a
+    textured antiparallel state with $\langle
+    \mb{m}_{\text{top}} \cdot \mb{m}_{\text{bot}}
+    \rangle \approx -1$ but
+    $|\langle m_z \rangle| < 1$ falls through.
+\item If $|Q| \in [0.5, 1.5]$ (one or a few isolated
+    skyrmions, broad FFT): \textbf{iSk}.
+\item If a 6-fold periodic ring is present:
+    \textbf{SkX} when $q_p \ge 0.5$,
+    \textbf{BX} otherwise.
+\item If a 2-fold periodic ring is present:
+    \textbf{SS} (spin spiral / helix).
+\item If a periodic ring with no clean angular order:
+    \textbf{Lab} (labyrinthine).
+\item Fallbacks: $|Q| > 1.5$ without periodic ordering
+    $\to$ \textbf{iSk} (multi-skyrmion family);
+    $|Q| < 0.5$ without ordering $\to$ \textbf{Lab};
+    else \textbf{undetermined}.
+\end{enumerate}
+
+\subsection{Why SkX vs.\ BX matters}
+
+Both phases have 6-fold periodic $m_z(\mb{r})$ in the
+FFT. They differ in whether each periodic minimum is
+topologically protected. A real skyrmion lattice has
+$|Q| = N_{\text{sk}}$ skyrmions per field of view, so
+$q_p \to 1$. A bubble lattice (or a stripe / labyrinth
+pattern with hexagonal symmetry) carries no winding and
+$q_p \to 0$. At zero DMI no real SkX can exist by
+construction; any 6-fold periodic ground state at
+$D = 0$ is therefore BX. Conflating the two would
+falsely report a chiral phase across regions of the
+$(D, H_z)$ plane that are in fact demag-driven and
+topologically trivial.
+
+%======================================================================
+\section{Initial-Condition Ensemble}
+%======================================================================
+
+At each $(D, H_z)$ grid point the relaxation is run from
+seven initial conditions; the lowest-energy converged
+result is taken as the ground state. The ensemble is
+designed to seed every basin we know to be physically
+relevant:
+%
+\begin{itemize}[nosep]
+\item Three independent random spheres
+    ($\varphi \sim U[0, 2\pi]$, $\cos\theta \sim U[-1, 1]$,
+    different seeds) to explore the texture manifold
+    without geometric bias. The bottom layer is set to
+    $-\mb{m}_{\text{top}}$ so the RKKY antiparallel
+    constraint is respected initially.
+\item \texttt{fm\_anti}: antiparallel SAF
+    ($\mb{m}_{\text{top}} = \pm\zhat$,
+    $\mb{m}_{\text{bot}} = \mp\zhat$). Tracks the FM
+    branch of the antiparallel manifold.
+\item \texttt{fm\_par}: parallel FM
+    ($\mb{m}_{\text{top}} = \mb{m}_{\text{bot}} =
+    \text{sign}(H_z) \zhat$). Tracks the FM branch of
+    the parallel manifold, accessible above the
+    spin-flop. Required to expose the
+    $H_z$-driven antiparallel $\to$ parallel transition;
+    without it the $(D, H_z)$ diagram is symmetric under
+    $H_z \to -H_z$ up to numerical noise.
+\item \texttt{saf\_skyrmion}: a Néel skyrmion in the top
+    layer with antiparallel pair below.
+\item \texttt{stripe}: a helical stripe of pitch
+    $\lambda = 4\pi \Aex / D$ (the natural DMI helix
+    period). Floored at $4 a$ to remain resolvable; for
+    $D = 0$ the period is set to the largest available
+    helical seed.
+\end{itemize}
+
+\subsection{Zero-Zeeman SAF and the spin-flop}
+
+Inside the antiparallel manifold ($\mb{m}_{\text{top}} =
+-\mb{m}_{\text{bot}}$ cell by cell) the Zeeman density is
+%
+\begin{equation}
+e_Z = -\Ms (\mb{m}_{\text{top}} +
+    \mb{m}_{\text{bot}}) \cdot \mb{H}_{\text{ext}, T}
+    \equiv 0,
+\end{equation}
+%
+identically, regardless of $|H_z|$. The applied field is
+decoupled from every state inside this manifold, including
+FM\_anti, BX, SkX, iSk, SS, Lab. A genuine $H_z$-driven
+phase boundary therefore requires the parallel manifold,
+which becomes energetically favorable above the spin-flop:
+%
+\begin{equation}\label{eq:spinflop}
+|H_z| \gtrsim \HRKKY \approx 0.205\ \text{T},
+\end{equation}
+%
+where the Zeeman gain from aligning both layers exceeds
+the RKKY cost of breaking antiparallel coupling. The
+\texttt{fm\_par} seed allows the relaxation to find this
+basin; without it the sweep would only sample
+antiparallel-manifold states and the high-$|y|$ regions
+of the phase diagram would be incorrectly attributed to
+the antiparallel FM rather than to the parallel FM.
+
+%======================================================================
+\section{Numerical Workflow}
+%======================================================================
+
+\subsection{Sweep}
+
+The sweep iterates over a Cartesian grid of $(D, H_z)$
+values; for each grid point and each of the seven ICs the
+relaxation runs an RK4 LLGS integrator with $J = 0$ and
+optional over-damped Gilbert factor $\alpha_{\text{relax}}
+= 1$ until both convergence criteria fire:
+%
+\begin{equation}\label{eq:conv}
+\max_i \bigl| \mb{m}_i \times
+    (\mb{m}_i \times \Heff(\mb{r}_i)) \bigr|
+    < \tau_{\text{tol}},
+\qquad
+\left| \frac{\Delta E}{E} \right| < \epsilon_E,
+\end{equation}
+%
+checked every $10^3$ steps (defaults
+$\tau_{\text{tol}} = 10^{-5}$ T, $\epsilon_E = 10^{-8}$,
+safety cutoff $2 \times 10^5$ steps). The
+tangential-torque criterion measures
+$|\mb{m} \times (\mb{m} \times \Heff)|$ rather than
+$|\dot{\mb{m}}|$ to avoid contamination from any
+$|\mb{m}| \ne 1$ numerical drift.
+
+The lowest-energy converged IC at each grid point is taken
+as the ground state, and per-IC observables plus the
+ground-state texture are written to a single compressed
+NPZ.
+
+\subsection{Reduced-unit plotting}
+
+The plotter defaults to $(D / \Dc, H_z / \HK)$ axes. The
+critical-DMI vertical line $x = 1$ and the spin-flop
+$|y| = \HRKKY / \HK$ are drawn on the phase map for
+reference. Absolute units (mJ/m$^2$, T) are available as a
+fallback.
+
+\subsection{Classifier verification}
+
+The classifier is verified on synthetic textures whose
+labels are known by construction:
+%
+\begin{itemize}[nosep]
+\item Uniform $(\pm\zhat, \mp\zhat)$ $\to$ FM\_anti.
+\item Uniform $(\pm\zhat, \pm\zhat)$ $\to$ FM\_par$\pm$.
+\item Helical stripe at the natural pitch $\to$ SS.
+\item Sum of three plane waves at $0$, $60$, $120$
+    degrees with Néel winding $\to$ SkX (with $q_p$
+    above threshold) or BX (without).
+\end{itemize}
+
+%======================================================================
+\section{Summary}
+%======================================================================
+
+The phase-diagram subsystem replaces the $\Keff$ thin-film
+contraction with an explicit 2D Fourier-space demag
+\eqref{eq:demag_k}--\eqref{eq:N_inter}, restores the bare
+anisotropy prefactor at the LLGS effective field, and writes
+total energies through the bilinear-vs.-external convention
+\eqref{eq:E_density}--\eqref{eq:E_total}. Phase diagrams are
+expressed in the dimensionless coordinates
+$(D/\Dc, H_z/\HK)$ defined by~\eqref{eq:Dc}--\eqref{eq:HK},
+classified by a decision tree that distinguishes
+topologically non-trivial skyrmion lattices from trivial
+bubble lattices via the per-period charge
+$q_p$~\eqref{eq:q_per_period}, and built from a 7-member IC
+ensemble that includes a parallel-FM seed so the spin-flop
+transition above $|H_z| \gtrsim \HRKKY$ is resolved. The
+choice $K = 1.60$ MJ/m$^3$ places the material at
+$\Qpma \approx 0.25$, in the regime where chiral phases are
+expected; the absolute sweep ranges $D \in [0, 6]$
+mJ/m$^2$ and $H_z \in [-0.5, +0.5]$ T translate to
+$D/\Dc \in [0, 2.10]$ and $H_z/\HK \in [-1.13, +1.13]$.
+
+%======================================================================
+\begin{thebibliography}{1}
+\bibitem{pham2024}
+V.~T.~Pham, N.~Sisodia, I.~Di~Manici,
+J.~Urrestarazu-Larra\~{n}aga et al.,
+``Fast current-induced skyrmion motion in synthetic
+antiferromagnets,''
+\emph{Nature Physics} (2024).
+\bibitem{bogdanov1994}
+A.~N.~Bogdanov and A.~Hubert,
+``Thermodynamically stable magnetic vortex states in
+magnetic crystals,''
+\emph{Journal of Magnetism and Magnetic Materials}
+\textbf{138}, 255--269 (1994).
+\bibitem{sampaio2013}
+J.~Sampaio, V.~Cros, S.~Rohart, A.~Thiaville, A.~Fert,
+``Nucleation, stability and current-induced motion of
+isolated magnetic skyrmions in nanostructures,''
+\emph{Nature Nanotechnology} \textbf{8}, 839 (2013).
+\bibitem{rohart2013}
+S.~Rohart and A.~Thiaville,
+``Skyrmion confinement in ultrathin film nanostructures
+in the presence of Dzyaloshinskii-Moriya interaction,''
+\emph{Physical Review B} \textbf{88}, 184422 (2013).
+\bibitem{buttner2018}
+F.~B\"{u}ttner, I.~Lemesh, and G.~S.~D.~Beach,
+``Theory of isolated magnetic skyrmions: From
+fundamentals to room temperature applications,''
+\emph{Scientific Reports} \textbf{8}, 4464 (2018).
+\bibitem{bernandmantel2020}
+A.~Bernand-Mantel, C.~B.~Muratov, and T.~M.~Simon,
+``Unraveling the role of dipolar versus
+Dzyaloshinskii-Moriya interactions in stabilizing
+compact magnetic skyrmions,''
+\emph{Physical Review B} \textbf{101}, 045416 (2020).
+\end{thebibliography}
+
+\end{document}

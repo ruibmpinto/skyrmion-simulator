@@ -18,6 +18,14 @@ Functions
 bare_anis_prefactors
     Return the bare 2*K/Ms anisotropy prefactors for both
     layers (without the thin-film K_eff correction).
+effective_anisotropy
+    Return the bare and effective anisotropies per layer
+    (K, K_eff = K - mu0*Ms^2/2) plus their layer average.
+critical_dmi
+    Bogdanov-Hubert critical DMI D_c = 4*sqrt(A*K_eff)/pi.
+pma_anisotropy_field
+    Anisotropy field H_K = 2*K_eff/(mu0*Ms) in Tesla, used
+    as the natural Zeeman scale.
 total_energy
     Total energy of the SAF state in Joules.
 """
@@ -48,6 +56,102 @@ __status__ = 'Development'
 # =====================================================================
 
 
+def effective_anisotropy(p):
+    """Return bare and demag-corrected anisotropies (J/m^3).
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Parameters namespace exposing `K_top`, `K_bot`,
+        `Ms`, and `mu0`.
+
+    Returns
+    -------
+    out : dict
+        Keys: `K_top`, `K_bot` (bare), `K_eff_top`,
+        `K_eff_bot`, `K_eff_avg`, `mu0_Ms2_over_2`.
+        `K_eff_layer = K_layer - 0.5 * mu0 * Ms^2`.
+    """
+    half_mu0_Ms2 = 0.5 * p.mu0 * p.Ms * p.Ms
+    K_eff_top = p.K_top - half_mu0_Ms2
+    K_eff_bot = p.K_bot - half_mu0_Ms2
+    return {
+        'K_top': float(p.K_top),
+        'K_bot': float(p.K_bot),
+        'K_eff_top': float(K_eff_top),
+        'K_eff_bot': float(K_eff_bot),
+        'K_eff_avg': float(0.5 * (K_eff_top + K_eff_bot)),
+        'mu0_Ms2_over_2': float(half_mu0_Ms2),
+    }
+
+
+# ---------------------------------------------------------------------
+def critical_dmi(p):
+    """Bogdanov-Hubert critical DMI strength (J/m^2).
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Parameters namespace.
+
+    Returns
+    -------
+    D_c : float
+        D_c = 4 * sqrt(A_ex * K_eff_avg) / pi, where
+        K_eff_avg is the layer-averaged effective
+        anisotropy. Raises `RuntimeError` if K_eff_avg <= 0
+        (no PMA FM to destabilize; D_c is undefined).
+
+    Notes
+    -----
+    Marks the threshold at which the uniform PMA FM state
+    becomes unstable to spontaneous helical winding.
+    Below D_c the FM is the stable ground state in the
+    absence of demag spatial structure; above D_c
+    spirals / SkX / iSk become competitive.
+    """
+    K_eff_avg = effective_anisotropy(p)['K_eff_avg']
+    if K_eff_avg <= 0.0:
+        raise RuntimeError(
+            f'K_eff_avg = {K_eff_avg:.3e} J/m^3 <= 0; '
+            f'D_c is undefined (easy-plane regime, no PMA '
+            f'FM to destabilize).'
+        )
+    return 4.0 * np.sqrt(p.A_ex * K_eff_avg) / np.pi
+
+
+# ---------------------------------------------------------------------
+def pma_anisotropy_field(p):
+    """Anisotropy field H_K = 2 K_eff / Ms in Tesla.
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Parameters namespace.
+
+    Returns
+    -------
+    H_K : float
+        Anisotropy field in Tesla, using the layer-averaged
+        effective anisotropy. Raises `RuntimeError` if
+        `K_eff_avg <= 0`.
+
+    Notes
+    -----
+    The textbook anisotropy field is H_K = 2 K_eff /
+    (mu0 Ms) in A/m. The simulator carries every H in
+    Tesla, so H_K_T = mu0 * H_K_(A/m) = 2 K_eff / Ms.
+    """
+    K_eff_avg = effective_anisotropy(p)['K_eff_avg']
+    if K_eff_avg <= 0.0:
+        raise RuntimeError(
+            f'K_eff_avg = {K_eff_avg:.3e} J/m^3 <= 0; '
+            f'H_K is undefined.'
+        )
+    return 2.0 * K_eff_avg / p.Ms
+
+
+# ---------------------------------------------------------------------
 def bare_anis_prefactors(p):
     """Return the bare 2*K/Ms anisotropy prefactors.
 
