@@ -53,45 +53,61 @@ def default_params():
     p = SimpleNamespace()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Lattice
+    # Square grid; periodic BCs are enforced in lattice.neighbors via roll.
     p.nx = 256
     p.ny = 256
+    # a << dw=27 nm so the domain wall is well-resolved (~14 sites).
     p.a = 2e-9  # m, lattice constant
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Material (SAF Co/Pt)
+    # Material (SAF Co/Pt); values taken from the SAF skyrmion paper.
     p.Ms = 1.43e6          # A/m, saturation magnetization
     p.A_ex = 16e-12        # J/m, exchange stiffness
+    # Interfacial Neel DMI from Pt interface.
     p.D = 0.62e-3          # J/m^2, DMI constant
+    # Bare K; thin-film K_eff = K - mu0 Ms^2/2 is used elsewhere.
     p.K_top = 1.294e6      # J/m^3, anisotropy (top)
+    # Slight layer asymmetry (K_bot > K_top) breaks the SAF degeneracy.
     p.K_bot = 1.31e6       # J/m^3, anisotropy (bottom)
+    # Large alpha reflects Pt proximity-enhanced damping.
     p.alpha = 0.14         # Gilbert damping
+    # Co slab thickness enters the demag shape factor f(|k|*t_Co).
     p.t_Co = 1.3e-9        # m, Co layer thickness
+    # Ru spacer thickness sets the AFM node of the RKKY oscillation.
     p.d_Ru = 0.8e-9        # m, Ru spacer thickness
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Constants
     p.mu0 = 4.0 * np.pi * 1e-7  # T*m/A
     # Gyromagnetic ratio: 194.8 GHz/T = 194.8e9 rad/(s*T)
+    # Used directly because every H is carried in Tesla (no mu0 in LLG).
     p.gamma = 194.8e9      # rad/(s*T)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # RKKY interlayer coupling
+    # AFM coupling cancels the Magnus force and kills the skyrmion Hall.
     p.H_RKKY = 0.205  # T, RKKY field
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # External field (Tesla)
+    # External field (Tesla); zero by default.
     p.H_ext = np.array([0.0, 0.0, 0.0])
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Spin-orbit torques
+    # H_DL = DL_SOT * J yields Tesla directly (units chosen to absorb mu0).
     p.DL_SOT = 2.21e-14  # T*A^-1*m^2, damping-like
     p.FL_SOT = 0.53e-14  # T*A^-1*m^2, field-like
+    # Drive value from the paper; relaxation phase forces J_eff = 0.
     p.J_current = 4.0e11    # A/m^2, current density
+    # In-plane polarization; the orientation drives skyrmion motion along x.
     p.p_hat = np.array([0.0, 1.0, 0.0])  # polarization
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Time integration
+    # Explicit RK4; dt must satisfy gamma * H_K * dt << 1 for stability.
     p.dt = 5e-14       # s
     p.n_relax = 10000  # relaxation steps (J=0), 500 ps
     p.n_steps = 5000   # current-driven steps
     p.dump_every = 100
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Skyrmion initial condition
+    # Domain-wall profile centered in box; mz=0 contour radius R.
     p.skyrmion_R = 80e-9   # m, skyrmion radius (mz=0)
+    # dw = sqrt(A_ex / K_eff) from 1D Euler-Lagrange solution (paper).
     p.skyrmion_dw = 27e-9  # m, domain wall width (paper)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Output
@@ -124,12 +140,14 @@ def _precompute(p):
     a2 = p.a * p.a
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Exchange prefactor: 2*A / (Ms * a^2)  [Tesla]
-    p.C_ex = 2.0 * p.A_ex / (p.Ms * a2)
+    p.C_ex = 2.0 * p.A_ex / (p.Ms * a2)  # discrete Laplacian coefficient
     # DMI prefactor: D / (Ms * a)  [Tesla]
-    p.C_dmi = p.D / (p.Ms * p.a)
+    p.C_dmi = p.D / (p.Ms * p.a)  # interfacial Neel form
     # Anisotropy prefactors: 2*K_eff / Ms  [Tesla]
     # K_eff = K - mu0*Ms^2/2 (thin-film demagnetization)
-    mu0_Ms = p.mu0 * p.Ms
+    mu0_Ms = p.mu0 * p.Ms  # shape-anisotropy correction term
+    # K_eff convention here folds uniform demag into K; full demag
+    # via demag.py uses bare K from energy.bare_anis_prefactors instead
     p.C_anis_top = 2.0 * p.K_top / p.Ms - mu0_Ms
     p.C_anis_bot = 2.0 * p.K_bot / p.Ms - mu0_Ms
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,8 +156,8 @@ def _precompute(p):
         p.H_DL = p.DL_SOT * p.J_current  # Tesla
         p.H_FL = p.FL_SOT * p.J_current  # Tesla
     else:
-        p.H_DL = 0.0
+        p.H_DL = 0.0  # explicit zero so llgs_rhs skips SOT branch
         p.H_FL = 0.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Gamma prime for explicit LLGS
+    # Gamma prime for explicit LLGS (absorbs 1/(1+a^2) prefactor)
     p.gamma_p = p.gamma / (1.0 + p.alpha ** 2)

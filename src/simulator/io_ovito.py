@@ -65,26 +65,32 @@ def write_dump(filepath, m_top, m_bot, pos_top, pos_bot,
     """
     ny, nx = m_top.shape[:2]
     n_top = nx * ny
+    # Atom count covers both layers; LAMMPS expects one type per layer.
     n_atoms = 2 * n_top
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Flatten and convert to nm
+    # Ovito renders nm by default; meters would zoom out of frame.
     pt = pos_top.reshape(-1, 3) * _M_TO_NM
     pb = pos_bot.reshape(-1, 3) * _M_TO_NM
     st = m_top.reshape(-1, 3)
     sb = m_bot.reshape(-1, 3)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Box bounds in nm
+    # Concatenate layers so bounds enclose every atom in the snapshot.
     all_x = np.concatenate([pt[:, 0], pb[:, 0]])
     all_y = np.concatenate([pt[:, 1], pb[:, 1]])
     all_z = np.concatenate([pt[:, 2], pb[:, 2]])
+    # Small margin prevents PBC-edge atoms from clipping in Ovito.
     margin = 0.5  # nm
     x_lo, x_hi = all_x.min() - margin, all_x.max() + margin
     y_lo, y_hi = all_y.min() - margin, all_y.max() + margin
     z_lo, z_hi = all_z.min() - 1.0, all_z.max() + 1.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Build data block (vectorized)
+    # LAMMPS IDs are 1-based; bottom layer follows top in the ID space.
     ids_top = np.arange(1, n_top + 1)
     ids_bot = np.arange(n_top + 1, n_atoms + 1)
+    # Atom type 1 = top, type 2 = bottom (used by Ovito to color layers).
     types_top = np.ones(n_top, dtype=int)
     types_bot = np.full(n_top, 2, dtype=int)
     # Stack top + bottom
@@ -93,27 +99,25 @@ def write_dump(filepath, m_top, m_bot, pos_top, pos_bot,
     pos = np.vstack([pt, pb])
     spins = np.vstack([st, sb])
     # Combine into single array for writing
+    # Spin (mx,my,mz) is packed into (fx,fy,fz): Ovito reads forces, not m.
     data = np.column_stack([
         ids, types,
         pos[:, 0], pos[:, 1], pos[:, 2],
-        spins[:, 0], spins[:, 1], spins[:, 2],
-    ])
+        spins[:, 0], spins[:, 1], spins[:, 2],])
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Write
     with open(filepath, mode) as f:
         f.write('ITEM: TIMESTEP\n')
         f.write(f'{step}\n')
+
         f.write('ITEM: NUMBER OF ATOMS\n')
         f.write(f'{n_atoms}\n')
+
         f.write('ITEM: BOX BOUNDS pp pp pp\n')
         f.write(f'{x_lo:.4f} {x_hi:.4f}\n')
         f.write(f'{y_lo:.4f} {y_hi:.4f}\n')
         f.write(f'{z_lo:.4f} {z_hi:.4f}\n')
-        f.write(
-            'ITEM: ATOMS id type x y z '
-            'fx fy fz\n'
-        )
-        np.savetxt(
-            f, data,
-            fmt='%d %d %.4f %.4f %.4f %.6f %.6f %.6f',
-        )
+        
+        f.write('ITEM: ATOMS id type x y z fx fy fz\n')
+
+        np.savetxt(f, data, fmt='%d %d %.4f %.4f %.4f %.6f %.6f %.6f',)

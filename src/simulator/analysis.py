@@ -60,8 +60,10 @@ def skyrmion_center(m, a):
         np.arange(nx, dtype=float),
         np.arange(ny, dtype=float),
     )
+    # Weight w = (1 - m_z)/2 peaks at the skyrmion core (m_z = -1).
     w = (1.0 - m[..., 2]) / 2.0
     ws = w.sum()
+    # Weighted centroid in physical (meters) coordinates.
     cx = np.sum(w * jj * a) / ws
     cy = np.sum(w * ii * a) / ws
     return cx, cy
@@ -83,8 +85,10 @@ def skyrmion_diameter(m, a):
     d : float
         Skyrmion diameter in meters.
     """
+    # Count sites inside the m_z = 0 contour (the skyrmion interior).
     n_inside = np.sum(m[..., 2] < 0)
     area = n_inside * a * a
+    # Equivalent disk diameter d = 2 sqrt(A / pi).
     return 2.0 * np.sqrt(area / np.pi)
 
 
@@ -101,6 +105,7 @@ def run_analysis():
     # =========================================================
     print('=== Phase 1: Relaxation (J=0, 500 ps) ===')
     p = default_params()
+    # Zero current and SOT fields to find the true zero-drive equilibrium.
     p.J_current = 0.0
     p.H_DL = 0.0
     p.H_FL = 0.0
@@ -134,6 +139,7 @@ def run_analysis():
     print(f'J = {p2.J_current:.2e} A/m^2')
     print(f'H_DL = {p2.H_DL:.4e} T')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Copy so the relaxed state is preserved as the initial drive frame.
     m_top_d = m_top.copy()
     m_bot_d = m_bot.copy()
     c0 = skyrmion_center(m_top_d, p2.a)
@@ -163,12 +169,14 @@ def run_analysis():
     # Velocity from steady-state (last 3 points)
     # =========================================================
     if len(track) >= 3:
+        # Finite-difference velocity from last two stored centers.
         t1, x1, y1 = track[-3]
         t2, x2, y2 = track[-1]
         dt_s = (t2 - t1) * 1e-12
         vx = (x2 - x1) / dt_s
         vy = (y2 - y1) / dt_s
         v = np.sqrt(vx ** 2 + vy ** 2)
+        # Hall angle: deviation of motion from the drive direction (~0 SAF).
         hall = np.degrees(
             np.arctan2(abs(vy), abs(vx))
         )

@@ -80,15 +80,12 @@ def precompute_demag_kernels(p):
     t = p.t_Co
     d_Ru = p.d_Ru
     if t <= 0.0:
-        raise RuntimeError(
-            f'p.t_Co must be positive, got {t}.'
-        )
+        raise RuntimeError(f'p.t_Co must be positive, got {t}.')
     if d_Ru < 0.0:
-        raise RuntimeError(
-            f'p.d_Ru must be non-negative, got {d_Ru}.'
-        )
+        raise RuntimeError(f'p.d_Ru must be non-negative, got {d_Ru}.')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # 2D k-grid in rad/m
+    # 2*pi factor converts numpy's cycle/sample frequencies to rad/m.
     kx = 2.0 * np.pi * np.fft.fftfreq(nx, d=a)
     ky = 2.0 * np.pi * np.fft.fftfreq(ny, d=a)
     KX, KY = np.meshgrid(kx, ky, indexing='xy')
@@ -98,27 +95,33 @@ def precompute_demag_kernels(p):
     Kd = K * d_Ru
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # 1/K^2 with safe handling of k=0
+    # Zero the inverse at k=0 to avoid div-by-zero; k=0 set separately.
     inv_K2 = np.zeros_like(K2)
     nz = K2 > 0.0
     inv_K2[nz] = 1.0 / K2[nz]
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Self-layer thin-film shape function
+    # f(k,t) -> 1 as Kt -> 0 (uniform); -> 0 as Kt -> inf (short wave).
     f_self = np.ones_like(K)
     nz_kt = Kt > 1e-12
     f_self[nz_kt] = (1.0 - np.exp(-Kt[nz_kt])) / Kt[nz_kt]
     one_m_f = 1.0 - f_self
+    # In-plane components share the (1 - f) shape factor.
     Nxx_self = one_m_f * KX * KX * inv_K2
     Nyy_self = one_m_f * KY * KY * inv_K2
     Nxy_self = one_m_f * KX * KY * inv_K2
+    # Out-of-plane component uses f directly (complementary projection).
     Nzz_self = f_self.copy()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # k=0 mode: pure uniform shape anisotropy (Nzz=1, in-plane=0)
+    # An infinite uniformly magnetized film: only z gets a demag field.
     Nxx_self[~nz] = 0.0
     Nyy_self[~nz] = 0.0
     Nxy_self[~nz] = 0.0
     Nzz_self[~nz] = 1.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Inter-layer kernel: same shape factor squared * exp(-K*d_Ru)
+    # f^2 from two slabs, exp(-K d_Ru) is the decay across the spacer.
     S = np.zeros_like(K)
     S[nz_kt] = (
         ((1.0 - np.exp(-Kt[nz_kt])) ** 2)
@@ -136,6 +139,7 @@ def precompute_demag_kernels(p):
     # this requires N_zz_inter = -S.
     Nzz_inter = -S
     # k=0: an infinite slab produces no external field.
+    # All inter-layer components vanish at k=0 (no DC coupling).
     Nxx_inter[~nz] = 0.0
     Nyy_inter[~nz] = 0.0
     Nxy_inter[~nz] = 0.0
@@ -181,54 +185,50 @@ def demag_field(m_top, m_bot, kernels):
     """
     mu0_Ms = kernels['mu0_Ms']
     # Forward FFT each component (top and bot)
+    # 6 forward FFTs per call; dominant per-step cost of demag.
+    # Top
     Mxt = np.fft.fft2(m_top[..., 0])
     Myt = np.fft.fft2(m_top[..., 1])
     Mzt = np.fft.fft2(m_top[..., 2])
+    # Bottom
     Mxb = np.fft.fft2(m_bot[..., 0])
     Myb = np.fft.fft2(m_bot[..., 1])
     Mzb = np.fft.fft2(m_bot[..., 2])
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Self interaction
     Nxx_s = kernels['Nxx_self']
     Nyy_s = kernels['Nyy_self']
     Nxy_s = kernels['Nxy_self']
     Nzz_s = kernels['Nzz_self']
+    # Interaction
     Nxx_i = kernels['Nxx_inter']
     Nyy_i = kernels['Nyy_inter']
     Nxy_i = kernels['Nxy_inter']
     Nzz_i = kernels['Nzz_inter']
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # H = -mu0*Ms * (N_self * m_self + N_inter * m_other) (k-space)
-    Hx_t_k = -mu0_Ms * (
-        Nxx_s * Mxt + Nxy_s * Myt
-        + Nxx_i * Mxb + Nxy_i * Myb
-    )
-    Hy_t_k = -mu0_Ms * (
-        Nxy_s * Mxt + Nyy_s * Myt
-        + Nxy_i * Mxb + Nyy_i * Myb
-    )
-    Hz_t_k = -mu0_Ms * (
-        Nzz_s * Mzt + Nzz_i * Mzb
-    )
-    Hx_b_k = -mu0_Ms * (
-        Nxx_s * Mxb + Nxy_s * Myb
-        + Nxx_i * Mxt + Nxy_i * Myt
-    )
-    Hy_b_k = -mu0_Ms * (
-        Nxy_s * Mxb + Nyy_s * Myb
-        + Nxy_i * Mxt + Nyy_i * Myt
-    )
-    Hz_b_k = -mu0_Ms * (
-        Nzz_s * Mzb + Nzz_i * Mzt
-    )
+    # Convolution becomes multiplication in k-space (PBC-justified).
+    # Top
+    Hx_t_k = -mu0_Ms * (Nxx_s * Mxt + Nxy_s * Myt + Nxx_i * Mxb + Nxy_i * Myb)
+    Hy_t_k = -mu0_Ms * (Nxy_s * Mxt + Nyy_s * Myt + Nxy_i * Mxb + Nyy_i * Myb)
+    Hz_t_k = -mu0_Ms * (Nzz_s * Mzt + Nzz_i * Mzb)
+    # Bottom
+    Hx_b_k = -mu0_Ms * (Nxx_s * Mxb + Nxy_s * Myb + Nxx_i * Mxt + Nxy_i * Myt)
+    Hy_b_k = -mu0_Ms * (Nxy_s * Mxb + Nyy_s * Myb + Nxy_i * Mxt + Nyy_i * Myt)
+    Hz_b_k = -mu0_Ms * (Nzz_s * Mzb + Nzz_i * Mzt)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Inverse FFT (take real part; imaginary residual is
     # numerical noise from finite precision)
+    # 6 inverse FFTs to complete the per-step demag evaluation.
+    # Top
     H_top = np.empty_like(m_top)
     H_top[..., 0] = np.real(np.fft.ifft2(Hx_t_k))
     H_top[..., 1] = np.real(np.fft.ifft2(Hy_t_k))
     H_top[..., 2] = np.real(np.fft.ifft2(Hz_t_k))
+    # Bottom
     H_bot = np.empty_like(m_bot)
     H_bot[..., 0] = np.real(np.fft.ifft2(Hx_b_k))
     H_bot[..., 1] = np.real(np.fft.ifft2(Hy_b_k))
     H_bot[..., 2] = np.real(np.fft.ifft2(Hz_b_k))
+    # Return
     return H_top, H_bot

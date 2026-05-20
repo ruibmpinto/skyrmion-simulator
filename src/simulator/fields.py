@@ -59,11 +59,33 @@ def exchange_field(m, C_ex):
     Notes
     -----
     H_ex = C_ex * (m_+x + m_-x + m_+y + m_-y - 4*m)
-    """
+
+    Loop vs roll form:
+
+    # Loop form (slow Python, but transparent)
+    laplacian = np.zeros_like(m)
+    for i in range(ny):
+        for j in range(nx):
+            ip = (i + 1) % ny
+            im = (i - 1) % ny
+            jp = (j + 1) % nx
+            jm = (j - 1) % nx
+            laplacian[i, j] = (
+                m[i, jp] + m[i, jm] + m[ip, j] + m[im, j]
+                - 4 * m[i, j]
+            )
+
+    vs.
+
+    # Roll form (vectorized, fast)
     m_px, m_mx, m_py, m_my = neighbors(m)
-    return C_ex * (
-        m_px + m_mx + m_py + m_my - 4.0 * m
-    )
+    laplacian = m_px + m_mx + m_py + m_my - 4 * m
+    """
+    # 5-point stencil discrete Laplacian on the square lattice.
+    # {1, 1, 1, 1, -4}: finite-difference Laplacian stencil weights.
+    m_px, m_mx, m_py, m_my = neighbors(m)
+
+    return C_ex * (m_px + m_mx + m_py + m_my - 4.0 * m)
 
 
 # ---------------------------------------------------------------------
@@ -93,19 +115,41 @@ def dmi_field(m, C_dmi):
         H_x =  C * (m_+x_z - m_-x_z)
         H_y =  C * (m_+y_z - m_-y_z)
         H_z = -C * (m_+x_x - m_-x_x + m_+y_y - m_-y_y)
+
+    The implementation uses the same roll-vs-loop pattern as
+    exchange_field, applied to a central-difference stencil
+    instead of a Laplacian:
+
+    # Loop form (slow Python, but transparent)
+    laplacian = np.zeros_like(m)
+    for i in range(ny):
+        for j in range(nx):
+            ip = (i + 1) % ny
+            im = (i - 1) % ny
+            jp = (j + 1) % nx
+            jm = (j - 1) % nx
+            laplacian[i, j] = (
+                m[i, jp] + m[i, jm] + m[ip, j] + m[im, j]
+                - 4 * m[i, j]
+            )
+
+    vs.
+
+    # Roll form (vectorized, fast)
+    m_px, m_mx, m_py, m_my = neighbors(m)
+    laplacian = m_px + m_mx + m_py + m_my - 4 * m
     """
+    # Central-difference discretization of the interfacial DMI field.
+    # {+1, -1, +1, -1, 0}$: (centered) central-difference first derivative.
     m_px, m_mx, m_py, m_my = neighbors(m)
     H = np.zeros_like(m)
-    H[..., 0] = C_dmi * (
-        m_px[..., 2] - m_mx[..., 2]
-    )
-    H[..., 1] = C_dmi * (
-        m_py[..., 2] - m_my[..., 2]
-    )
+    # In-plane components couple to gradients of m_z.
+    H[..., 0] = C_dmi * (m_px[..., 2] - m_mx[..., 2])
+    H[..., 1] = C_dmi * (m_py[..., 2] - m_my[..., 2])
+    # Out-of-plane component couples to the in-plane divergence.
     H[..., 2] = -C_dmi * (
         m_px[..., 0] - m_mx[..., 0]
-        + m_py[..., 1] - m_my[..., 1]
-    )
+        + m_py[..., 1] - m_my[..., 1])
     return H
 
 
@@ -125,6 +169,7 @@ def zeeman_field(H_ext, shape):
     H_z : numpy.ndarray(3d)
         Zeeman field in Tesla, shape (ny, nx, 3).
     """
+    # Spatially uniform field broadcast to lattice shape.
     H = np.empty((*shape, 3))
     H[..., :] = H_ext[np.newaxis, np.newaxis, :]
     return H
@@ -150,6 +195,7 @@ def anisotropy_field(m, C_anis):
     -----
     H_anis = C_anis * m_z * z_hat
     """
+    # Perpendicular uniaxial K: only the z-component couples to m_z.
     H = np.zeros_like(m)
     H[..., 2] = C_anis * m[..., 2]
     return H
@@ -165,8 +211,7 @@ def rkky_field(m_other, H_RKKY):
     Parameters
     ----------
     m_other : numpy.ndarray(3d)
-        Spin configuration of the other layer,
-        shape (ny, nx, 3).
+        Spin configuration of the other layer, shape (ny, nx, 3).
     H_RKKY : float
         RKKY field magnitude in Tesla.
 
@@ -180,6 +225,7 @@ def rkky_field(m_other, H_RKKY):
     H_RKKY_on_this = -H_RKKY * m_other
     Promotes antiparallel alignment between layers.
     """
+    # Negative sign drives antiparallel alignment between layers.
     return -H_RKKY * m_other
 
 
@@ -215,6 +261,8 @@ def effective_field(m, m_other, C_ex, C_dmi, C_anis,
         shape (ny, nx, 3).
     """
     shape = m.shape[:2]
+    # Sum of micromagnetic contributions; demag must be added by caller
+    # (energy.py adds it explicitly via demag_field).
     H = exchange_field(m, C_ex)
     H += dmi_field(m, C_dmi)
     H += anisotropy_field(m, C_anis)

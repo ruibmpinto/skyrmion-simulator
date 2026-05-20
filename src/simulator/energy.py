@@ -72,6 +72,7 @@ def effective_anisotropy(p):
         `K_eff_bot`, `K_eff_avg`, `mu0_Ms2_over_2`.
         `K_eff_layer = K_layer - 0.5 * mu0 * Ms^2`.
     """
+    # Shape-anisotropy correction for an infinite thin film with PMA.
     half_mu0_Ms2 = 0.5 * p.mu0 * p.Ms * p.Ms
     K_eff_top = p.K_top - half_mu0_Ms2
     K_eff_bot = p.K_bot - half_mu0_Ms2
@@ -115,14 +116,15 @@ def critical_dmi(p):
         raise RuntimeError(
             f'K_eff_avg = {K_eff_avg:.3e} J/m^3 <= 0; '
             f'D_c is undefined (easy-plane regime, no PMA '
-            f'FM to destabilize).'
-        )
+            f'FM to destabilize).')
+    # Bogdanov-Hubert critical DMI for FM to spiral instability.
     return 4.0 * np.sqrt(p.A_ex * K_eff_avg) / np.pi
 
 
 # ---------------------------------------------------------------------
 def pma_anisotropy_field(p):
-    """Anisotropy field H_K = 2 K_eff / Ms in Tesla.
+    """Perpendicular Magnetic Anisotropy (PMA):
+    Anisotropy field H_K = 2 K_eff / Ms in Tesla.
 
     Parameters
     ----------
@@ -146,8 +148,8 @@ def pma_anisotropy_field(p):
     if K_eff_avg <= 0.0:
         raise RuntimeError(
             f'K_eff_avg = {K_eff_avg:.3e} J/m^3 <= 0; '
-            f'H_K is undefined.'
-        )
+            f'H_K is undefined.')
+    # H_K in Tesla: simulator carries every H in T, so absorb mu0.
     return 2.0 * K_eff_avg / p.Ms
 
 
@@ -177,6 +179,7 @@ def bare_anis_prefactors(p):
     correction (K_eff convention). When demag is computed
     explicitly we must use bare K only.
     """
+    # No K_eff correction: caller adds the demag field explicitly.
     inv_Ms = 1.0 / p.Ms
     C_top = 2.0 * p.K_top * inv_Ms
     C_bot = 2.0 * p.K_bot * inv_Ms
@@ -186,6 +189,8 @@ def bare_anis_prefactors(p):
 # ---------------------------------------------------------------------
 def total_energy(m_top, m_bot, p, kernels):
     """Compute the total magnetic energy of the SAF state.
+
+    Used by the phase diagram sweep.
 
     Parameters
     ----------
@@ -209,8 +214,10 @@ def total_energy(m_top, m_bot, p, kernels):
     prefactor because the external field is independent of
     the system's magnetization.
     """
+    # Per-site magnetic volume (one layer); top + bot doubles it in sum.
     V_cell = p.t_Co * p.a * p.a
     Ms = p.Ms
+    # Use bare K so anisotropy and demag are not double-counted.
     C_top, C_bot = bare_anis_prefactors(p)
     shape = m_top.shape[:2]
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -218,25 +225,27 @@ def total_energy(m_top, m_bot, p, kernels):
     H_int_top = exchange_field(m_top, p.C_ex)
     H_int_top += dmi_field(m_top, p.C_dmi)
     H_int_top += anisotropy_field(m_top, C_top)
+    # RKKY on top is driven by m_bot.
     H_int_top += rkky_field(m_bot, p.H_RKKY)
     H_int_bot = exchange_field(m_bot, p.C_ex)
     H_int_bot += dmi_field(m_bot, p.C_dmi)
     H_int_bot += anisotropy_field(m_bot, C_bot)
+    # RKKY on bottom is driven by m_top.
     H_int_bot += rkky_field(m_top, p.H_RKKY)
+    # Demag: self + inter-layer via FFT kernels.
     H_dem_top, H_dem_bot = demag_field(m_top, m_bot, kernels)
     H_int_top += H_dem_top
     H_int_bot += H_dem_bot
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Bilinear (self) energy with 0.5 prefactor
-    dot_int = (
-        np.sum(m_top * H_int_top) + np.sum(m_bot * H_int_bot)
-    )
+    dot_int = (np.sum(m_top * H_int_top) + np.sum(m_bot * H_int_bot))
+    # 0.5 prevents double counting bilinear self-interactions.
     E_internal = -0.5 * V_cell * Ms * dot_int
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Zeeman energy (no 0.5; field is external)
     H_zee = zeeman_field(p.H_ext, shape)
-    dot_zee = (
-        np.sum(m_top * H_zee) + np.sum(m_bot * H_zee)
-    )
+    dot_zee = (np.sum(m_top * H_zee) + np.sum(m_bot * H_zee))
+    # No 0.5: external field is independent of m, so no double counting.
     E_zeeman = -V_cell * Ms * dot_zee
+    # Return
     return float(E_internal + E_zeeman)

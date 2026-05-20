@@ -61,19 +61,19 @@ def topological_charge(m, a):
     Uses central finite differences for the derivatives.
     """
     # Central differences
-    dmdx = (
-        np.roll(m, -1, axis=1) - np.roll(m, +1, axis=1)
-    ) / (2.0 * a)
-    dmdy = (
-        np.roll(m, -1, axis=0) - np.roll(m, +1, axis=0)
-    ) / (2.0 * a)
+    # 2nd-order accurate; PBC via np.roll matches the simulation lattice.
+    dmdx = (np.roll(m, -1, axis=1) - np.roll(m, +1, axis=1)) / (2.0 * a)
+    dmdy = (np.roll(m, -1, axis=0) - np.roll(m, +1, axis=0)) / (2.0 * a)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Cross product dm/dx x dm/dy
     cross = np.cross(dmdx, dmdy)
     # Dot with m
+    # m . (dm/dx x dm/dy) is the topological charge density.
     density = np.sum(m * cross, axis=-1)
     # Integrate
+    # 1/(4 pi) normalization; one Neel skyrmion gives |Q| = 1.
     Q = np.sum(density) * a * a / (4.0 * np.pi)
+    # Return
     return Q
 
 
@@ -105,15 +105,13 @@ def run(p=None):
     )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Lattice positions
+    # Bottom layer offset by -t_Co in z for visualization in Ovito only.
     pos_top = lattice_positions(p.nx, p.ny, p.a)
     pos_bot = lattice_positions(p.nx, p.ny, p.a)
     pos_bot[..., 2] = -p.t_Co
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Initial conditions: SAF skyrmion pair
-    m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a,
-        p.skyrmion_R, p.skyrmion_dw,
-    )
+    m_top, m_bot = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Header
     print('SAF Skyrmion Simulator')
@@ -135,19 +133,19 @@ def run(p=None):
     if p.n_relax > 0:
         print('Relaxation phase (J=0)...')
         # Temporarily disable SOT
+        # Cache and zero SOT so llgs_rhs skips that branch entirely.
         H_DL_save = p.H_DL
         H_FL_save = p.H_FL
         p.H_DL = 0.0
         p.H_FL = 0.0
         for step in range(1, p.n_relax + 1):
-            m_top, m_bot = rk4_step(
-                m_top, m_bot, p.dt, p
-            )
+            m_top, m_bot = rk4_step(m_top, m_bot, p.dt, p)
             if step % (p.n_relax // 5) == 0:
                 Q = topological_charge(m_top, p.a)
                 t_ps = step * p.dt * 1e12
                 print(f'  t={t_ps:.0f} ps  Q={Q:+.4f}')
         # Restore SOT
+        # Re-enable the cached drive before entering Phase 2.
         p.H_DL = H_DL_save
         p.H_FL = H_FL_save
         print('Relaxation done.')
@@ -166,6 +164,7 @@ def run(p=None):
                 f'Q_top = {Q_top:+.4f}  '
                 f'Q_bot = {Q_bot:+.4f}'
             )
+            # First frame opens file in 'w'; subsequent frames append.
             file_mode = 'w' if step == 0 else 'a'
             write_dump(
                 dump_path, m_top, m_bot,
@@ -174,10 +173,9 @@ def run(p=None):
             )
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # RK4 step
+        # Guard: don't advance past the final dump frame.
         if step < p.n_steps:
-            m_top, m_bot = rk4_step(
-                m_top, m_bot, p.dt, p
-            )
+            m_top, m_bot = rk4_step(m_top, m_bot, p.dt, p)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Summary
     elapsed = time.time() - t_start
