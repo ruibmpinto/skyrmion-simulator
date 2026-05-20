@@ -55,17 +55,21 @@ def skyrmion_center(m, a):
     cy : float
         Center y-coordinate in meters.
     """
+    # Extract number of grid points per direction
     ny, nx = m.shape[:2]
+    # Create grid of lattic sites in units of a. jj, ii have shape (ny, nx).
     jj, ii = np.meshgrid(
         np.arange(nx, dtype=float),
-        np.arange(ny, dtype=float),
-    )
+        np.arange(ny, dtype=float),)
     # Weight w = (1 - m_z)/2 peaks at the skyrmion core (m_z = -1).
+    # m_z stored in m[..., 2].
+    # w has shape (ny, nx)
     w = (1.0 - m[..., 2]) / 2.0
     ws = w.sum()
     # Weighted centroid in physical (meters) coordinates.
     cx = np.sum(w * jj * a) / ws
     cy = np.sum(w * ii * a) / ws
+    # Return
     return cx, cy
 
 
@@ -86,6 +90,7 @@ def skyrmion_diameter(m, a):
         Skyrmion diameter in meters.
     """
     # Count sites inside the m_z = 0 contour (the skyrmion interior).
+    # m_z stored in m[..., 2].
     n_inside = np.sum(m[..., 2] < 0)
     area = n_inside * a * a
     # Equivalent disk diameter d = 2 sqrt(A / pi).
@@ -110,17 +115,13 @@ def run_analysis():
     p.H_DL = 0.0
     p.H_FL = 0.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R
-    )
+    m_top, m_bot = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R)
     d0 = skyrmion_diameter(m_top, p.a)
     print(f'Initial diameter: {d0 * 1e9:.1f} nm')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     n_relax = 10000  # 10000 * 50 fs = 500 ps
     for step in range(1, n_relax + 1):
-        m_top, m_bot = rk4_step(
-            m_top, m_bot, p.dt, p
-        )
+        m_top, m_bot = rk4_step(m_top, m_bot, p.dt, p)
         if step % 2000 == 0:
             d = skyrmion_diameter(m_top, p.a)
             t_ps = step * p.dt * 1e12
@@ -128,8 +129,7 @@ def run_analysis():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     d_eq = skyrmion_diameter(m_top, p.a)
     Q_eq = topological_charge(m_top, p.a)
-    print(f'Equilibrium: d={d_eq * 1e9:.1f} nm, '
-          f'Q={Q_eq:.4f}')
+    print(f'Equilibrium: d={d_eq * 1e9:.1f} nm, Q={Q_eq:.4f}')
     print()
     # =========================================================
     # Phase 2: Current-driven dynamics
@@ -143,15 +143,12 @@ def run_analysis():
     m_top_d = m_top.copy()
     m_bot_d = m_bot.copy()
     c0 = skyrmion_center(m_top_d, p2.a)
-    print(f'Start: ({c0[0] * 1e9:.1f}, '
-          f'{c0[1] * 1e9:.1f}) nm')
+    print(f'Start: ({c0[0] * 1e9:.1f}, {c0[1] * 1e9:.1f}) nm')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     n_drive = 20000  # 20000 * 50 fs = 1 ns
     track = []
     for step in range(1, n_drive + 1):
-        m_top_d, m_bot_d = rk4_step(
-            m_top_d, m_bot_d, p2.dt, p2
-        )
+        m_top_d, m_bot_d = rk4_step(m_top_d, m_bot_d, p2.dt, p2)
         if step % 4000 == 0:
             c = skyrmion_center(m_top_d, p2.a)
             d = skyrmion_diameter(m_top_d, p2.a)
@@ -163,8 +160,7 @@ def run_analysis():
                 f'({c[0] * 1e9:.1f}, '
                 f'{c[1] * 1e9:.1f}) nm, '
                 f'd={d * 1e9:.1f} nm, '
-                f'Q={Q:.4f}'
-            )
+                f'Q={Q:.4f}')
     # =========================================================
     # Velocity from steady-state (last 3 points)
     # =========================================================
@@ -177,9 +173,7 @@ def run_analysis():
         vy = (y2 - y1) / dt_s
         v = np.sqrt(vx ** 2 + vy ** 2)
         # Hall angle: deviation of motion from the drive direction (~0 SAF).
-        hall = np.degrees(
-            np.arctan2(abs(vy), abs(vx))
-        )
+        hall = np.degrees(np.arctan2(abs(vy), abs(vx)))
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         print()
         print('=== Comparison with paper ===')
@@ -187,8 +181,7 @@ def run_analysis():
         print(f'  Sim:   {d_eq * 1e9:.0f} nm')
         print(f'  Paper: 197 nm')
         print(f'Velocity @ J={p2.J_current:.0e}:')
-        print(f'  Sim:   {v:.0f} m/s '
-              f'(vx={vx:.0f}, vy={vy:.0f})')
+        print(f'  Sim:   {v:.0f} m/s (vx={vx:.0f}, vy={vy:.0f})')
         print(f'  Paper: ~400 m/s (mumag)')
         print(f'Hall angle:')
         print(f'  Sim:   {hall:.1f} deg')
@@ -196,7 +189,6 @@ def run_analysis():
         print(f'Topological charge:')
         print(f'  Sim:   {Q:.4f}')
         print(f'  Paper: +/-1')
-
 
 # =====================================================================
 if __name__ == '__main__':
