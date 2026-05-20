@@ -62,8 +62,21 @@ def topological_charge(m, a):
     """
     # Central differences
     # 2nd-order accurate; PBC via np.roll matches the simulation lattice.
-    dmdx = (np.roll(m, -1, axis=1) - np.roll(m, +1, axis=1)) / (2.0 * a)
-    dmdy = (np.roll(m, -1, axis=0) - np.roll(m, +1, axis=0)) / (2.0 * a)
+    # Shift left along x: site at (i, j+1) now appears at (i, j),
+    # so m_px[i, j] is the +x neighbor of m[i, j].
+    m_px = np.roll(m, -1, axis=1)
+    # Shift right along x: site at (i, j-1) now appears at (i, j),
+    # so m_mx[i, j] is the -x neighbor of m[i, j].
+    m_mx = np.roll(m, +1, axis=1)
+    # Shift up along y: site at (i+1, j) now appears at (i, j),
+    # so m_py[i, j] is the +y neighbor of m[i, j].
+    m_py = np.roll(m, -1, axis=0)
+    # Shift down along y: site at (i-1, j) now appears at (i, j),
+    # so m_my[i, j] is the -y neighbor of m[i, j].
+    m_my = np.roll(m, +1, axis=0)
+    # Central-difference gradients along x and y.
+    dmdx = (m_px - m_mx) / (2.0 * a)
+    dmdy = (m_py - m_my) / (2.0 * a)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Cross product dm/dx x dm/dy
     cross = np.cross(dmdx, dmdy)
@@ -100,9 +113,7 @@ def run(p=None):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Output directory
     os.makedirs(p.output_dir, exist_ok=True)
-    dump_path = os.path.join(
-        p.output_dir, p.output_file
-    )
+    dump_path = os.path.join(p.output_dir, p.output_file)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Lattice positions
     # Bottom layer offset by -t_Co in z for visualization in Ovito only.
@@ -117,8 +128,7 @@ def run(p=None):
     print('SAF Skyrmion Simulator')
     print(f'  Lattice: {p.nx} x {p.ny}')
     print(f'  Relax: {p.n_relax} steps (J=0)')
-    print(f'  Drive: {p.n_steps} steps, '
-          f'dt = {p.dt:.2e} s')
+    print(f'  Drive: {p.n_steps} steps, dt = {p.dt:.2e} s')
     print(f'  Dump every {p.dump_every} steps')
     print(f'  Output: {dump_path}')
     if p.J_current != 0.0:
@@ -162,15 +172,13 @@ def run(p=None):
             print(
                 f'Step {step:>6d}  '
                 f'Q_top = {Q_top:+.4f}  '
-                f'Q_bot = {Q_bot:+.4f}'
-            )
+                f'Q_bot = {Q_bot:+.4f}')
             # First frame opens file in 'w'; subsequent frames append.
             file_mode = 'w' if step == 0 else 'a'
             write_dump(
                 dump_path, m_top, m_bot,
                 pos_top, pos_bot,
-                step, mode=file_mode,
-            )
+                step, mode=file_mode,)
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # RK4 step
         # Guard: don't advance past the final dump frame.
