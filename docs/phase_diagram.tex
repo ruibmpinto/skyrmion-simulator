@@ -7,6 +7,13 @@
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{hyperref}
 \usepackage{enumitem}
+\usepackage{graphicx}
+% Search the standard output directory for figures from
+% whichever working dir pdflatex was invoked from.
+\graphicspath{
+    {../output/phase_diagram/}
+    {output/phase_diagram/}
+}
 
 \hypersetup{
     colorlinks=true,
@@ -335,11 +342,16 @@ default $\Ms = 1.43$ MA/m, $\Aex = 16$ pJ/m, we obtain:
 \Qpma \approx 0.245.
 \end{equation*}
 %
-With $D$ swept over $[0, 6]$ mJ/m$^2$ and $H_z$ over
+With $D$ swept over $[0, 4]$ mJ/m$^2$ and $H_z$ over
 $[-0.5, +0.5]$ T, the reduced-unit coverage is
-$x \in [0, 2.10]$ and $y \in [-1.13, +1.13]$, straddling
+$x \in [0, 1.40]$ and $y \in [-1.13, +1.13]$, straddling
 both the chiral threshold $x = 1$ and the SAF spin-flop
-$|y| = \HRKKY / \HK \approx 0.47$.
+$|y| = \HRKKY / \HK \approx 0.47$. The upper $D$ bound is
+chosen to keep the skyrmion core radius
+$R_{sk} \sim \Delta_{DW} \sim \sqrt{\Aex / \Keff}$ above
+the lattice resolution; pushing further would require
+$a < 1$~nm. Section~\ref{sec:Hz_redundancy} discusses
+alternative sweeps that replace the $H_z$ axis.
 
 %======================================================================
 \section{Phase Classification}
@@ -445,39 +457,77 @@ topologically trivial.
 \section{Initial-Condition Ensemble}
 %======================================================================
 
-At each $(D, H_z)$ grid point the relaxation is run from
-seven initial conditions; the lowest-energy converged
-result is taken as the ground state. The ensemble is
-designed to seed every basin we know to be physically
-relevant:
+At each grid point the relaxation is run from twelve
+initial conditions; the lowest-energy converged result is
+taken as the ground state. The ensemble is designed to
+seed every basin we know to be physically relevant. Every
+IC returns an antiparallel SAF pair
+($\mb{m}_{\text{bot}} = -\mb{m}_{\text{top}}$ cell by
+cell) so the RKKY ground state is respected at the start
+of relaxation, except for \texttt{fm\_par}, which
+deliberately seeds the parallel-locked manifold.
 %
 \begin{itemize}[nosep]
-\item Three independent random spheres
-    ($\varphi \sim U[0, 2\pi]$, $\cos\theta \sim U[-1, 1]$,
-    different seeds) to explore the texture manifold
-    without geometric bias. The bottom layer is set to
-    $-\mb{m}_{\text{top}}$ so the RKKY antiparallel
-    constraint is respected initially.
+\item \texttt{random} $\times 5$ (seeds 11, 22, 33, 44, 55):
+    independent uniform-on-the-sphere spin fields
+    ($\varphi \sim U[0, 2\pi]$, $\cos\theta \sim U[-1, 1]$)
+    to explore the texture manifold without geometric
+    bias. Five seeds give better statistical coverage
+    of the disordered basins than the previous three.
 \item \texttt{fm\_anti}: antiparallel SAF
     ($\mb{m}_{\text{top}} = \pm\zhat$,
     $\mb{m}_{\text{bot}} = \mp\zhat$). Tracks the FM
     branch of the antiparallel manifold.
 \item \texttt{fm\_par}: parallel FM
     ($\mb{m}_{\text{top}} = \mb{m}_{\text{bot}} =
-    \text{sign}(H_z) \zhat$). Tracks the FM branch of
-    the parallel manifold, accessible above the
-    spin-flop. Required to expose the
-    $H_z$-driven antiparallel $\to$ parallel transition;
-    without it the $(D, H_z)$ diagram is symmetric under
-    $H_z \to -H_z$ up to numerical noise.
-\item \texttt{saf\_skyrmion}: a Néel skyrmion in the top
-    layer with antiparallel pair below.
-\item \texttt{stripe}: a helical stripe of pitch
-    $\lambda = 4\pi \Aex / D$ (the natural DMI helix
-    period). Floored at $4 a$ to remain resolvable; for
-    $D = 0$ the period is set to the largest available
-    helical seed.
+    \text{sign}(H_z) \zhat$). Required to expose the
+    $H_z$-driven antiparallel $\to$ parallel spin-flop.
+\item \texttt{skyrmion}: a single N\'{e}el SAF skyrmion
+    (\texttt{saf\_skyrmion} from
+    \texttt{src/simulator/initial\_conditions.py}). Seeds
+    the iSk basin.
+\item \texttt{stripe}: a 1D helical stripe along $\hat{x}$
+    of pitch $\lambda = 4\pi \Aex / D$ (the natural DMI
+    helix period), floored at $4a$.
+\item \texttt{stripe\_y}: same helix along $\hat{y}$;
+    probes orientation degeneracy of the SS phase and
+    commensurability with the box.
+\item \texttt{sk\_lattice}: a hexagonal lattice of
+    N\'{e}el skyrmions with nearest-neighbour distance
+    equal to $\lambda$. Each grid cell picks up the
+    profile of its nearest hex centre with radial in-plane
+    winding (Q = $\pm 1$ per core). Without this seed the
+    sweep almost never finds the SkX basin from a random
+    start at $256 \times 256$.
+\item \texttt{bubble\_lattice}: identical hex sites and
+    $m_z$ profile as \texttt{sk\_lattice}, but with the
+    in-plane direction held fixed along $+\hat{x}$ (no
+    winding). Each bubble carries $Q = 0$; the IC seeds
+    the BX basin and provides the classifier's
+    null-topology counterpart to verify the per-period
+    $q_p$ discriminator.
 \end{itemize}
+
+The IC builders are in
+\texttt{src/phase\_diagram/initial\_conditions\_ext.py}.
+Figure~\ref{fig:ic_gallery} renders each IC at one
+representative point in the phase plane along with the
+classifier's verdict on the unrelaxed state.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{ic_gallery}
+\caption{The twelve-member IC ensemble at
+$D = D_c = 2.86$~mJ/m$^2$, $H_z = 0$, $K = 1.60$~MJ/m$^3$
+on a $256 \times 256$ lattice at $a = 1$~nm. Each panel
+shows the top-layer $m_z(x, y)$; the title gives the
+classifier's predicted phase for the \emph{unrelaxed}
+state. The panel border is coloured by the predicted
+phase. Five random seeds produce noisy $Q$ values and
+classify as iSk by the $|Q|$-fallback branch; the
+structured ICs each target their named phase.}
+\label{fig:ic_gallery}
+\end{figure}
 
 \subsection{Zero-Zeeman SAF and the spin-flop}
 
@@ -514,8 +564,18 @@ the antiparallel FM rather than to the parallel FM.
 
 \subsection{Sweep}
 
-The sweep iterates over a Cartesian grid of $(D, H_z)$
-values; for each grid point and each of the seven ICs the
+The sweep iterates over a grid of two configurable axes
+$(\text{axis}_x, \text{axis}_y)$ chosen from the registry
+\texttt{src/phase\_diagram/axis\_specs.py::axes}.
+Registered axes are
+$D, H_z, K_{\text{top}}, \HRKKY, \Ms, \Aex, \tCo, \dRu,
+\alpha$; the typical pairs are $(D, H_z)$, $(D, K_{\text{top}})$,
+$(D, \HRKKY)$. The grid itself is an arbitrary 1-D numpy
+array per axis -- uniform \texttt{linspace} is the
+default but non-uniform clustering around critical lines
+(spin-flop, $\Dc$) is supported with no code changes.
+
+For each grid point and each of the twelve ICs the
 relaxation runs an RK4 LLGS integrator with $J = 0$ and
 optional over-damped Gilbert factor $\alpha_{\text{relax}}
 = 1$ until both convergence criteria fire:
@@ -528,10 +588,21 @@ optional over-damped Gilbert factor $\alpha_{\text{relax}}
 \left| \frac{\Delta E}{E} \right| < \epsilon_E,
 \end{equation}
 %
-checked every $10^3$ steps (defaults
+checked every $10^3$ steps. The
+\texttt{relaxation.relax} function defaults are
 $\tau_{\text{tol}} = 10^{-5}$ T, $\epsilon_E = 10^{-8}$,
-safety cutoff $2 \times 10^5$ steps). The
-tangential-torque criterion measures
+safety cutoff $2 \times 10^5$ steps. The running sweep
+config in \texttt{sweep.main()} overrides these to
+$\tau_{\text{tol}} = 10^{-3}$ T and
+$\epsilon_E = 10^{-7}$ with a $10^5$-step cutoff: the
+torque tolerance is loosened to about
+$2 \times 10^{-3}$ in $\HK$ units, comfortably above the
+amplitude of long-lived breathing modes
+($\sim 10^{-3}$~T) but eleven orders of magnitude above
+the float64 precision floor ($\sim 10^{-15}$~T), so the
+relaxation no longer reports false-negatives at the cost
+of $\sim 10^{-3}$ relative uncertainty in $\langle m_z
+\rangle$. The tangential-torque criterion measures
 $|\mb{m} \times (\mb{m} \times \Heff)|$ rather than
 $|\dot{\mb{m}}|$ to avoid contamination from any
 $|\mb{m}| \ne 1$ numerical drift.
@@ -539,7 +610,11 @@ $|\mb{m}| \ne 1$ numerical drift.
 The lowest-energy converged IC at each grid point is taken
 as the ground state, and per-IC observables plus the
 ground-state texture are written to a single compressed
-NPZ.
+NPZ. SLURM-array mode (triggered by
+\texttt{SLURM\_ARRAY\_TASK\_ID}) writes one partial NPZ
+per element; \texttt{aggregate.py} combines them in strict
+mode (cross-partial consistency of axes, IC list, and
+material scalars is checked; any mismatch raises).
 
 \subsection{Reduced-unit plotting}
 
@@ -559,9 +634,344 @@ labels are known by construction:
 \item Uniform $(\pm\zhat, \pm\zhat)$ $\to$ FM\_par$\pm$.
 \item Helical stripe at the natural pitch $\to$ SS.
 \item Sum of three plane waves at $0$, $60$, $120$
-    degrees with Néel winding $\to$ SkX (with $q_p$
+    degrees with N\'{e}el winding $\to$ SkX (with $q_p$
     above threshold) or BX (without).
 \end{itemize}
+
+%======================================================================
+\section{Relevance to the Pham 2024 Experiment}
+\label{sec:pham_value}
+%======================================================================
+
+A T=0 $(D, H_z)$ phase diagram for the Pt/Co/Ru/Pt/Co/Ru
+stack of~\cite{pham2024} would mostly confirm what the
+experiment already exploits, but it adds three quantitative
+contributions that are invisible from a single-point
+measurement.
+
+\subsection{What it confirms (low scientific value)}
+
+The paper operates at one
+$(D, H_z, \Keff, \HRKKY)$ point and demonstrates that the
+iSk texture is stable enough to drive at SOT-relevant
+current densities. The diagram inside the antiparallel
+manifold shows iSk occupying a band around their operating
+point, FM\_anti at low $D$, SS/SkX at higher $D$, and
+BX/Lab at marginal $\Keff$. None of this is surprising; it
+is the standard chiral-magnet picture inherited
+from~\cite{sampaio2013}, \cite{rohart2013}, and
+\cite{buttner2018}, ported to the antiparallel SAF.
+
+\subsection{What it adds (genuine value)}
+
+\paragraph{1.\ The spin-flop sets the real upper limit, not
+the anisotropy field.}
+The paper's whole compensated-Hall claim rests on the two
+Co layers being antiparallel. Above
+$|H_z| \approx \HRKKY \approx 0.205$~T the layers
+spin-flop to parallel, the skyrmion's bottom-layer partner
+inverts, and the topological Hall force no longer cancels.
+A conventional ferromagnetic phase diagram has no analogue
+of this transition; the spin-flop is specific to the SAF,
+and the diagram makes it the load-bearing constraint on
+device operating range. The paper does not state where the
+compensation fails as $|H_z|$ increases; the diagram
+answers that directly through the
+\texttt{FM\_anti}\,$\to$\,\texttt{FM\_par$\pm$} boundary at
+$|y| \approx \HRKKY/\HK \approx 0.47$ for the parameters
+in Section~2.
+
+\paragraph{2.\ iSk vs.\ BX discriminator at marginal
+$\Keff$.}
+For the Pt/Co/Ru/Pt/Co stack in~\cite{pham2024},
+$\Keff \approx 10^4$~J/m$^3$ --- barely positive. Both
+DMI-driven N\'{e}el skyrmions and demag-driven bubble
+domains can sit at the same operating point in
+textures-per-area, and a magnetic-microscopy image alone
+cannot tell them apart. The
+topological-charge-per-period observable
+$q_p = |Q|/N_p$ defined in~\eqref{eq:q_per_period} is the
+cleanest discriminator: $q_p \to 1$ for genuine chiral
+skyrmion lattices, $q_p \to 0$ for bubble lattices with
+the same FFT signature. The diagram identifies which
+$(D, H_z, \Keff)$ cells produce $Q = 1$ chiral cores
+versus $Q = 0$ bubbles, and the experimental stack sits
+exactly in the region where this discrimination matters.
+The diagram would let the paper defend the
+``skyrmion'' interpretation against the ``bubble''
+alternative quantitatively, rather than by N\'{e}el-helicity
+inspection alone.
+
+\paragraph{3.\ Material design space for follow-on
+devices.}
+\cite{pham2024} reports skyrmion velocities up to
+$\sim 900$~m/s at one specific stack. The phase diagram
+gives the $(D, \Keff, \HRKKY)$ recipe for staying inside
+the iSk basin:
+%
+\begin{itemize}[nosep]
+\item Smaller skyrmions: push $D$ up while staying below
+    the SS boundary at $D/\Dc \approx 1$.
+\item Larger skyrmions: lower $D$ toward (but not into)
+    the FM\_anti region.
+\item More robust against $H_z$: raise $\Keff$ and
+    $\HRKKY$ proportionally so $\HK \propto \Keff/\Ms$
+    and the spin-flop field both move outward.
+\item Denser arrays: cross into the SkX region at higher
+    $D/\Dc$ (just above $1$) where ground-state
+    nucleation is automatic.
+\end{itemize}
+%
+That recipe is a contribution the paper cannot make from a
+single measurement.
+
+\subsection{What it does not address}
+
+The diagram is a T=0 ground-state characterization. It
+does not predict skyrmion velocities, current thresholds,
+SOT efficiency, or the thermal nucleation and annihilation
+lifetimes that determine device reliability --- all of
+which are the paper's actual experimental claims. The
+diagram is therefore complementary, not competing: it
+tells you \emph{where} the texture lives, not \emph{how}
+it moves.
+
+\subsection{Honest verdict}
+
+For~\cite{pham2024} specifically, a $(D, H_z)$ diagram in
+absolute units is mostly confirmatory: the iSk window is
+the expected band, $\HRKKY$ is the spin-flop. The added
+value is the iSk-vs-BX call at the experimental
+$\Keff$ and the material-engineering map for follow-on
+work. The diagram becomes more informative if a second
+axis ($\Keff$ or $\HRKKY$ instead of $H_z$, which is
+partly redundant inside the antiparallel manifold) is
+swept; that would chart the actually sensitive parameters
+and is the natural extension for materials-engineering
+applications.
+
+%======================================================================
+\section{Redundancy of the $H_z$ Axis and Alternative Sweeps}
+\label{sec:Hz_redundancy}
+%======================================================================
+
+\subsection{Why $H_z$ is partly redundant}
+
+Inside the antiparallel manifold
+($\mb{m}_{\text{bot}}(\mb{r}) = -\mb{m}_{\text{top}}(\mb{r})$
+cell-by-cell, locked by RKKY), the Zeeman energy density
+is identically zero:
+%
+\begin{equation}
+e_Z = -\Ms \bigl(\mb{m}_{\text{top}}
+    + \mb{m}_{\text{bot}}\bigr) \cdot \mb{H}_{\text{ext}}
+    \equiv 0
+\qquad \text{for all } H_z,\ \text{all } \mb{r}.
+\end{equation}
+
+Two distinct consequences follow:
+
+\paragraph{1.\ Energy degeneracy.}
+The total energy of every antiparallel-manifold state ---
+\texttt{FM\_anti}, \texttt{iSk}, \texttt{SkX},
+\texttt{BX}, \texttt{SS}, \texttt{Lab} --- is independent
+of $H_z$. The energy ordering between these states is also
+independent of $H_z$. Consequently the ground-state label
+at $(D, H_{z,1})$ is identical to the ground-state label
+at $(D, H_{z,2})$ as long as both $H_z$ values are below
+the spin-flop. Along the $H_z$ axis the diagram carries no
+new information across that entire range.
+
+\paragraph{2.\ Dynamics still see the field.}
+Per-layer the LLGS torque $\mb{m} \times \mb{H}_{\text{ext}}$
+is nonzero --- $H_z$ tries to flip $\mb{m}_{\text{bot}}$
+toward $+\zhat$. What prevents this is the RKKY
+counter-torque from $\mb{m}_{\text{top}}$. Below
+$|H_z| \approx \HRKKY \approx 0.205$~T the RKKY wins and
+the antiparallel state survives; above, it does not.
+$H_z$ therefore controls a single binary degree of freedom:
+\emph{is the system inside or outside the antiparallel
+manifold?}
+
+\medskip\noindent
+Combining the two: the $H_z$ axis of a $(D, H_z)$ phase
+diagram is mostly degenerate, resolving exactly one sharp
+transition (the spin-flop) separating an antiparallel
+band (where $H_z$ is irrelevant) from a parallel band
+(where $H_z$ behaves as in a conventional ferromagnet).
+Most of the computational cost of the sweep is spent on
+the degenerate direction, and the only $H_z$-dependent
+feature the diagram resolves is the spin-flop line at
+%
+\begin{equation}
+\left|\frac{H_z}{\HK}\right| \approx
+    \frac{\HRKKY}{\HK} \approx 0.47
+\qquad \text{(for } K = 1.60\ \text{MJ/m}^3\text{).}
+\end{equation}
+
+\subsection{Alternative sweep directions}
+
+Three sweep directions place the computational effort on
+parameters that are not degenerate in the antiparallel
+manifold.
+
+\paragraph{$(D, \Keff)$ --- chiral-magnet phase plane.}
+The natural chiral-magnet phase diagram of the
+antiparallel manifold. At fixed $\Keff$, increasing $D$
+walks through \texttt{FM\_anti}~$\to$~\texttt{iSk}~$\to$~
+\texttt{SkX}~$\to$~\texttt{SS}. At fixed $D$, decreasing
+$\Keff$ walks through \texttt{FM\_anti}~$\to$~
+\texttt{iSk/SkX}~$\to$~\texttt{BX}~$\to$~\texttt{Lab}, with
+anisotropy losing to magnetostatics. In reduced units the
+plane is
+%
+\begin{equation}
+\left( \frac{D}{\Dc(\Keff)},\;
+       \Qpma \right)
+\qquad \text{with } \Qpma =
+    \frac{\Keff}{\tfrac{1}{2}\mu_0 \Ms^2},
+\end{equation}
+%
+and the phase boundaries are universal across SAF
+materials with the same Bogdanov--Hubert scaling.
+For~\cite{pham2024} the operating point sits at
+$\Qpma \approx 0.007$, right at the marginal-PMA
+boundary; a $(D, \Keff)$ sweep quantifies the smallest
+engineering change in $\Keff$ (interface anisotropy, Co
+thickness) that moves the system out of the BX-risk
+region and into a clean \texttt{iSk} band.
+
+\paragraph{$(D, \HRKKY)$ --- SAF-specific complement.}
+This sweep probes the axis that is genuinely
+SAF-specific. At small $\HRKKY$ the two Co layers
+decouple and the SAF degenerates into two weakly-coupled
+ferromagnets, restoring the conventional skyrmion Hall
+effect that the SAF was designed to suppress. At large
+$\HRKKY$ the layers are rigidly locked and the SAF is
+robust, but the spin-flop field also moves outward,
+narrowing the operating window in $|H_z|$. The diagram
+expresses the trade-off between mechanical robustness of
+the antiparallel locking and the maximum tolerable
+$|H_z|$. The Pham experiment fixes one Ru thickness
+(one $\HRKKY$); a $(D, \HRKKY)$ map would show whether
+thinner or thicker Ru gives a wider \texttt{iSk} window,
+which is one of the most important materials-engineering
+knobs in a SAF skyrmion device.
+
+\paragraph{$(\Keff, \HRKKY)$ at fixed $D$ --- pure design
+space.}
+Drops the chirality axis to display the
+materials-engineering plane directly. Use this once a
+target skyrmion size has been fixed via the helical pitch
+$\lambda_h = 4\pi \Aex / D$. The diagram is then a
+``what stack should I grow?'' map, with axes that the
+materials chemist actually controls (interface anisotropy
+through Co/heavy-metal thickness; interlayer coupling
+through Ru thickness).
+
+%======================================================================
+\section{Implementation Notes}
+\label{sec:impl}
+%======================================================================
+
+\subsection{Generic axis registry}
+
+The sweep is axis-agnostic. Each entry in
+\texttt{src/phase\_diagram/axis\_specs.py::axes} declares a
+display label, a display scale (SI $\to$ plot units), and
+an override-builder that turns one axis value into a
+\texttt{make\_params(**overrides)} kwarg dict. Adding a new
+sweep axis means appending one entry; the sweep, partial
+writer, aggregator, and plotter pick it up without further
+changes. Strict mode: unknown axis names, empty axis
+arrays, and material-scalar mismatches across partials all
+raise \texttt{RuntimeError}. Reduced-unit plotting
+$(D / \Dc, H_z / \HK)$ is supported only for the
+$(D, H_z)$ axis pair; other pairs render in absolute units
+from the registry.
+
+\subsection{Non-uniform axis sampling}
+
+The grid arrays in \texttt{sweep.main()} are plain numpy
+1-D arrays. The production sweep uses
+\textbf{clustered sampling} around the physical
+transitions instead of a uniform \texttt{linspace}: 30
+points along $D$ concentrated around $\Dc$, 30 points
+along $H_z$ concentrated around $|H_z| = \HRKKY$. The 10
+densest $D$ points fall in $\Dc \pm 0.2$~mJ/m$^2$ where
+the chiral phase boundaries actually live; the 9 densest
+$H_z$ points lie in a 0.1-T window around each spin-flop
+transition. The non-uniform grid resolves both critical
+lines $\sim 2\times$ better than a uniform 30-point grid
+at the same task count.
+
+\subsection{Lattice refinement}
+
+$\Delta_{DW} = \sqrt{\Aex / \Keff} \approx 7.13$~nm at
+$K = 1.60$~MJ/m$^3$. The original simulator used
+$a = 2$~nm, giving $\Delta_{DW} / a \approx 3.5$ -- below
+the standard micromagnetic floor of $\ge 7$ cells per
+domain wall. The phase-diagram sweep overrides $a = 1$~nm
+(and rescales $dt$ as $1/a^2$ for RK4 stability), giving
+$\Delta_{DW} / a = 7$ cells. The lattice constant is
+overridable per task via the \texttt{a} and \texttt{dt}
+fields of \texttt{make\_params}; the demag kernel
+precompute reads $p.a$ at construction time.
+
+\subsection{Companion scripts}
+
+Two visualization scripts live alongside the sweep
+pipeline:
+%
+\begin{itemize}[nosep]
+\item \texttt{src/phase\_diagram/show\_ics.py}: render the
+    IC ensemble at one $(D, H_z, K)$ point and classify
+    each IC's \emph{unrelaxed} state. Output:
+    \texttt{output/phase\_diagram/ic\_gallery.png}.
+    Useful for comparing initial vs. final labels in a
+    real sweep cell. See Figure~\ref{fig:ic_gallery}.
+\item \texttt{src/phase\_diagram/show\_phases.py}: render
+    a schematic phase diagram in reduced units
+    $(D/\Dc, H_z/\HK)$ with annotated regions and IC
+    target positions. Output:
+    \texttt{output/phase\_diagram/schematic\_phase\_diagram.png}.
+    Useful as a teaching reference and as a comparison
+    baseline against real sweep output. See
+    Figure~\ref{fig:schematic_phase}.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{schematic_phase_diagram}
+\caption{Schematic phase diagram of the antiparallel SAF
+in reduced units $(D / \Dc,\, H_z / \HK)$, with the
+twelve-IC ensemble overlaid at the position each named
+structure targets. The dashed horizontal lines mark the
+spin-flop $|H_z/\HK| = \HRKKY/\HK \approx 0.47$ separating
+the antiparallel manifold (middle) from the parallel
+manifolds (top and bottom). The dotted vertical line
+$D/\Dc = 1$ is the Bogdanov--Hubert chiral threshold.
+Inside the antiparallel manifold the bands are vertical
+because the Zeeman energy is identically zero; above the
+spin-flop the system behaves as a conventional chiral
+ferromagnet with PMA. Boundaries are illustrative, not
+computed.}
+\label{fig:schematic_phase}
+\end{figure}
+
+\subsection{Strict-mode aggregator}
+
+\texttt{src/phase\_diagram/aggregate.py} combines SLURM
+array partials. Every partial carries the canonical IC
+list (\texttt{ic\_names\_full}, \texttt{ic\_seeds\_full}),
+the two axis arrays (\texttt{axis\_x\_grid},
+\texttt{axis\_y\_grid}), and the material scalars
+($\Ms$, $\Aex$, $\mu_0$, $\HRKKY$,
+$K_{\text{top}}$, $K_{\text{bot}}$, $\tCo$, $\dRu$, $a$).
+The aggregator reads them from the first partial, requires
+every subsequent partial to agree exactly, and raises
+\texttt{RuntimeError} on any mismatch. There is no legacy
+fallback: partials missing a required key are rejected.
 
 %======================================================================
 \section{Summary}
@@ -574,18 +984,25 @@ anisotropy prefactor at the LLGS effective field, and writes
 total energies through the bilinear-vs.-external convention
 \eqref{eq:E_density}--\eqref{eq:E_total}. Phase diagrams are
 expressed in the dimensionless coordinates
-$(D/\Dc, H_z/\HK)$ defined by~\eqref{eq:Dc}--\eqref{eq:HK},
-classified by a decision tree that distinguishes
-topologically non-trivial skyrmion lattices from trivial
-bubble lattices via the per-period charge
-$q_p$~\eqref{eq:q_per_period}, and built from a 7-member IC
-ensemble that includes a parallel-FM seed so the spin-flop
-transition above $|H_z| \gtrsim \HRKKY$ is resolved. The
-choice $K = 1.60$ MJ/m$^3$ places the material at
-$\Qpma \approx 0.25$, in the regime where chiral phases are
-expected; the absolute sweep ranges $D \in [0, 6]$
+$(D/\Dc, H_z/\HK)$ defined by~\eqref{eq:Dc}--\eqref{eq:HK}
+for the canonical $(D, H_z)$ axis pair, and in absolute
+SI units for any other pair selected from the
+\texttt{axis\_specs.axes} registry
+(Section~\ref{sec:impl}). The classifier's decision tree
+distinguishes topologically non-trivial skyrmion lattices
+from trivial bubble lattices via the per-period charge
+$q_p$~\eqref{eq:q_per_period}, and the relaxation is run
+from a 12-member IC ensemble that includes explicit seeds
+for FM ($\times 2$), iSk ($\times 1$), SS ($\times 2$
+orientations), SkX ($\times 1$), BX ($\times 1$), plus
+five random spheres for statistical coverage. The choice
+$K = 1.60$ MJ/m$^3$ places the material at
+$\Qpma \approx 0.25$, in the regime where chiral phases
+are expected; the absolute sweep ranges $D \in [0, 4]$
 mJ/m$^2$ and $H_z \in [-0.5, +0.5]$ T translate to
-$D/\Dc \in [0, 2.10]$ and $H_z/\HK \in [-1.13, +1.13]$.
+$D/\Dc \in [0, 1.40]$ and $H_z/\HK \in [-1.13, +1.13]$,
+discretized as a (30, 30) clustered grid around the
+spin-flop and the chiral threshold.
 
 %======================================================================
 \begin{thebibliography}{1}

@@ -58,6 +58,97 @@ effect~\cite{pham2024}.
 The SAF stack modeled here is Pt/Co/Ru/Pt/Co/Ru, following the
 experimental system in~\cite{pham2024}.
 
+%----------------------------------------------------------------------
+\subsection{Notation}
+\label{sec:notation}
+
+\begin{itemize}[leftmargin=2em]
+    \item $\mb{M}(\mb{r}, t)$ --- magnetization.
+    \item $\Ms$ --- saturation magnetization at the operating
+        temperature, held fixed.
+    \item $\mb{m} = \mb{M}/\Ms$ --- unit magnetization vector,
+        $|\mb{m}| = 1$; evolved by the LLGS equation.
+    \item $\Heff, \Hex, \Hdmi, \Hanis, \Hdemag, \Hrkky, \Hext$ ---
+        effective fields entering the LLGS equation
+        $d\mb{m}/dt = -\gamma\,\mb{m}\times\Heff$. The
+        $\mb{B}=\mu_0\mb{H}$ factor is absorbed into the prefactors
+        (B-field units; see Sec.~\ref{sec:units}).
+    \item $J_{\text{RKKY}}$ --- RKKY interlayer coupling constant;
+        surface energy density (J/m$^2$) in Section~2.6, volume
+        energy density (J/m$^3$) in Sec.~\ref{sec:variational},
+        related by $J_{\text{RKKY}}^{(\text{vol})}
+        = J_{\text{RKKY}}^{(\text{surf})}/\tCo$.
+    \item $H_{\text{RKKY}}$ --- RKKY field magnitude:
+        $H_{\text{RKKY}} = J_{\text{RKKY}}^{(\text{vol})}/\Ms
+        = J_{\text{RKKY}}^{(\text{surf})}/(\Ms\,\tCo)$.
+    \item $\mb{J} = J\,\hat{J}$ --- current density;
+        $J$ is the magnitude, $\hat{J}$ the unit vector along the
+        current flow.
+    \item $\phat$ --- spin polarization direction,
+        $\phat = \zhat \times \hat{J}$.
+    \item $\zhat$ --- film-normal unit vector (out-of-plane).
+    \item $H_{\text{DL}} = \chi_{\text{DL}} J$,
+        $H_{\text{FL}} = \chi_{\text{FL}} J$ --- damping-like and
+        field-like SOT effective fields.
+    \item $\Keff = K - \mu_0 \Ms^2 / 2$ --- effective uniaxial
+        anisotropy with thin-film shape correction.
+    \item $V_{\text{cell}} = \tCo\,a^2$ --- per-site simulation
+        volume.
+    \item Energy integrals over a layer:
+        $\int \cdots\,dV = \tCo \int \cdots\,dS$ for thin uniform
+        layers.
+\end{itemize}
+
+%----------------------------------------------------------------------
+\subsection{Units}
+\label{sec:units}
+
+All quantities are in SI. Effective fields are carried in Tesla
+(B-field units), absorbing the $\mu_0$ factor from
+$\mb{B} = \mu_0\mb{H}$.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Symbol & Quantity & Unit \\
+\midrule
+$\mb{M}, \Ms$ & magnetization, saturation magnetization & A/m \\
+$\mb{m}$ & unit magnetization vector & --- \\
+$d\mb{m}/dt$ & magnetization rate of change & s$^{-1}$ \\
+$\Heff, \Hex, \Hdmi, \Hanis$ & effective fields & T \\
+$\Hdemag, \Hrkky, \Hext, \mb{B}_{\text{ext}}$ & effective fields & T \\
+$H_{\text{DL}}, H_{\text{FL}}$ & SOT effective fields & T \\
+$\Aex$ & exchange stiffness & J/m \\
+$D$ & DMI constant & J/m$^2$ \\
+$K, K_{\text{top}}, K_{\text{bot}}, \Keff$ & uniaxial anisotropy
+    & J/m$^3$ \\
+$\alpha$ & Gilbert damping & --- \\
+$\gamma$ & gyromagnetic ratio & rad/(s$\cdot$T) \\
+$\mu_0$ & vacuum permeability & T$\cdot$m/A \\
+$J_{\text{RKKY}}^{(\text{surf})}$ & RKKY surface energy density
+    & J/m$^2$ \\
+$J_{\text{RKKY}}^{(\text{vol})}$ & RKKY volume energy density
+    & J/m$^3$ \\
+$H_{\text{RKKY}}$ & RKKY field magnitude & T \\
+$\mb{J}, J$ & current density, magnitude & A/m$^2$ \\
+$\hat{J}, \phat, \zhat$ & unit vectors & --- \\
+$\chi_{\text{DL}}, \chi_{\text{FL}}$ & SOT coefficients
+    & T$\cdot$A$^{-1}\cdot$m$^2$ \\
+$a$ & lattice constant & m \\
+$\tCo, d_{\text{Ru}}$ & layer / spacer thicknesses & m \\
+$\Delta$ & domain wall width & m \\
+$R$ & skyrmion radius & m \\
+$V_{\text{cell}} = \tCo\,a^2$ & per-site simulation volume & m$^3$ \\
+$n_x, n_y$ & lattice sites & --- \\
+$t, \Delta t$ & time, time step & s \\
+$\mathcal{H}$ & Hamiltonian (energy) & J \\
+$Q$ & topological charge & --- \\
+$\mb{G}$ & gyrovector & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 %======================================================================
 \section{Hamiltonian}
 %======================================================================
@@ -149,6 +240,12 @@ On the lattice:
 \mathcal{H}_{\text{anis}} = -K \, \tCo \, a^2 \sum_i m_{z,i}^2
 \end{equation}
 
+PMA in Co/Pt and Co/Ru/Pt stacks originates from interfacial
+spin-orbit coupling at the heavy-metal interface (3d--5d
+hybridization between Co and Pt). The effect scales with the
+interface area, so thinner Co (here $\tCo = 1.3$~nm) has a larger
+interface-to-volume ratio and stronger PMA per unit volume.
+
 %----------------------------------------------------------------------
 \subsection{Demagnetization Energy}
 
@@ -189,6 +286,66 @@ $\Keff \approx 10^4$~J/m$^3$ --- barely positive, right at the SRT.
 This is why the system can host skyrmions.
 
 %----------------------------------------------------------------------
+\subsubsection*{Interface PMA vs shape anisotropy: the spin
+reorientation transition}
+
+In a thin ferromagnetic film, two anisotropies compete:
+\begin{enumerate}[leftmargin=2em, nosep]
+    \item \textbf{Interfacial PMA} ($K_s$, J/m$^2$) --- created by
+        spin-orbit hybridization at heavy-metal interfaces (Pt, Ir,
+        W, Pd, Au). Favors out-of-plane.
+    \item \textbf{Shape anisotropy}
+        ($\tfrac{1}{2}\mu_0 \Ms^2$, J/m$^3$) --- from the demag
+        field of a thin slab uniformly magnetized along $\zhat$.
+        Favors in-plane.
+\end{enumerate}
+
+The per-volume effective anisotropy of a film of thickness $t$ with
+two equivalent interfaces is
+%
+\begin{equation}\label{eq:Keff_full}
+\Keff = K_{\text{vol}} + \frac{2 K_s}{t}
+        - \frac{1}{2}\mu_0 \Ms^2,
+\end{equation}
+%
+where:
+\begin{itemize}[leftmargin=2em, nosep]
+    \item $K_s/t$ scales as $1/t$ --- interfaces dominate as $t$
+        shrinks.
+    \item $\tfrac{1}{2}\mu_0 \Ms^2$ is independent of thickness ---
+        pure volume term.
+\end{itemize}
+
+Sign convention:
+\begin{itemize}[leftmargin=2em, nosep]
+    \item $\Keff > 0 \;\Longrightarrow\;$ out-of-plane easy axis
+        (PMA).
+    \item $\Keff < 0 \;\Longrightarrow\;$ in-plane easy axis.
+\end{itemize}
+
+There is a critical thickness $t_c$ where $\Keff$ changes sign:
+%
+\begin{equation}\label{eq:t_c}
+t_c = \frac{2 K_s}{\tfrac{1}{2}\mu_0 \Ms^2 - K_{\text{vol}}}.
+\end{equation}
+%
+For Co/Pt: $K_s \sim 0.5$--$1$~mJ/m$^2$,
+$\mu_0 \Ms^2/2 \sim 1.3 \times 10^6$~J/m$^3$, $K_{\text{vol}}$ tiny
+$\;\Longrightarrow\; t_c \sim 1$~nm.
+\begin{itemize}[leftmargin=2em, nosep]
+    \item $t < t_c$: PMA wins, magnetization out-of-plane.
+    \item $t > t_c$: shape anisotropy wins, magnetization in-plane.
+\end{itemize}
+
+The simulator's Co layer is $\tCo = 1.3$~nm --- \textbf{right at
+the SRT, deliberately}. That is why
+$\Keff = K_{\text{top}} - \mu_0 \Ms^2/2 \approx 8\times10^3$~J/m$^3$
+is a small difference of two large numbers ($\sim 10^6$ each), and
+why 7\% uncertainty in $K$ propagates to $\sim$100\% uncertainty in
+$\Keff$ (see Implementation Notes,
+Sec.~\ref{sec:implementation_notes}).
+
+%----------------------------------------------------------------------
 \subsection{Zeeman Energy}
 
 Interaction with an external field $\mb{B}_{\text{ext}}$:
@@ -209,9 +366,11 @@ the Ru spacer:
     \mb{m}_{\text{top}} \cdot \mb{m}_{\text{bot}} \, dS
 \end{equation}
 %
-where $J_{\text{RKKY}} > 0$ for antiferromagnetic coupling. The
-coupling field is related to the coupling constant by
-$\mu_0 H_{\text{RKKY}} = J_{\text{RKKY}} / (\Ms \, \tCo)$.
+where $J_{\text{RKKY}} > 0$ for antiferromagnetic coupling (surface
+energy density, J/m$^2$). In the Tesla convention adopted here, the
+coupling field magnitude is
+$H_{\text{RKKY}} = J_{\text{RKKY}} / (\Ms \, \tCo)$ (cf.\ Notation
+block).
 
 %----------------------------------------------------------------------
 \subsection{Total Energy on the Discrete Lattice}
@@ -349,7 +508,7 @@ Applying~\eqref{eq:heff_def}:
     - \left(
         \frac{\partial m_x}{\partial x}
         + \frac{\partial m_y}{\partial y}
-    \right)\hat{z}
+    \right)\zhat
 \right)
 \end{equation}
 
@@ -396,7 +555,7 @@ $\mathcal{H}_{\text{RKKY}} = J_{\text{RKKY}} \int
 when varying $\mb{m}_{\text{top}}$:
 %
 \begin{equation}
-\mb{H}_{\text{RKKY, on top}} =
+\left.\Hrkky\right|_{\text{top}} =
     -\frac{J_{\text{RKKY}}}{\Ms}\,\mb{m}_{\text{bot}}
     = -H_{\text{RKKY}}\,\mb{m}_{\text{bot}}
 \end{equation}
@@ -465,10 +624,10 @@ $\mb{m} = \mb{M}/\Ms$:
 \frac{d\mb{m}}{dt} =
     -\gamma \, \mb{m} \times \Heff
     + \alpha \, \mb{m} \times \frac{d\mb{m}}{dt}
-    + H_{\text{DL}}
+    + \gamma H_{\text{DL}}
         \frac{\mb{m} \times (\phat \times \mb{m})}
              {|\phat \times \mb{m}|}
-    + H_{\text{FL}}
+    + \gamma H_{\text{FL}}
         \frac{\phat \times \mb{m}}
              {|\phat \times \mb{m}|}
 \end{equation}
@@ -483,30 +642,135 @@ where:
 \item $H_{\text{FL}} = \chi_{\text{FL}} \cdot J$ is the field-like
     (FL) SOT field,
 \item $\phat$ is the spin polarization direction
-    ($\phat = \zhat \times \hat{J}$).
+    ($\phat = \zhat \times \hat{J}$),
+\item $\mb{J} = J\,\hat{J}$ is the current density: $J$ is the
+    magnitude (A/m$^2$), $\hat{J}$ is the unit vector along the
+    current flow,
+\item $\zhat$ is the film-normal unit vector (out-of-plane).
 \end{itemize}
 
 %----------------------------------------------------------------------
 \subsection{Explicit Form}
+\label{sec:llgs_explicit_derivation}
 
-The implicit form~\eqref{eq:llgs} is converted to an explicit
-equation by substituting $d\mb{m}/dt$ into the damping term. Using
-$|\mb{m}| = 1$ and $\mb{m} \cdot d\mb{m}/dt = 0$:
+The implicit form~\eqref{eq:llgs} contains $d\mb{m}/dt$ on both sides
+through the Gilbert damping term. To convert it to a fully explicit
+ODE solvable by Runge--Kutta, we eliminate the right-hand-side
+$d\mb{m}/dt$ algebraically. The standard procedure
+follows Mallinson~\cite{mallinson1987} for the LLG part and
+Khvalkovskiy~\emph{et al.}~\cite{khvalkovskiy2013} for the SOT
+extension.
+
+\paragraph{Step 1: Compact form.}
+Define $\mb{s} = (\phat\times\mb{m})/|\phat\times\mb{m}|$ and group
+the right-hand side of~\eqref{eq:llgs} as
 %
-\begin{equation}\label{eq:llgs_explicit}
-\frac{d\mb{m}}{dt} = \frac{\gamma}{1 + \alpha^2} \Big[
-    -(\mb{m} \times \mb{H})
-    - \alpha \, \mb{m} \times (\mb{m} \times \mb{H})
-    + (H_{\text{DL}} + \alpha H_{\text{FL}})
-        (\mb{m} \times \mb{s})
-    + (H_{\text{FL}} - \alpha H_{\text{DL}}) \, \mb{s}
-\Big]
+\begin{equation}\label{eq:F_def}
+\frac{d\mb{m}}{dt} = \mb{F} + \alpha\,\mb{m}\times\frac{d\mb{m}}{dt},
+\qquad
+\mb{F} = -\gamma\,\mb{m}\times\Heff
+        + \gamma H_{\text{DL}}\,(\mb{m}\times\mb{s})
+        + \gamma H_{\text{FL}}\,\mb{s}.
+\end{equation}
+
+\paragraph{Step 2: Cross with $\mb{m}$.}
+Take $\mb{m}\times$ of both sides of~\eqref{eq:F_def}:
+%
+\begin{equation}\label{eq:cross_m}
+\mb{m}\times\frac{d\mb{m}}{dt}
+    = \mb{m}\times\mb{F}
+        + \alpha\,\mb{m}\times\Big(\mb{m}\times\frac{d\mb{m}}{dt}\Big).
 \end{equation}
 %
-where
-$\mb{s} = (\phat \times \mb{m}) / |\phat \times \mb{m}|$,
-and $H_{\text{DL}}$, $H_{\text{FL}}$ are the SOT effective fields in
-Tesla.
+The triple product is simplified by the BAC--CAB identity
+$\mb{a}\times(\mb{b}\times\mb{c}) = \mb{b}(\mb{a}\cdot\mb{c})
+- \mb{c}(\mb{a}\cdot\mb{b})$. Using $|\mb{m}|=1$ (so
+$\mb{m}\cdot\mb{m}=1$) and
+$\mb{m}\cdot d\mb{m}/dt = \tfrac{1}{2}d|\mb{m}|^2/dt = 0$:
+%
+\begin{equation}\label{eq:bac_cab_mdot}
+\mb{m}\times\Big(\mb{m}\times\frac{d\mb{m}}{dt}\Big)
+    = \mb{m}\Big(\mb{m}\cdot\frac{d\mb{m}}{dt}\Big)
+    - \frac{d\mb{m}}{dt}(\mb{m}\cdot\mb{m})
+    = -\frac{d\mb{m}}{dt}.
+\end{equation}
+%
+Substituting~\eqref{eq:bac_cab_mdot} into~\eqref{eq:cross_m}:
+%
+\begin{equation}\label{eq:cross_m_solved}
+\mb{m}\times\frac{d\mb{m}}{dt}
+    = \mb{m}\times\mb{F} - \alpha\,\frac{d\mb{m}}{dt}.
+\end{equation}
+
+\paragraph{Step 3: Solve for $d\mb{m}/dt$.}
+Insert~\eqref{eq:cross_m_solved} back into the
+$\alpha\,\mb{m}\times d\mb{m}/dt$ term of~\eqref{eq:F_def}:
+%
+\begin{equation}
+\frac{d\mb{m}}{dt}
+    = \mb{F} + \alpha\big(\mb{m}\times\mb{F} - \alpha\,\tfrac{d\mb{m}}{dt}\big),
+\end{equation}
+%
+collect the $d\mb{m}/dt$ terms on the left, and divide by
+$1+\alpha^2$:
+%
+\begin{equation}\label{eq:llgs_F_explicit}
+\boxed{\;
+\frac{d\mb{m}}{dt}
+    = \frac{1}{1+\alpha^2}\Big[\mb{F} + \alpha\,\mb{m}\times\mb{F}\Big].
+\;}
+\end{equation}
+
+\paragraph{Step 4: Expand $\mb{m}\times\mb{F}$.}
+The three contributions to $\mb{F}$ in~\eqref{eq:F_def} give:
+%
+\begin{align}
+\mb{m}\times\big(-\gamma\mb{m}\times\Heff\big)
+    &= -\gamma\,\mb{m}\times(\mb{m}\times\Heff), \\
+\mb{m}\times\big(\gamma H_{\text{DL}}\,\mb{m}\times\mb{s}\big)
+    &= \gamma H_{\text{DL}}\,\mb{m}\times(\mb{m}\times\mb{s})
+     = -\gamma H_{\text{DL}}\,\mb{s},
+        \label{eq:DL_simplify}\\
+\mb{m}\times\big(\gamma H_{\text{FL}}\,\mb{s}\big)
+    &= \gamma H_{\text{FL}}\,\mb{m}\times\mb{s},
+\end{align}
+%
+where~\eqref{eq:DL_simplify} again uses BAC--CAB with
+$\mb{m}\cdot\mb{s}=0$ (since $\mb{s}\propto\phat\times\mb{m}$ is
+perpendicular to $\mb{m}$):
+$\mb{m}\times(\mb{m}\times\mb{s}) = \mb{m}(\mb{m}\cdot\mb{s})
+- \mb{s} = -\mb{s}$.
+
+\paragraph{Step 5: Collect coefficients.}
+Assembling $\mb{F} + \alpha\mb{m}\times\mb{F}$ and dividing by
+$1+\alpha^2$:
+%
+\begin{equation}\label{eq:llgs_explicit}
+\boxed{\;
+\frac{d\mb{m}}{dt}
+    = \frac{\gamma}{1 + \alpha^2} \Big[
+        -\mb{m}\times\Heff
+        - \alpha\,\mb{m}\times(\mb{m}\times\Heff)
+        + (H_{\text{DL}} + \alpha H_{\text{FL}})\,(\mb{m}\times\mb{s})
+        + (H_{\text{FL}} - \alpha H_{\text{DL}})\,\mb{s}
+    \Big].
+\;}
+\end{equation}
+
+The coefficients $H_{\text{DL}} + \alpha H_{\text{FL}}$ and
+$H_{\text{FL}} - \alpha H_{\text{DL}}$ are the standard
+``mixed'' SOT coefficients of the explicit
+form~\cite{khvalkovskiy2013}; the cross-coupling between DL and FL
+through $\alpha$ arises entirely from
+Step~3's $\alpha\,\mb{m}\times\mb{F}$ term and vanishes at $\alpha=0$.
+%
+The implementation in \texttt{src/simulator/integrator.py}
+(\texttt{llgs\_rhs}) precomputes
+$\gamma' = \gamma/(1+\alpha^2)$,
+$c_{\text{DL}} = H_{\text{DL}} + \alpha H_{\text{FL}}$,
+$c_{\text{FL}} = H_{\text{FL}} - \alpha H_{\text{DL}}$,
+and evaluates~\eqref{eq:llgs_explicit} directly without further
+algebra.
 
 %======================================================================
 \section{Effective Field Contributions}
@@ -876,7 +1140,7 @@ Co layer thickness
 Gyromagnetic ratio
     & $\gamma$ & $194.8 \times 10^9$ & rad/(s\,T) \\
 RKKY coupling field
-    & $\mu_0 H_{\text{RKKY}}$ & 205 & mT \\
+    & $H_{\text{RKKY}}$ & 205 & mT \\
 DL-SOT coefficient
     & $\chi_{\text{DL}}$
     & $2.21 \times 10^{-14}$
@@ -978,7 +1242,168 @@ demagnetization approximation (local $N_z = 1$) compared to the full
 magnetostatic FFT calculation in MuMax3, and from parameter
 uncertainties ($D$ has $\pm 39\%$ error bars, $K$ has $\pm 7\%$).
 The velocity is within the uncertainty band of the damping constant
-($\alpha = 0.14 \pm 0.04$).
+($\alpha = 0.14 \pm 0.04$). The four approximations are detailed in
+Sec.~\ref{sec:implementation_notes}.
+
+%======================================================================
+\section{Implementation Notes}
+\label{sec:implementation_notes}
+%======================================================================
+
+Four sources of model--experiment disagreement enter the
+simulation--paper comparison of Sec.~13. They are intentional
+modeling choices or material-parameter uncertainties, not bugs.
+
+%----------------------------------------------------------------------
+\subsection{Local $N_z = 1$ demag vs full FFT demag}
+
+The micromagnetic demagnetization tensor $\hat N(\mb{k})$ depends on
+wavevector. For a thin slab of thickness $\tCo$:
+%
+\begin{equation}
+N_{zz}(k) = f(|k|\,\tCo),
+\qquad f(x) = \frac{1 - e^{-x}}{x}.
+\end{equation}
+%
+\begin{itemize}[leftmargin=2em, nosep]
+    \item $|k|\,\tCo \to 0$ (long wavelength, uniform film):
+        $f \to 1$, $N_{zz} \to 1$, $N_{xx, yy} \to 0$. In real space:
+        $\Hdemag = -\mu_0 \Ms\, m_z\,\zhat$ --- a \textbf{local}
+        field driven only by $m_z$ at the same point.
+    \item $|k|\,\tCo \to \infty$ (short wavelength): $f \to 0$, no
+        demag.
+\end{itemize}
+
+The \textbf{local $N_z = 1$ approximation} assumes $N_{zz}=1$
+everywhere and absorbs the demag into the anisotropy:
+%
+\begin{equation}
+\Keff = K - \frac{1}{2}\mu_0 \Ms^2.
+\end{equation}
+%
+The main RK4 loop in \texttt{src/simulator/main.py} uses this
+approximation; it never calls \texttt{demag.py}. It is dimensionally
+correct only when:
+\begin{enumerate}[leftmargin=2em, nosep]
+    \item the texture varies slowly compared to $\tCo$ --- true here
+        ($R \sim 80$~nm vs $\tCo = 1.3$~nm, $|k|\,\tCo \sim 0.016$);
+    \item the magnetization is dominantly out-of-plane.
+\end{enumerate}
+The second assumption \textbf{fails inside the domain wall}, where
+$\mb{m}$ is in-plane, creates surface magnetic charges, and induces
+non-local stray fields between in-plane spins.
+
+The full FFT demag (in \texttt{src/simulator/demag.py}) computes
+$\hat N(\mb{k})$ exactly via FFT, including in-plane components and
+the inter-layer dipolar kernel across the Ru spacer. MuMax3 does
+this by default; the simulator's main loop does not. This is the
+\textbf{dominant source of the 160 nm (sim) vs 197 nm (paper)
+diameter mismatch}: non-local demag lowers the in-plane DW energy,
+allowing a wider wall and a larger skyrmion.
+
+%----------------------------------------------------------------------
+\subsection{DMI uncertainty: $D \pm 39\%$}
+
+Interfacial DMI cannot be measured directly. Standard techniques:
+\begin{itemize}[leftmargin=2em, nosep]
+    \item \textbf{Brillouin light scattering (BLS):} asymmetric
+        spin-wave dispersion $\omega(+k)\neq\omega(-k)$ caused by DMI.
+        Sensitive to interface roughness and Pt thickness.
+    \item \textbf{Domain-wall creep velocity vs in-plane field:}
+        $v(H_x)$ asymmetry yields $D$.
+    \item \textbf{Skyrmion size vs out-of-plane field:} equilibrium
+        $R$ is monotone in $D/D_c$.
+\end{itemize}
+Each method has 10--30\% systematic uncertainty (interface quality,
+sample variation, fitting models). Cross-method agreement is often
+factor-of-2. Pham~\emph{et al.}~\cite{pham2024} quote
+$D = 0.62 \pm 0.24$~mJ/m$^2$ ($\approx \pm 39\%$).
+
+The skyrmion size depends strongly on $D$: near the Bogdanov--Hubert
+threshold $D_c = (4/\pi)\sqrt{\Aex\,\Keff}$, the equilibrium $R$
+diverges. A $\pm 39\%$ variation in $D$ shifts $D/D_c$ enough to
+change $R$ by tens of nm.
+
+%----------------------------------------------------------------------
+\subsection{Anisotropy uncertainty: $K \pm 7\%$}
+
+$K$ is measured via FMR resonance fields, anomalous-Hall hysteresis,
+or MOKE saturation fields. These methods are well-standardized and
+agree within 5--10\% between labs. Hence $\pm 7\%$ on $K$.
+
+The catch is that $\Keff = K - \mu_0 \Ms^2/2$ is a
+\textbf{small difference of large numbers}:
+%
+\begin{equation}
+K = 1.294\times 10^6,\quad
+\mu_0 \Ms^2/2 = 1.286\times 10^6\ \text{J/m}^3
+\;\Longrightarrow\;
+\Keff \approx 8\times 10^3\ \text{J/m}^3.
+\end{equation}
+%
+A 7\% error on $K$ ($\sim 9\times 10^4$~J/m$^3$) is
+\textbf{10$\times$ larger than $\Keff$ itself} --- the system sits in
+the spin reorientation transition regime where $\Keff$ is barely
+positive. The domain-wall width $\Delta = \sqrt{\Aex/\Keff}$
+depends on $1/\sqrt{\Keff}$, so few-percent errors on $K$ propagate
+to large errors on $\Delta$ and the skyrmion size.
+
+%----------------------------------------------------------------------
+\subsection{Gilbert damping uncertainty: $\alpha \pm 0.04$}
+
+Damping in Co/Pt is enhanced by \textbf{spin pumping}: precessing
+magnetization in Co injects a transverse spin current into Pt, where
+strong spin-orbit scattering dissipates it. This adds an interfacial
+term to the bulk Co damping. Measurements:
+\begin{itemize}[leftmargin=2em, nosep]
+    \item \textbf{FMR linewidth} $\Delta H$ vs frequency $f$:
+        slope $= \alpha \cdot 2\pi/\gamma$.
+    \item \textbf{Time-resolved MOKE} precession decay.
+\end{itemize}
+Both give $\alpha \approx 0.14 \pm 0.04$ for the Co/Pt stack
+($\sim \pm 30\%$).
+
+In the SAF, the Magnus term cancels between layers
+(Sec.~7), so the Thiele equation
+reduces to a damping-limited drift:
+%
+\begin{equation}
+v \propto \frac{1}{\alpha}.
+\end{equation}
+%
+A $\pm 0.04$ uncertainty in $\alpha$ around 0.14 propagates to
+$\pm 30\%$ in velocity. The simulation gives 500~m/s, the MuMax3
+reference gives $\sim$400~m/s --- a 25\% gap, comfortably inside the
+damping uncertainty band.
+
+%----------------------------------------------------------------------
+\subsection{Summary}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+Approximation & Mechanism & Affects & Magnitude \\
+\midrule
+Local $N_z = 1$ demag
+    & non-local in-plane dipolar ignored
+    & DW energy, skyrmion size
+    & $\sim$20\% on diameter \\
+$D \pm 39\%$
+    & DMI hard to measure
+    & skyrmion size, $D_c$
+    & exponential near threshold \\
+$K \pm 7\%$
+    & material spread
+    & $\Keff$ via subtraction
+    & amplified $\sim$10$\times$ on $\Keff$ \\
+$\alpha \pm 0.04$
+    & spin pumping enhancement
+    & drift velocity $\propto 1/\alpha$
+    & $\sim$30\% on velocity \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 %======================================================================
 \section{Output Format}
@@ -1192,6 +1617,93 @@ motivated initial condition that is already close to equilibrium,
 minimizing the relaxation time needed.
 
 %======================================================================
+\section{The Constraint $\mb{m}\cdot d\mb{m}/dt = 0$}
+\label{app:m_perp_mdot}
+%======================================================================
+
+The identity $\mb{m}\cdot d\mb{m}/dt = 0$ is used throughout
+Section~\ref{sec:llgs_explicit_derivation} (and is the geometric
+reason the LLGS equation preserves $|\mb{m}|=1$). It follows from two
+steps.
+
+\subsection*{Step 1: algebraic identity (always true)}
+
+By the product rule applied to $|\mb{m}|^2 = \mb{m}\cdot\mb{m}$:
+%
+\begin{equation}
+\frac{d|\mb{m}|^2}{dt}
+    = \frac{d(\mb{m}\cdot\mb{m})}{dt}
+    = \frac{d\mb{m}}{dt}\cdot\mb{m}
+        + \mb{m}\cdot\frac{d\mb{m}}{dt}
+    = 2\,\mb{m}\cdot\frac{d\mb{m}}{dt}.
+\end{equation}
+%
+Hence
+%
+\begin{equation}\label{eq:m_dot_mdot_general}
+\mb{m}\cdot\frac{d\mb{m}}{dt}
+    = \frac{1}{2}\frac{d|\mb{m}|^2}{dt},
+\end{equation}
+%
+which holds for \emph{any} vector $\mb{m}(t)$, with or without the
+unit-norm constraint.
+
+\subsection*{Step 2: apply the constraint $|\mb{m}| = 1$}
+
+If $|\mb{m}| = 1$ at all times then $|\mb{m}|^2 = 1$ is a constant,
+so
+%
+\begin{equation}
+\frac{d|\mb{m}|^2}{dt} = \frac{d(1)}{dt} = 0.
+\end{equation}
+%
+Substituting into~\eqref{eq:m_dot_mdot_general}:
+%
+\begin{equation}\label{eq:m_perp_mdot}
+\boxed{\;
+\mb{m}\cdot\frac{d\mb{m}}{dt} = 0.
+\;}
+\end{equation}
+
+\subsection*{Geometric meaning}
+
+The state vector $\mb{m}$ lives on the unit two-sphere
+$S^2 \subset \mathbb{R}^3$. The tangent space at any point
+$\mb{m} \in S^2$ is the plane perpendicular to the radial direction
+$\mb{m}$ itself. So any velocity $d\mb{m}/dt$ that keeps $\mb{m}$ on
+$S^2$ must be perpendicular to $\mb{m}$, which is precisely
+statement~\eqref{eq:m_perp_mdot}.
+
+\begin{center}
+\begin{tabular}{ccc}
+\textbf{Sphere $S^2$} & $\;$ & \textbf{Tangent plane at $\mb{m}$} \\
+                     &      &                                 \\
+$|\mb{m}| = 1$       &      & $d\mb{m}/dt \perp \mb{m}$       \\
+\end{tabular}
+\end{center}
+
+\subsection*{Why the LLGS RHS preserves the constraint}
+
+Every term in the LLGS equation~\eqref{eq:llgs_explicit} has the form
+$\mb{m}\times(\,\cdots\,)$ --- precession, damping, and both SOT
+torques are cross products with $\mb{m}$. A cross product
+$\mb{m}\times\mb{X}$ is orthogonal to both factors, so for any vector
+$\mb{X}$:
+%
+\begin{equation}
+\mb{m}\cdot(\mb{m}\times\mb{X}) = 0.
+\end{equation}
+%
+Therefore dotting the entire LLGS RHS with $\mb{m}$ gives zero,
+$\mb{m}\cdot d\mb{m}/dt = 0$ is enforced by the equation of motion,
+and the unit-norm constraint $|\mb{m}|=1$ is conserved
+\emph{exactly} by the continuous-time dynamics. The RK4 integrator
+introduces a small $\mathcal{O}(\Delta t^5)$ drift that is removed
+by an explicit renormalization step
+$\mb{m} \leftarrow \mb{m}/|\mb{m}|$ at the end of each step (see
+\texttt{normalize()} in \texttt{src/simulator/integrator.py}).
+
+%======================================================================
 \begin{thebibliography}{1}
 \bibitem{pham2024}
 V.~T.~Pham, N.~Sisodia, I.~Di~Manici,
@@ -1199,6 +1711,19 @@ J.~Urrestarazu-Larra\~{n}aga et al.,
 ``Fast current-induced skyrmion motion in synthetic
 antiferromagnets,''
 \emph{Nature Physics} (2024).
+
+\bibitem{mallinson1987}
+J.~C.~Mallinson,
+``On damped gyromagnetic precession,''
+\emph{IEEE Transactions on Magnetics}
+\textbf{23}, 2003--2004 (1987).
+
+\bibitem{khvalkovskiy2013}
+A.~V.~Khvalkovskiy, V.~Cros, D.~Apalkov, V.~Nikitin,
+M.~Krounbi, K.~A.~Zvezdin, A.~Anane, J.~Grollier, A.~Fert,
+``Matching domain-wall configuration and spin-orbit torques for
+efficient domain-wall motion,''
+\emph{Physical Review B} \textbf{87}, 020402(R) (2013).
 \end{thebibliography}
 
 \end{document}
