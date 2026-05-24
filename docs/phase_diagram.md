@@ -89,11 +89,15 @@ Q is the topological charge of the top layer (reused from
 
 ### 3.1 (D, H_z) grid sweep
 
-Grid resolutions are selected via `--grid`:
+Grid resolutions are selected by setting `grid_name` at the top of `sweep.main()`:
 
-- `coarse` : 20 × 20 (D ∈ [0, 2.0] mJ/m², H_z ∈ [-0.5, +0.5] T)
-- `fine`   : 50 × 50 over the same ranges
-- `test`   : 4 × 4 (used by smoke tests)
+- `test`   :  4 ×  4 (development / smoke tests)
+- `quick`  :  8 ×  8 (between-test-and-coarse fast pass)
+- `coarse` : 20 × 20 (production coarse scan)
+- `medium` : 40 × 40 (between coarse and fine)
+- `fine`   : 50 × 50 (production fine scan)
+
+All presets span `D ∈ [0, 4] mJ/m²` and `H_z ∈ [-0.5, +0.5] T`, sized so that `D/D_c ∈ [0, 1.40]` for the `K = 1.60 MJ/m³` material used in the present runs (`D_c = 2.86 mJ/m²`).
 
 ### 3.2 Initial-condition ensemble
 
@@ -208,27 +212,27 @@ so the package is importable from the project root.
 
 ## 5. Usage
 
+The sweep and plot entry points take no argparse arguments; configuration lives in the `User Configuration` block at the top of each module's `main()`. Edit the variables in source, then:
+
 ### Sweep
 
-    python -m src.phase_diagram.sweep --grid coarse
-    python -m src.phase_diagram.sweep --grid fine
-    python -m src.phase_diagram.sweep \
-        --grid test --nx 32 --ny 32
+```bash
+python -m src.phase_diagram.sweep                 # local
+sbatch scripts/submit_sweep_array.sh              # SLURM array
+python -m src.phase_diagram.aggregate             # merge partials
+```
 
-CLI flags: `--grid {coarse,fine,test}`, `--nx`, `--ny`,
-`--workers`, `--max-steps`, `--tol-torque`, `--tol-de`,
-`--out`. Default output:
-`output/phase_diagram/<grid>.npz`.
+Top-of-`main()` variables: `grid_name`, `nx`, `ny`, `max_steps`, `tol_torque`, `tol_dE`, `alpha_relax`, `workers`, `sims_per_task`, `out_path`, `partial_dir`, `K_top`, `K_bot`, `Q_PMA`. Default output: `output/phase_diagram/<grid_name>.npz`. SLURM-array mode is triggered automatically when `SLURM_ARRAY_TASK_ID` is set.
 
 ### Plot
 
-    python -m src.phase_diagram.plot_phase_diagram coarse
-    python -m src.phase_diagram.plot_phase_diagram \
-        --in output/phase_diagram/test.npz
+```bash
+python -m src.phase_diagram.plot_phase_diagram
+```
 
-Outputs three PNGs alongside the NPZ:
-`<grid>_phase_map.png`, `<grid>_order_params.png`,
-`<grid>_textures.png`.
+Top-of-`main()` variables: `in_path` *or* `grid_name`, `out_dir`, `units`. With `units='reduced'` axes are `(D/D_c, H_z/H_K)` and the NPZ must contain the `D_c`, `H_K` scalars; with `units='absolute'` axes are mJ/m² and T.
+
+Outputs three PNGs alongside the NPZ: `<grid>_phase_map_<units>.png`, `<grid>_order_params_<units>.png`, `<grid>_textures_<units>.png`.
 
 ### NPZ schema
 

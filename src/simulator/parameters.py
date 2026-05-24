@@ -65,7 +65,8 @@ def default_params():
     p.Ms = 1.43e6          # A/m, saturation magnetization
     p.A_ex = 16e-12        # J/m, exchange stiffness
     # Interfacial Neel DMI from Pt interface.
-    p.D = 0.62e-3          # J/m^2, DMI constant
+    # p.D = 0.62e-3        # J/m^2, legacy paper Set A
+    p.D = 0.85e-3          # J/m^2, DMI constant
     # Bare K; thin-film K_eff = K - mu0 Ms^2/2 is used elsewhere.
     p.K_top = 1.294e6      # J/m^3, anisotropy (top)
     # Slight layer asymmetry (K_bot > K_top) breaks the SAF degeneracy.
