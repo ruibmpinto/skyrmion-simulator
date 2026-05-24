@@ -71,7 +71,7 @@ def make_params(**overrides):
     (so existing code paths continue to work). New
     phase-diagram code that uses explicit demag should
     obtain bare K via
-    `src.simulator.energy.bare_anis_prefactors`.
+    `src.simulator.fields.bare_anis_prefactors`.
     """
     p = copy.deepcopy(default_params())
     known_keys = set(vars(p).keys())

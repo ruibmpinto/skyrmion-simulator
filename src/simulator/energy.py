@@ -15,9 +15,6 @@ prevents double counting of bilinear self-interactions.
 
 Functions
 ---------
-bare_anis_prefactors
-    Return the bare 2*K/Ms anisotropy prefactors for both
-    layers (without the thin-film K_eff correction).
 effective_anisotropy
     Return the bare and effective anisotropies per layer
     (K, K_eff = K - mu0*Ms^2/2) plus their layer average.
@@ -38,6 +35,7 @@ import numpy as np
 from src.simulator.demag import demag_field
 from src.simulator.fields import (
     anisotropy_field,
+    bare_anis_prefactors,
     dmi_field,
     exchange_field,
     rkky_field,
@@ -151,39 +149,6 @@ def pma_anisotropy_field(p):
             f'H_K is undefined.')
     # H_K in Tesla: simulator carries every H in T, so absorb mu0.
     return 2.0 * K_eff_avg / p.Ms
-
-
-# ---------------------------------------------------------------------
-def bare_anis_prefactors(p):
-    """Return the bare 2*K/Ms anisotropy prefactors.
-
-    Parameters
-    ----------
-    p : SimpleNamespace
-        Parameters namespace exposing `K_top`, `K_bot`,
-        and `Ms`.
-
-    Returns
-    -------
-    C_top : float
-        Bare anisotropy prefactor for the top layer in
-        Tesla.
-    C_bot : float
-        Bare anisotropy prefactor for the bottom layer in
-        Tesla.
-
-    Notes
-    -----
-    `parameters._precompute()` stores `C_anis = 2*K/Ms -
-    mu0*Ms`, where the second term is the thin-film demag
-    correction (K_eff convention). When demag is computed
-    explicitly we must use bare K only.
-    """
-    # No K_eff correction: caller adds the demag field explicitly.
-    inv_Ms = 1.0 / p.Ms
-    C_top = 2.0 * p.K_top * inv_Ms
-    C_bot = 2.0 * p.K_bot * inv_Ms
-    return C_top, C_bot
 
 
 # ---------------------------------------------------------------------

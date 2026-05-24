@@ -5,7 +5,7 @@ stochastic LLGS in the Stratonovich interpretation. The
 deterministic right-hand side is reused unchanged from
 `src.simulator.integrator.llgs_rhs`; the effective field is
 assembled by `src.simulator.fields.effective_field` (no demag)
-or `src.phase_diagram.fields_demag.effective_field_demag_pair`
+or `src.simulator.fields.effective_field_demag_pair`
 (with demag). The thermal noise is supplied by the caller as
 pre-sampled arrays and is added to the assembled field
 immediately before each `llgs_rhs` call -- never inside the
@@ -32,8 +32,10 @@ heun_stochastic_step
 # Third-party
 import numpy as np
 # Local
-from src.phase_diagram.fields_demag import effective_field_demag_pair
-from src.simulator.fields import effective_field
+from src.simulator.fields import (
+    effective_field,
+    effective_field_demag_pair,
+)
 from src.simulator.integrator import llgs_rhs
 
 #

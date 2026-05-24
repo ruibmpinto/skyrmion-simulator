@@ -28,8 +28,8 @@ step_stochastic
 # Third-party
 import numpy as np
 # Local
-from src.phase_diagram.fields_demag import effective_field_demag_pair
-from src.simulator.integrator import llgs_rhs, normalize, rk4_step
+from src.simulator.integrator import (
+    rhs_demag, rhs_local_keff, rk4_step)
 from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
 from src.stochastic_llgs.thermal_field import sample_thermal_field
 
@@ -46,21 +46,16 @@ __status__ = 'Development'
 
 
 def step_deterministic():
-    """Return a plain deterministic RK4 stepper.
-
-    No extra state: the closure simply forwards its arguments
-    to `simulator.integrator.rk4_step`.
+    """Return a plain deterministic RK4 stepper with local-K_eff
+    anisotropy (no explicit FFT demag).
 
     Returns
     -------
     step : callable
         `step(m_top, m_bot, t, dt, p) -> (m_top, m_bot)`.
     """
-    # Trivial forwarder; defined as a named closure for
-    # consistency with the other factories.
-    def step(m_top, m_bot, t, dt, p):
-        return rk4_step(m_top, m_bot, t, dt, p)
-    return step
+    return lambda m_top, m_bot, t, dt, p: rk4_step(
+        rhs_local_keff, m_top, m_bot, t, dt, p)
 
 
 # -----------------------------------------------------------------------------
@@ -92,47 +87,9 @@ def step_demag_deterministic(kernels):
         raise RuntimeError(
             'step_demag_deterministic: `kernels` must be a dict '
             f'from precompute_demag_kernels, got {type(kernels).__name__}.')
-
-    def _rhs_pair(m_top, m_bot, p, t):
-        # Demag-aware effective field for both layers.
-        H_top, H_bot = effective_field_demag_pair(
-            m_top, m_bot, p, kernels)
-        # Standard LLGS RHS evaluated at substage time t.
-        return (
-            llgs_rhs(m_top, H_top, p, t),
-            llgs_rhs(m_bot, H_bot, p, t),
-        )
-
-    def step(m_top, m_bot, t, dt, p):
-        # k1 at the start of the interval.
-        k1t, k1b = _rhs_pair(m_top, m_bot, p, t)
-        k1t = k1t * dt
-        k1b = k1b * dt
-        # k2 at the midpoint.
-        mt2 = normalize(m_top + 0.5 * k1t)
-        mb2 = normalize(m_bot + 0.5 * k1b)
-        k2t, k2b = _rhs_pair(mt2, mb2, p, t + 0.5 * dt)
-        k2t = k2t * dt
-        k2b = k2b * dt
-        # k3 at the midpoint using k2.
-        mt3 = normalize(m_top + 0.5 * k2t)
-        mb3 = normalize(m_bot + 0.5 * k2b)
-        k3t, k3b = _rhs_pair(mt3, mb3, p, t + 0.5 * dt)
-        k3t = k3t * dt
-        k3b = k3b * dt
-        # k4 at the end of the interval.
-        mt4 = normalize(m_top + k3t)
-        mb4 = normalize(m_bot + k3b)
-        k4t, k4b = _rhs_pair(mt4, mb4, p, t + dt)
-        k4t = k4t * dt
-        k4b = k4b * dt
-        # Simpson-weighted combination + final renormalisation.
-        m_top_new = normalize(
-            m_top + (k1t + 2.0 * k2t + 2.0 * k3t + k4t) / 6.0)
-        m_bot_new = normalize(
-            m_bot + (k1b + 2.0 * k2b + 2.0 * k3b + k4b) / 6.0)
-        return m_top_new, m_bot_new
-    return step
+    rhs = rhs_demag(kernels)
+    return lambda m_top, m_bot, t, dt, p: rk4_step(
+        rhs, m_top, m_bot, t, dt, p)
 
 
 # -----------------------------------------------------------------------------
@@ -191,7 +148,6 @@ def step_stochastic(rng, sigma, tol_norm, kernels):
         # diagnostic since the driver does not track it here.
         m_top_new, m_bot_new, _drift = heun_stochastic_step(
             m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm, t=t,
-        )
+            h_top, h_bot, tol_norm, t=t,)
         return m_top_new, m_bot_new
     return step

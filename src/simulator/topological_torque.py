@@ -61,10 +61,8 @@ __status__ = 'Development'
 # =============================================================================
 
 
-def neel_skyrmion_profile(R, Delta, box=None, a=2.0e-9,
-                          polarity=1):
-    """Build a left-handed Neel skyrmion magnetization on a 2D
-    grid.
+def neel_skyrmion_profile(R, Delta, box=None, a=2.0e-9, polarity=1):
+    """Build a left-handed Neel skyrmion magnetization on a 2D grid.
 
     Uses the 1D Euler-Lagrange profile
         theta(r) = 2 * arctan(exp(-(r - R) / Delta))
@@ -74,8 +72,7 @@ def neel_skyrmion_profile(R, Delta, box=None, a=2.0e-9,
     Parameters
     ----------
     R : float
-        Skyrmion radius (location of the m_z = 0 contour), in
-        metres.
+        Skyrmion radius (location of the m_z = 0 contour), in metres.
     Delta : float
         Domain wall width, in metres.
     box : float or None, default=None
@@ -178,10 +175,10 @@ def topological_density(m, a):
 def sot_thiele_speed(R, Delta, p):
     """Analytic steady-state speed under DL-SOT only.
 
-    Uses the paper's closed-form Thiele expression for an AF
-    (SAF) skyrmion:
-        v_SOT_x = pi * H_DL * R * gamma /
-                  (2 alpha * (R/Delta + Delta/R))
+    Uses the paper's closed-form Thiele expression for an AF (SAF) skyrmion:
+
+        v_SOT_x = pi * H_DL * R * gamma / (2 alpha * (R/Delta + Delta/R))
+    
     in the simulator's H-in-Tesla convention. The `H_DL` value
     is recomputed from the supplied pulse to remain consistent
     if the caller has updated `p.pulse`.
@@ -249,8 +246,7 @@ def tsh_thiele_speed(R, Delta, lambda_sq, p,
         Parameters namespace exposing `Ms`, `alpha`, `a`, `P`,
         `mu_B_over_q_e`, and a callable `pulse` (read at t=0).
     box : float or None, default=None
-        Half-width of the integration box (m); see
-        `neel_skyrmion_profile`.
+        Half-width of the integration box (m); see `neel_skyrmion_profile`.
     polarity : {1, -1}, default=1
         Skyrmion core sign.
 

@@ -33,7 +33,7 @@ import sys
 import numpy as np
 # Local
 from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rk4_step
+from src.simulator.integrator import rhs_local_keff, rk4_step
 from src.simulator.parameters import default_params
 from src.simulator.pulses import ConstantPulse, SquarePulse
 
@@ -85,7 +85,7 @@ def _run_trajectory(pulse_factory, n_steps=200, seed=0):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     t = 0.0
     for _ in range(n_steps):
-        m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+        m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
         t += p.dt
     return m_top, m_bot
 
@@ -150,7 +150,7 @@ def test_zero_pulse_does_not_diverge():
     )
     t = 0.0
     for _ in range(50):
-        m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+        m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
         t += p.dt
     # Finiteness
     if not np.all(np.isfinite(m_top)) or not np.all(np.isfinite(m_bot)):

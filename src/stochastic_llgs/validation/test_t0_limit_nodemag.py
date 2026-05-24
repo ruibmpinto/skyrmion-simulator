@@ -33,7 +33,7 @@ from src.simulator.analysis import (
     skyrmion_diameter,
 )
 from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rk4_step
+from src.simulator.integrator import rhs_local_keff, rk4_step
 from src.simulator.main import topological_charge
 from src.simulator.parameters import default_params
 from src.simulator.pulses import ConstantPulse
@@ -89,7 +89,7 @@ def run_deterministic(p, n_relax, n_drive, dt):
     p.pulse = ConstantPulse(0.0)
     t = 0.0
     for _ in range(n_relax):
-        m_top, m_bot = rk4_step(m_top, m_bot, t, dt, p)
+        m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, dt, p)
         t += dt
     p.H_DL = H_DL_save
     p.H_FL = H_FL_save
@@ -105,7 +105,7 @@ def run_deterministic(p, n_relax, n_drive, dt):
     track_t = []
     t = 0.0
     for step in range(1, n_drive + 1):
-        m_top, m_bot = rk4_step(m_top, m_bot, t, dt, p)
+        m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, dt, p)
         t += dt
         if step in sample_steps:
             cx, cy = skyrmion_center(m_top, p.a, core_polarity=+1)

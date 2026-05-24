@@ -10,8 +10,12 @@ normalize
     Normalize spin vectors to unit length.
 llgs_rhs
     Compute dm/dt from the explicit LLGS equation.
+rhs_local_keff
+    Effective-field + dm/dt RHS using local K_eff (no demag).
+rhs_demag
+    Factory returning a RHS that uses explicit FFT demag.
 rk4_step
-    Advance both layers by one RK4 step.
+    Advance both layers by one RK4 step using a supplied RHS.
 """
 #
 #                                                                Modules
@@ -19,7 +23,10 @@ rk4_step
 # Third-party
 import numpy as np
 # Local
-from src.simulator.fields import effective_field
+from src.simulator.fields import (
+    effective_field,
+    effective_field_demag_pair,
+)
 
 #
 #                                                   Authorship & Credits
@@ -161,8 +168,13 @@ def llgs_rhs(m, H_eff, p, t):
 
 
 # ---------------------------------------------------------------------
-def _compute_rhs_both(m_top, m_bot, p, t):
-    """Compute RHS for both layers simultaneously.
+def rhs_local_keff(m_top, m_bot, p, t):
+    """Compute RHS for both layers using the local-K_eff field.
+
+    This is the legacy effective-field path: anisotropy uses
+    K_eff (with the uniform slab demag folded in) and there is
+    no explicit FFT demag convolution. Pair with `rk4_step` to
+    reproduce the original simulator behaviour.
 
     Parameters
     ----------
@@ -201,11 +213,46 @@ def _compute_rhs_both(m_top, m_bot, p, t):
 
 
 # ---------------------------------------------------------------------
-def rk4_step(m_top, m_bot, t, dt, p):
-    """Advance both layers by one RK4 step.
+def rhs_demag(kernels):
+    """Factory: closure that returns dm/dt using the explicit
+    FFT demag field. The returned callable matches the
+    `_rhs_pair(m_top, m_bot, p, t)` protocol expected by
+    `rk4_step`.
+
+    Anisotropy is taken in the bare-K convention (paired with
+    explicit demag), matching `src.simulator.energy.total_energy`.
 
     Parameters
     ----------
+    kernels : dict
+        Demag kernels from
+        `simulator.demag.precompute_demag_kernels(p)`.
+
+    Returns
+    -------
+    rhs : callable
+        `rhs(m_top, m_bot, p, t) -> (dmdt_top, dmdt_bot)`.
+    """
+    def rhs(m_top, m_bot, p, t):
+        H_top, H_bot = effective_field_demag_pair(
+            m_top, m_bot, p, kernels)
+        return (llgs_rhs(m_top, H_top, p, t),
+                llgs_rhs(m_bot, H_bot, p, t))
+    return rhs
+
+
+# ---------------------------------------------------------------------
+def rk4_step(_rhs_pair, m_top, m_bot, t, dt, p):
+    """Advance both layers by one RK4 step using `_rhs_pair`.
+
+    Parameters
+    ----------
+    _rhs_pair : callable
+        `_rhs_pair(m_top, m_bot, p, t) -> (dmdt_top, dmdt_bot)`.
+        Encapsulates the field model (e.g. `rhs_local_keff`
+        for the slab/K_eff path or `rhs_demag(kernels)` for
+        explicit FFT demag). Underscore prefix marks the slot
+        as factory-supplied, not for direct user calls.
     m_top : numpy.ndarray(3d)
         Top layer spins, shape (ny, nx, 3).
     m_bot : numpy.ndarray(3d)
@@ -234,7 +281,7 @@ def rk4_step(m_top, m_bot, t, dt, p):
     """
     # k1
     # Slope at the start of the interval (substage time = t).
-    k1t, k1b = _compute_rhs_both(m_top, m_bot, p, t)
+    k1t, k1b = _rhs_pair(m_top, m_bot, p, t)
     k1t *= dt
     k1b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,7 +289,7 @@ def rk4_step(m_top, m_bot, t, dt, p):
     # Slope at midpoint using half-step k1; normalize keeps |m|=1.
     mt2 = normalize(m_top + 0.5 * k1t)
     mb2 = normalize(m_bot + 0.5 * k1b)
-    k2t, k2b = _compute_rhs_both(mt2, mb2, p, t + 0.5 * dt)
+    k2t, k2b = _rhs_pair(mt2, mb2, p, t + 0.5 * dt)
     k2t *= dt
     k2b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -250,7 +297,7 @@ def rk4_step(m_top, m_bot, t, dt, p):
     # Midpoint slope using k2 (improves coupling between substages).
     mt3 = normalize(m_top + 0.5 * k2t)
     mb3 = normalize(m_bot + 0.5 * k2b)
-    k3t, k3b = _compute_rhs_both(mt3, mb3, p, t + 0.5 * dt)
+    k3t, k3b = _rhs_pair(mt3, mb3, p, t + 0.5 * dt)
     k3t *= dt
     k3b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,7 +305,7 @@ def rk4_step(m_top, m_bot, t, dt, p):
     # End-of-interval slope using full-step k3 (substage time = t + dt).
     mt4 = normalize(m_top + k3t)
     mb4 = normalize(m_bot + k3b)
-    k4t, k4b = _compute_rhs_both(mt4, mb4, p, t + dt)
+    k4t, k4b = _rhs_pair(mt4, mb4, p, t + dt)
     k4t *= dt
     k4b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

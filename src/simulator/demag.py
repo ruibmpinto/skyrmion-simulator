@@ -5,21 +5,19 @@ space for two stacked thin Co layers separated by a Ru/Pt
 spacer. Two demag formulations are exposed via the `kind`
 argument to `precompute_demag_kernels`:
 
-  `kind='slab'` (default for legacy callers, but no default
-  value is provided -- the argument is required):
-    Each layer is treated as a continuous slab of thickness
-    `t_Co`; the in-plane lattice has periodic boundary
-    conditions and the kernel is computed analytically in
-    k-space via the standard thin-film shape function
+  `kind='slab'`:
+    Each layer is treated as a continuous (out-of-plane) slab of 
+    thickness `t_Co`; the in-plane lattice has periodic boundary conditions and
+    the kernel is computed analytically in k-space via the standard 
+    thin-film shape function
         f(k, t) = (1 - exp(-|k|*t)) / (|k|*t).
 
   `kind='newell'`:
-    Each cell is treated as a finite rectangular prism
-    (a x a x t_Co). The cell-cell tensor is built by
-    Gauss-Legendre quadrature of the surface-charge
-    formulation, with mumax3-style variable integration
-    density and a convergence assertion. Adds inter-layer
-    N_xz, N_yz cross-terms that the slab formulation
+    Each cell is treated as a finite-width rectangular prism (a x a x t_Co). 
+    The cell-cell tensor is built by Gauss-Legendre quadrature of the 
+    surface-charge formulation, with mumax3-style variable integration
+    density and a convergence assertion. 
+    Adds inter-layer N_xz, N_yz cross-terms that the slab formulation
     treats as zero.
 
 Both formulations return a dict with the same key schema;
@@ -292,7 +290,7 @@ def demag_field(m_top, m_bot, kernels):
     Nzz_i = kernels['Nzz_inter']
     # Inter-layer cross terms (Newell only; zero for slab).
     # These couple in-plane M of one layer to out-of-plane H
-    # of the other and vice versa. They are ODD in the z
+    # of the other and vice versa. They are odd in the z
     # displacement: the kernel is built for source-to-dest
     # displacement +Z (e.g. bot -> top), so the opposite
     # direction (top -> bot) uses the negated kernel.

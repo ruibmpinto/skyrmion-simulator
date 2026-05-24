@@ -23,7 +23,7 @@ import numpy as np
 # Local
 from src.simulator.parameters import default_params
 from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rk4_step
+from src.simulator.integrator import rhs_local_keff, rk4_step
 from src.simulator.main import topological_charge
 from src.simulator.pulses import ConstantPulse
 
@@ -329,7 +329,7 @@ def run_analysis():
     n_relax = 10000  # 10000 * 50 fs = 500 ps
     t = 0.0
     for step in range(1, n_relax + 1):
-        m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+        m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
         t += p.dt
         if step % 2000 == 0:
             d = skyrmion_diameter(m_top, p.a, core_polarity=+1)
@@ -360,7 +360,7 @@ def run_analysis():
     # is on from the first substep onwards.
     t = 0.0
     for step in range(1, n_drive + 1):
-        m_top_d, m_bot_d = rk4_step(m_top_d, m_bot_d, t, p2.dt, p2)
+        m_top_d, m_bot_d = rk4_step(rhs_local_keff, m_top_d, m_bot_d, t, p2.dt, p2)
         t += p2.dt
         if step % 4000 == 0:
             c = skyrmion_center(m_top_d, p2.a, core_polarity=+1)

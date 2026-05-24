@@ -32,7 +32,7 @@ from src.simulator.analysis import (
     skyrmion_ellipse,
 )
 from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rk4_step
+from src.simulator.integrator import rhs_local_keff, rk4_step
 from src.simulator.parameters import default_params
 from src.simulator.pulses import ConstantPulse
 from src.simulator.topological_torque import (
@@ -148,8 +148,10 @@ def test_tsh_off_equivalence():
     t = 0.0
     for _ in range(50):
         m_top_a, m_bot_a = rk4_step(
+            rhs_local_keff,
             m_top_a, m_bot_a, t, p_baseline.dt, p_baseline)
         m_top_b, m_bot_b = rk4_step(
+            rhs_local_keff,
             m_top_b, m_bot_b, t, p_with_tsh.dt, p_with_tsh)
         t += p_baseline.dt
     # Compare; expect bit-identical results.

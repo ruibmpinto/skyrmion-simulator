@@ -171,7 +171,7 @@ def _precompute(p):
     # K_eff = K - mu0*Ms^2/2 (thin-film demagnetization)
     mu0_Ms = p.mu0 * p.Ms  # shape-anisotropy correction term
     # K_eff convention here folds uniform demag into K; full demag
-    # via demag.py uses bare K from energy.bare_anis_prefactors instead
+    # via demag.py uses bare K from fields.bare_anis_prefactors instead
     p.C_anis_top = 2.0 * p.K_top / p.Ms - mu0_Ms
     p.C_anis_bot = 2.0 * p.K_bot / p.Ms - mu0_Ms
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

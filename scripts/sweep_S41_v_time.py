@@ -95,8 +95,7 @@ def main():
     # demag formulations) does not clobber a previous run.
     out_dir = 'output/sweeps_S41_S49/S41'
     out_path = os.path.join(
-        out_dir,
-        f'run_{demag_kind}_D{int(round(D*1e5)):03d}e-3.npz')
+        out_dir, f'run_{demag_kind}_D{int(round(D*1e5)):03d}e-3.npz')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # HPC array index: S41 has a single trajectory; reject any
     # non-zero array index loudly.
@@ -133,10 +132,8 @@ def main():
         # Convergence-stop relax (over-damped quench) with full
         # demag. relax() temporarily mutates p (SOT, alpha,
         # gamma_p) and restores everything on exit.
-        m_top0, m_bot0 = saf_skyrmion(
-            nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
-        print('S41: relaxing with full demag '
-              '(convergence-stop)...')
+        m_top0, m_bot0 = saf_skyrmion(nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        print(f'S41: relaxing with full demag (convergence-stop)...')
         (m_top_eq, m_bot_eq,
          conv, n_relax_used, E_final, tau_max) = relax(
             m_top=m_top0,
@@ -183,8 +180,8 @@ def main():
             'relax_tol_dE': float(relax_tol_dE),
         }
     else:
-        # Local-K_eff path (no demag). Fixed-time relax inside
-        # run_one. No kernels.
+        # Local-K_eff path (no demag). Fixed-time relax inside run_one. 
+        # No kernels.
         step = step_deterministic()
 
         def ic_factory(p):
@@ -196,7 +193,7 @@ def main():
             'relax_mode': 'fixed_time',
             'relax_time_ps': float(relax_time * 1e12),}
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Drive pulse: square top-hat starting at drive-phase t = 0.
+    # Drive pulse: square pulse starting at drive-phase t = 0.
     pulse = SquarePulse(J0=J0, t_start=0.0, t_end=t_pulse)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run drive.

@@ -178,8 +178,7 @@ def run_one(p,
             print(
                 f'    relax step {step}/{n_relax} '
                 f'({step*p.dt*1e12:.1f} ps)',
-                flush=True,
-            )
+                flush=True,)
     # Restore everything before installing the drive pulse so a
     # later exception cannot leave `p` in a half-mutated state.
     p.pulse = pulse_save
@@ -203,8 +202,7 @@ def run_one(p,
             # sample_every steps including step == 0.
             if step % sample_every == 0:
                 sample_times.append(t)
-                sample_observations.append(
-                    observe_state(m_top, m_bot, p))
+                sample_observations.append(observe_state(m_top, m_bot, p))
                 # Snapshot once, at the first sample reaching the
                 # requested time.
                 if (record_snapshot_at is not None
@@ -220,8 +218,7 @@ def run_one(p,
                 print(
                     f'    drive step {step+1}/{n_drive} '
                     f'({(step+1)*p.dt*1e12:.1f} ps)',
-                    flush=True,
-                )
+                    flush=True,)
     finally:
         # Always restore p.pulse on exit so the caller's
         # namespace is left in a clean state, even if the

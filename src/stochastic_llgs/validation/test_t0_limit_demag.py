@@ -41,7 +41,7 @@ import time
 # Third-party
 import numpy as np
 # Local
-from src.phase_diagram.fields_demag import effective_field_demag_pair
+from src.simulator.fields import effective_field_demag_pair
 from src.simulator.analysis import skyrmion_diameter
 from src.simulator.demag import precompute_demag_kernels
 from src.simulator.initial_conditions import saf_skyrmion

@@ -19,9 +19,8 @@ relax
 # Third-party
 import numpy as np
 # Local
-from src.phase_diagram.fields_demag import \
-    effective_field_demag_pair
 from src.simulator.energy import total_energy
+from src.simulator.fields import effective_field_demag_pair
 from src.simulator.integrator import llgs_rhs, normalize
 from src.simulator.pulses import ConstantPulse
 

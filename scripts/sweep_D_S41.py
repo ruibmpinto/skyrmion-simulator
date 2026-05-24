@@ -109,13 +109,15 @@ def main():
     # Build the Newell kernel and do the convergence-stop
     # relax from the analytic IC, same as the production
     # sweep_S41_v_time.py.
+    # Precompute the k-space demag tensor (slab or Newell).
     kernels = precompute_demag_kernels(
         p, kind=demag_kind,
         accuracy=demag_newell_accuracy,
         tol_conv=demag_newell_tol_conv)
+    # Deterministic LLG step with full demag plugged in.
     step = step_demag_deterministic(kernels)
-    m_top0, m_bot0 = saf_skyrmion(
-        nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+    # Analytic SAF skyrmion IC for both layers.
+    m_top0, m_bot0 = saf_skyrmion(nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
     print(f'  relaxing with Newell demag '
           f'(convergence-stop) at D={D*1e3:.3f} mJ/m^2...',
           flush=True)
@@ -139,16 +141,21 @@ def main():
               f'tol_torque={relax_tol_torque:.1e} T within '
               f'max_steps={relax_max_steps}.', flush=True)
 
+    # Hand the relaxed pair to the driver as a fresh-copy IC.
     def ic_factory(p, _eq=(m_top_eq, m_bot_eq)):
         return _eq[0].copy(), _eq[1].copy()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Drive.
+    # Square current pulse on [0, t_pulse].
     pulse = SquarePulse(J0=J0, t_start=0.0, t_end=t_pulse)
+    # Ensure output directory exists.
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(
-        out_dir, f'D_{D*1e3:.3f}mJm2.npz')
+    # Per-D output filename keeps D in the basename.
+    out_path = os.path.join(out_dir, f'D_{D*1e3:.3f}mJm2.npz')
+    
     print(f'  drive: J0={J0:.2e}, t_pulse={t_pulse*1e9:.1f} ns, '
           f'n_drive={n_drive}', flush=True)
+    # Skip relax (n_relax=0): IC is already the equilibrium.
     trace = run_one(
         p=p, pulse=pulse,
         n_relax=0, n_drive=n_drive,
@@ -159,6 +166,7 @@ def main():
         print_every=10000,)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Persist with full metadata, mirroring sweep_S41_v_time.py.
+    # Full run metadata: physics + numerics + relax outcome.
     metadata = {
         'figure': 'S41_D_sweep',
         'demag': 'full_fft',
@@ -182,19 +190,24 @@ def main():
         'relax_tol_torque': float(relax_tol_torque),
         'relax_tol_dE': float(relax_tol_dE),
     }
+    # Write npz with trace arrays + metadata dict.
     save_trace(path=out_path, trace=trace, metadata=metadata)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Cheap end-of-run diagnostic with PBC-aware unwrap.
+    # Unwrap PBC jumps so centroid is monotone in real space.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * p.a, L_y=ny * p.a)
     t = trace['t']
+    # Pulse window indices: start at IC, end at the t_pulse mark.
     i_start = 0
     i_end = int(((len(t) - 1) * t_pulse) // (n_drive * dt))
     if i_end >= len(cx):
         i_end = len(cx) - 1
+    # Displacement during the pulse and resulting average speed.
     dx_pulse = float(cx[i_end] - cx[i_start])
     v_avg = dx_pulse / t_pulse
+    # Pre- and post-pulse skyrmion size and topological charge.
     d_top_initial = float(trace['d_top'][0])
     d_top_final = float(trace['d_top'][-1])
     Q_initial = float(trace['Q_top'][0])

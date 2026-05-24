@@ -15,10 +15,10 @@ with Aharoni's (1998) closed-form demag factors, because the
 quadrature converges slowly near the source-coincides-dest
 singularity. Off-diagonals at the self-cell vanish by symmetry.
 
-The mumax3 source-charge convention stores N such that
-H_dest = +N * M_src; our slab kernel stores N such that
-H_dest = -mu0 * Ms * N * m_src. The negation is applied at the
-end so the returned kernel matches the slab dict schema.
+The mumax3 source-charge convention stores N such that H_dest = +N * M_src; 
+our slab kernel stores N such that H_dest = -mu0 * Ms * N * m_src. 
+The negation is applied at the end so the returned kernel 
+matches the slab dict schema.
 
 A convergence assertion compares the kernel at the user-supplied
 accuracy and at double that accuracy; if the relative difference
@@ -195,72 +195,158 @@ def _compute_one_pair_tensor(X, Y, Z, cellsize, n_density):
     """
     cs = cellsize
     out = np.zeros((3, 3))
+    # n_x_d, n_y_d, n_z_d: GL-node counts inside the dest cell.
     n_x_d, n_y_d, n_z_d = n_density
-    # Volume quadrature nodes/weights shared across source dirs
+    # GL nodes (in [-1, +1]) and weights for the dest volume.
     rx_n, wrx = _gl_unit_interval_nodes(n_x_d)
     ry_n, wry = _gl_unit_interval_nodes(n_y_d)
     rz_n, wrz = _gl_unit_interval_nodes(n_z_d)
+    # Map nodes to physical offsets inside the dest cell.
     rx_off = rx_n * cs[0] / 2.0
     ry_off = ry_n * cs[1] / 2.0
     rz_off = rz_n * cs[2] / 2.0
-    # Pre-broadcasted volume position offsets and weights;
-    # rank-5 with surface (v, w) axes broadcast against later.
+    # Reshape to rank-5 with one axis per quadrature dimension:
+    #   axis 0 -> source-surface v-node index (size n_v)
+    #   axis 1 -> source-surface w-node index (size n_w)
+    #   axis 2 -> dest-volume x-node index    (size n_x_d)
+    #   axis 3 -> dest-volume y-node index    (size n_y_d)
+    #   axis 4 -> dest-volume z-node index    (size n_z_d)
+    # Each array has length > 1 only along the axis it varies
+    # on; the others are 1 so numpy broadcasts the same value
+    # across them. Example with n_v=n_w=4, n_x_d=n_y_d=n_z_d=2:
+    #   RX shape (1, 1, 2, 1, 1)  ->  2 distinct x-offsets
+    #   RY shape (1, 1, 1, 2, 1)  ->  2 distinct y-offsets
+    #   RZ shape (1, 1, 1, 1, 2)  ->  2 distinct z-offsets
+    #   PV shape (4, 1, 1, 1, 1)  ->  4 distinct v-positions
+    #   PW shape (1, 4, 1, 1, 1)  ->  4 distinct w-positions
+    # When combined arithmetically the result has shape
+    # (4, 4, 2, 2, 2) = 128 entries, one per (source-surface
+    # node, dest-volume node) pair, with NO explicit Python
+    # loops over those 128 combinations.
     RX = rx_off.reshape(1, 1, n_x_d, 1, 1)
     RY = ry_off.reshape(1, 1, 1, n_y_d, 1)
     RZ = rz_off.reshape(1, 1, 1, 1, n_z_d)
+    # Outer product of 1-D weights gives 3-D volume weights.
     Wv_vol = (wrx.reshape(1, 1, n_x_d, 1, 1)
               * wry.reshape(1, 1, 1, n_y_d, 1)
               * wrz.reshape(1, 1, 1, 1, n_z_d))
-    # Loop over source magnetization direction u in {x, y, z}.
+    # u indexes which Cartesian component of M_source carries
+    # the charged faces (the +-u faces of the source cell).
+    # We loop over u = 0, 1, 2 to compute the three rows of the
+    # tensor N. Each iteration treats a unit source M aligned
+    # along the u-axis: M_source = e_u. A uniform M_u inside a
+    # rectangular cell produces magnetic "surface charges"
+    # sigma = M . n only on the two faces perpendicular to u
+    # (the +u face has sigma = +M_u, the -u face has -M_u).
+    # The other four faces have sigma = 0 because n is in-plane.
     for u in range(3):
+        # v, w: the two axes lying *in* the +-u face (i.e. the
+        # face's local coordinates). Cyclic permutation keeps
+        # the right-handed frame consistent across u = 0, 1, 2.
         v = (u + 1) % 3
         w = (u + 2) % 3
+        # Use a denser GL grid on the source surface than in the
+        # dest volume because the integrand 1/r^3 is most singular
+        # when source and dest are close (peak contribution comes
+        # from the source-side surface). SURFACE_STAGGER = 2
+        # follows the mumax3 convention.
         n_v = n_density[v] * SURFACE_STAGGER
         n_w = n_density[w] * SURFACE_STAGGER
+        # GL nodes and weights on the unit interval [-1, +1].
         pv_n, wv = _gl_unit_interval_nodes(n_v)
         pw_n, ww = _gl_unit_interval_nodes(n_w)
+        # Rescale unit-interval nodes to physical offsets that
+        # span the source face from -cs[v]/2 to +cs[v]/2 (idem w).
         pv = pv_n * cs[v] / 2.0
         pw = pw_n * cs[w] / 2.0
+        # Reshape to broadcast: PV varies along axis 0 only, PW
+        # along axis 1 only. See the RX/RY/RZ block above for
+        # the full rank-5 broadcasting layout.
         PV = pv.reshape(n_v, 1, 1, 1, 1)
         PW = pw.reshape(1, n_w, 1, 1, 1)
+        # Outer product of 1-D weights => 2-D surface weights.
+        # Each (i, j) entry is the GL weight of source-surface
+        # node (PV[i], PW[j]).
         Wsurf = (wv.reshape(n_v, 1, 1, 1, 1)
                  * ww.reshape(1, n_w, 1, 1, 1))
+        # Combined surface (axes 0, 1) and volume (axes 2, 3, 4)
+        # weight tensor — shape (n_v, n_w, n_x_d, n_y_d, n_z_d).
+        # A single sum over W_total times the integrand gives the
+        # whole 5-D quadrature in one shot.
         W_total = Wsurf * Wv_vol
-        # Pole positions: +M on +u face, -M on -u face. Set
-        # axis-by-axis so the array dimensionality follows the
-        # PV/PW broadcasting.
+        # Each pole position is a 3-vector (x, y, z). Two of its
+        # components vary across the surface (broadcastable
+        # arrays PV, PW); the third is a scalar pinned to the
+        # u-face. Storing them as length-3 lists keeps the code
+        # axis-agnostic: pole_p[0], pole_p[1], pole_p[2] always
+        # mean (x, y, z) regardless of which axis u happens to be.
         pole_p = [None, None, None]
         pole_m = [None, None, None]
+        # +M face is at +cs[u]/2 along u (sigma = +M_u = +1).
+        # -M face is at -cs[u]/2 along u (sigma = -1).
         pole_p[u] = +cs[u] / 2.0
         pole_m[u] = -cs[u] / 2.0
+        # In-plane (v, w) sample positions: identical on both
+        # faces because they are parallel, only their u-offset
+        # differs by the cell thickness cs[u].
         pole_p[v] = PV
         pole_m[v] = PV
         pole_p[w] = PW
         pole_m[w] = PW
-        # Destination position
+        # Build the dest sample positions: cell-center (X, Y, Z)
+        # plus the GL volume-node offset (RX, RY, RZ). The cell-
+        # center arrays (X, Y, Z) have shape (1, 1, 1, 1, 1)
+        # per source cell, so broadcasting yields the full 5-D
+        # field of source-surface x dest-volume sample pairs.
         r_dx = X + RX
         r_dy = Y + RY
         r_dz = Z + RZ
-        # +M pole contribution
+        # Displacement vector r = r_dest - r_pole+ (pointing from
+        # the +M pole to the dest sample), per Coulomb's law for
+        # magnetic charges:  H = sigma * r / (4 pi r^3).
         dxp = r_dx - pole_p[0]
         dyp = r_dy - pole_p[1]
         dzp = r_dz - pole_p[2]
+        # |r|^2 and |r|^3 = |r|^2 * |r|; faster than |r|**3
+        # because np.sqrt is one op vs np.power's general path.
         r2p = dxp*dxp + dyp*dyp + dzp*dzp
         rp3 = r2p * np.sqrt(r2p)
+        # Face area: the two in-face cell extents. For a 1x1x1
+        # cube this is 1; for a thin film cell it can differ
+        # depending on which face (u-axis) we sum over.
         surface = cs[v] * cs[w]
+        # Common prefactor pulled out of the inner expression:
+        #   (quadrature weight per node) x (face area) / (4 pi).
+        # Multiplying once now avoids three identical multiplies
+        # in the H_x / H_y / H_z sums below.
         factor = W_total * (surface / (4.0 * math.pi))
+        # Cache factor / r^3 so each H component below is just a
+        # weighted sum of (signed) displacement components.
         f_over_r3p = factor / rp3
-        # -M pole contribution (sigma sign flips)
+        # Repeat the same construction for the -M pole. Position
+        # differs only in the u-coordinate (pole_m[u] = -cs[u]/2).
         dxn = r_dx - pole_m[0]
         dyn = r_dy - pole_m[1]
         dzn = r_dz - pole_m[2]
+        # |r|^2 and |r|^3 from the -M pole.
         r2n = dxn*dxn + dyn*dyn + dzn*dzn
         rn3 = r2n * np.sqrt(r2n)
+        # Prefactor identical to the +M case; the surface-charge
+        # sign sigma = -1 is absorbed into the subtraction below.
         f_over_r3n = factor / rn3
-        # Net H components, reducing over 5D quadrature axes.
+        # H_alpha at the dest =
+        #   sum_quad [ sigma_+ * r_+_alpha + sigma_- * r_-_alpha ]
+        #          / |r|^3
+        # = sum_quad ( r_+_alpha / |r_+|^3  -  r_-_alpha / |r_-|^3 )
+        # since sigma_+ = +1, sigma_- = -1. .sum() reduces over
+        # all 5 quadrature axes, giving one scalar per component.
         Hx = (dxp * f_over_r3p - dxn * f_over_r3n).sum()
         Hy = (dyp * f_over_r3p - dyn * f_over_r3n).sum()
         Hz = (dzp * f_over_r3p - dzn * f_over_r3n).sum()
+        # Row u of the tensor: H_alpha produced inside the dest
+        # cell by a unit M_u inside the source cell. Looping u
+        # over 0, 1, 2 fills the full 3x3 N (Maxwell reciprocity
+        # makes it symmetric, so only 6 of 9 entries are unique).
         out[u, 0] = Hx
         out[u, 1] = Hy
         out[u, 2] = Hz
@@ -332,37 +418,64 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     Nxz = np.zeros((ny, nx))
     Nyz = np.zeros((ny, nx))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Per-cell loop. Each cell pair gets an adaptive integration
-    # density per mumax3's recipe.
+    # Per-cell loop. Each (i_idx, j_idx) entry corresponds to the
+    # tensor between a source cell at the lattice origin and a
+    # dest cell at lattice offset (ix_s, iy_s). The number of
+    # GL quadrature nodes per cell is adapted to the separation:
+    # nearby cells need denser sampling (singular 1/r^3 kernel),
+    # far cells need only a single node per axis. This mumax3
+    # recipe makes the precompute scalable up to large lattices.
     for j_idx in range(ny):
+        # Signed y-lattice offset of the dest cell (negative for
+        # the upper half of the FFT-wrapped grid).
         iy_s = int(Y1d_signed[j_idx])
         for i_idx in range(nx):
+            # Signed x-lattice offset of the dest cell.
             ix_s = int(X1d_signed[i_idx])
+            # Center-to-center separation between source (origin)
+            # and dest cell in physical units.
             X = ix_s * dx
             Y = iy_s * dy
             Z = Z_separation
-            # Edge-to-edge distance per axis
+            # Edge-to-edge distance per axis. _delta_lat(0) = 0
+            # for self-cell, |k|-1 for k != 0 (cell faces touch
+            # when adjacent, so the minimum gap is one less cell).
             dxe = _delta_lat(ix_s) * dx
             dye = _delta_lat(iy_s) * dy
             if Z_separation == 0.0:
-                # Same layer: cells overlap in z, no z-gap.
+                # Same-layer pair: source and dest live in the
+                # same plane, so there is no z-gap between them.
                 dze = 0.0
             else:
-                # Different layer: gap = |Z| - t_layer if
-                # layers are non-overlapping, else 0.
+                # Cross-layer pair: gap = |Z_sep| - t_layer when
+                # the layers are non-overlapping in z, else 0
+                # (overlapping layers would imply touching faces).
                 dze = max(abs(Z_separation) - t_layer, 0.0)
+            # Euclidean edge-to-edge distance between the two
+            # cells (zero if they share a face or are coincident).
             d = math.sqrt(dxe*dxe + dye*dye + dze*dze)
             if d == 0.0:
-                # Touching or coincident cells: fall back to
-                # min cell dimension as the length scale.
+                # Touching/coincident cells: use the minimum cell
+                # dimension L as the length scale so we still get
+                # a finite (and dense) quadrature density.
                 d = L
+            # Target node spacing: smaller distance -> finer mesh.
+            # 'accuracy' is a user knob (4-5 typically suffices).
             maxSize = d / accuracy
+            # GL node counts per axis, at least 1. The +0.5 makes
+            # the int() act as nearest-integer rounding rather
+            # than truncation, which would under-sample.
             n_x = max(int(dx / maxSize + 0.5), 1)
             n_y = max(int(dy / maxSize + 0.5), 1)
             n_z = max(int(t_layer / maxSize + 0.5), 1)
+            # Compute the 3x3 demag tensor for this single source-
+            # dest cell pair via the surface-charge integral.
             tensor = _compute_one_pair_tensor(
                 X=X, Y=Y, Z=Z, cellsize=cellsize,
                 n_density=(n_x, n_y, n_z))
+            # Scatter the six unique entries into the per-component
+            # output kernels. By Maxwell reciprocity N is symmetric,
+            # so only the upper triangle is stored.
             Nxx[j_idx, i_idx] = tensor[0, 0]
             Nyy[j_idx, i_idx] = tensor[1, 1]
             Nzz[j_idx, i_idx] = tensor[2, 2]
@@ -510,6 +623,5 @@ def precompute_demag_kernels_newell(p, accuracy, tol_conv):
                 f'kernel did not converge for component '
                 f'{key!r} between accuracy={accuracy} and '
                 f'accuracy={2.0*accuracy} (max relative '
-                f'difference {rel_err:.4e} exceeds '
-                f'tol_conv={tol_conv:.4e}).')
+                f'difference {rel_err:.4e} exceeds tol_conv={tol_conv:.4e}).')
     return K_hi

@@ -23,7 +23,7 @@ import numpy as np
 from src.simulator.parameters import default_params
 from src.simulator.lattice import lattice_positions
 from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rk4_step
+from src.simulator.integrator import rhs_local_keff, rk4_step
 from src.simulator.io_ovito import write_dump
 from src.simulator.pulses import ConstantPulse
 
@@ -159,7 +159,7 @@ def run(p=None):
         # exact time origin does not affect the dynamics here.
         t = 0.0
         for step in range(1, p.n_relax + 1):
-            m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+            m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
             t += p.dt
             if step % (p.n_relax // 5) == 0:
                 Q = topological_charge(m_top, p.a)
@@ -199,7 +199,7 @@ def run(p=None):
         # RK4 step
         # Guard: don't advance past the final dump frame.
         if step < p.n_steps:
-            m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+            m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
             t += p.dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Summary

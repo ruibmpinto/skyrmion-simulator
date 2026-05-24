@@ -17,7 +17,14 @@ anisotropy_field
 rkky_field
     Antiferromagnetic interlayer coupling field.
 effective_field
-    Total effective field for one layer.
+    Total effective field for one layer (local-K_eff path; no
+    explicit demag).
+effective_field_demag_pair
+    Total effective field for both layers including the
+    long-range demag contribution (bare-K path).
+bare_anis_prefactors
+    Return the bare 2*K/Ms anisotropy prefactors used by the
+    bare-K demag path.
 """
 #
 #                                                                Modules
@@ -25,6 +32,7 @@ effective_field
 # Third-party
 import numpy as np
 # Local
+from src.simulator.demag import demag_field
 from src.simulator.lattice import neighbors
 
 #
@@ -269,3 +277,91 @@ def effective_field(m, m_other, C_ex, C_dmi, C_anis,
     H += zeeman_field(H_ext, shape)
     H += rkky_field(m_other, H_RKKY)
     return H
+
+
+# ---------------------------------------------------------------------
+def bare_anis_prefactors(p):
+    """Return the bare 2*K/Ms anisotropy prefactors.
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Parameters namespace exposing `K_top`, `K_bot`,
+        and `Ms`.
+
+    Returns
+    -------
+    C_top : float
+        Bare anisotropy prefactor for the top layer in Tesla.
+    C_bot : float
+        Bare anisotropy prefactor for the bottom layer in Tesla.
+
+    Notes
+    -----
+    `parameters._precompute()` stores `C_anis = 2*K/Ms -
+    mu0*Ms`, where the second term is the thin-film demag
+    correction (K_eff convention). When demag is computed
+    explicitly we must use this function to get the bare K only.
+    """
+    # No K_eff correction: caller adds the demag field explicitly.
+    inv_Ms = 1.0 / p.Ms
+    C_top = 2.0 * p.K_top * inv_Ms
+    C_bot = 2.0 * p.K_bot * inv_Ms
+    return C_top, C_bot
+
+
+# ---------------------------------------------------------------------
+def effective_field_demag_pair(m_top, m_bot, p, kernels):
+    """Total effective field for both layers including the
+    long-range demag contribution.
+
+    Composes the per-term builders above with the Fourier-space
+    demag field from `src.simulator.demag`. The anisotropy term
+    uses the **bare** prefactor 2*K/Ms (in Tesla) so that the
+    thin-film K_eff correction baked into `p.C_anis_top/_bot` is
+    removed exactly once and replaced by the explicit demag
+    contribution.
+
+    Parameters
+    ----------
+    m_top : numpy.ndarray(3d)
+        Top-layer spins, shape (ny, nx, 3).
+    m_bot : numpy.ndarray(3d)
+        Bottom-layer spins, shape (ny, nx, 3).
+    p : SimpleNamespace
+        Parameters namespace.
+    kernels : dict
+        Demag kernels from `precompute_demag_kernels(p)`.
+
+    Returns
+    -------
+    H_top : numpy.ndarray(3d)
+        Effective field on the top layer in Tesla.
+    H_bot : numpy.ndarray(3d)
+        Effective field on the bottom layer in Tesla.
+
+    Notes
+    -----
+    H = H_exchange + H_DMI + H_anisotropy(bare K)
+        + H_Zeeman + H_RKKY + H_demag.
+    """
+    C_top_bare, C_bot_bare = bare_anis_prefactors(p)
+    shape = m_top.shape[:2]
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Local-in-space terms
+    H_top = exchange_field(m_top, p.C_ex)
+    H_top += dmi_field(m_top, p.C_dmi)
+    H_top += anisotropy_field(m_top, C_top_bare)
+    H_top += zeeman_field(p.H_ext, shape)
+    H_top += rkky_field(m_bot, p.H_RKKY)
+    H_bot = exchange_field(m_bot, p.C_ex)
+    H_bot += dmi_field(m_bot, p.C_dmi)
+    H_bot += anisotropy_field(m_bot, C_bot_bare)
+    H_bot += zeeman_field(p.H_ext, shape)
+    H_bot += rkky_field(m_top, p.H_RKKY)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Long-range demag (one FFT pair per component per layer)
+    H_dem_top, H_dem_bot = demag_field(m_top, m_bot, kernels)
+    H_top += H_dem_top
+    H_bot += H_dem_bot
+    return H_top, H_bot

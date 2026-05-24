@@ -48,9 +48,6 @@ import numpy as np
 # Local
 from src.phase_diagram.axis_specs import overrides_for
 from src.phase_diagram.classifier import classify, PHASE_LABELS
-from src.phase_diagram.fields_demag import (
-    effective_field_demag_pair,  # noqa: F401  (used in workers)
-)
 from src.phase_diagram.initial_conditions_ext import (
     hex_lattice_bubbles,
     hex_lattice_skyrmions,
