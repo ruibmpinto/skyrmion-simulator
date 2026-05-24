@@ -91,6 +91,66 @@ coupling the drive current density to the local temperature.
 \section{Theory}
 %======================================================================
 
+\subsection{Notation and the fixed-temperature assumption}
+\label{sec:notation_fixed_T}
+
+The state variable evolved by the stochastic LLGS equation is the
+\emph{unit} magnetization vector
+%
+\begin{equation}
+\mb{m}(\mb{r}, t) = \frac{\mb{M}(\mb{r}, t)}{M_s(T)},
+\qquad |\mb{m}| = 1,
+\end{equation}
+%
+where $\mb{M}$ is the magnetization (A/m) and $M_s(T)$ is the
+\emph{saturation magnetization}, i.e.\ the maximum magnitude that
+$|\mb{M}|$ attains when all atomic moments align. $M_s$ is a function
+of temperature, vanishing at the Curie point $T_C$ and obeying Bloch's
+law at low temperature:
+%
+\begin{equation}\label{eq:bloch}
+M_s(T) = M_s(0) \left[1 - (T/T_C)^{3/2} + \cdots \right].
+\end{equation}
+%
+The micromagnetic / LLGS framework treats $|\mb{M}|$ and the direction
+$\mb{m}$ as separate degrees of freedom that live on widely different
+timescales:
+%
+\begin{itemize}[leftmargin=2em, nosep]
+    \item \textbf{Transverse} (direction of $\mb{m}$): GHz, governed
+        by precession and damping. This is what LLGS solves for.
+    \item \textbf{Longitudinal} ($|\mb{M}|$): THz, set by atomic-scale
+        exchange and equilibrating to $M_s(T)$ on every LLGS timestep.
+\end{itemize}
+%
+Under the standard micromagnetic assumption that the longitudinal mode
+is equilibrated, $|\mb{M}| = M_s(T)$ \emph{at every instant} and the
+constraint $|\mb{m}| = 1$ is exact. This requires
+%
+\begin{enumerate}[leftmargin=2em, nosep]
+    \item $T \ll T_C$, so $M_s(T) \approx M_s(0)$ and material
+        parameters $(\Aex, K, D)$ are not strongly $T$-dependent;
+    \item $T$ slowly varying compared to LLGS timescales, so $M_s$ can
+        be treated as a static constant within one trajectory.
+\end{enumerate}
+%
+The thermal field $\hth$ introduced in Sec.~2.2 \emph{rotates} $\mb{m}$
+on the unit sphere and does \emph{not} model longitudinal $|\mb{M}|$
+fluctuations: those are absorbed into $M_s(T)$ as a static rescaling.
+The Heun scheme used in the integrator (Sec.~3) preserves
+$|\mb{m}|=1$ to machine precision at every step.
+%
+\paragraph{Joule heating.} When Joule heating is enabled
+(\texttt{joule\_heating.py}), the lattice temperature $T(t)$ rises over
+the course of a trajectory. The implementation re-evaluates the
+noise variance $\sigma^2(T)$ at each step (Sec.~2.1) but keeps $M_s$
+fixed at its operating-temperature value; updating $M_s(T)$ on the fly
+would couple the longitudinal and transverse modes and break the
+$|\mb{m}|=1$ constraint, which is outside the scope of LLGS. The
+implicit assumption is that the operating-temperature range explored
+in a single run is small enough that $M_s(T)$ variation is negligible
+relative to the noise-induced dynamics.
+
 \subsection{Brown's stochastic LLG equation}
 
 Magnetic fluctuations at finite temperature are modeled by augmenting

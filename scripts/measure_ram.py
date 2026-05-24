@@ -70,7 +70,8 @@ def main():
         H_ext=np.array([0.0, 0.0, 0.0]),
         J_current=0.0,
     )
-    kernels = precompute_demag_kernels(p)
+    kernels = precompute_demag_kernels(
+        p, kind='slab', accuracy=None, tol_conv=None)
     m_top, m_bot = saf_skyrmion(
         p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
     )

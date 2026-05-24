@@ -16,6 +16,8 @@ default_params
 from types import SimpleNamespace
 # Third-party
 import numpy as np
+# Local
+from src.simulator.pulses import ConstantPulse
 
 #
 #                                                   Authorship & Credits
@@ -72,8 +74,9 @@ def default_params():
     p.alpha = 0.14         # Gilbert damping
     # Co slab thickness enters the demag shape factor f(|k|*t_Co).
     p.t_Co = 1.3e-9        # m, Co layer thickness
-    # Ru spacer thickness sets the AFM node of the RKKY oscillation.
-    p.d_Ru = 0.8e-9        # m, Ru spacer thickness
+    # Co-to-Co spacer: Ru(0.85) + Pt(0.5) = 1.35 nm (Pham 2024).
+    # p.d_Ru = 0.8e-9      # legacy: Ru thickness alone
+    p.d_Ru = 1.35e-9       # m, full magnetic spacer
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Constants
     p.mu0 = 4.0 * np.pi * 1e-7  # T*m/A
@@ -96,6 +99,26 @@ def default_params():
     p.J_current = 4.0e11    # A/m^2, current density
     # In-plane polarization; the orientation drives skyrmion motion along x.
     p.p_hat = np.array([0.0, 1.0, 0.0])  # polarization
+    # Default pulse: constant in time at p.J_current.
+    # Override with SquarePulse / GaussianPulse / SuperpositionPulse to
+    # model finite-duration or time-varying drive.
+    p.pulse = ConstantPulse(p.J_current)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Topological spin Hall torque
+    # dm/dt += -b_j * lambda_sq * N_xy * (dm/dy), with
+    # b_j = (mu_B / q_e) * J(t) * P / Ms. The mechanism is
+    # disabled when lambda_sq == 0, so the existing dynamics are
+    # recovered with the default parameters.
+    # Length-squared coupling for the topological spin Hall effect (m^2).
+    # Paper sweeps {3, 50} nm^2 for the magnitude comparison in S49.
+    p.lambda_sq = 0.0
+    # Spin polarization of the conduction electrons; only used when
+    # lambda_sq != 0.
+    p.P = 0.5
+    # Precomputed ratio mu_B / q_e (J / (T C)) cached on p so the
+    # llgs_rhs hot path multiplies by a single constant rather than
+    # juggling two very different orders of magnitude per call.
+    p.mu_B_over_q_e = 9.2740100783e-24 / 1.602176634e-19
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Time integration
     # Explicit RK4; dt must satisfy gamma * H_K * dt << 1 for stability.

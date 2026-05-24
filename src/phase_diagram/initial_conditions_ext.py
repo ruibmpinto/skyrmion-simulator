@@ -1,20 +1,30 @@
 """Extra initial conditions for the phase-diagram sweep.
 
-Adds randomized and helical stripe initial states for the
-SAF stack in addition to the existing skyrmion, FM, and
-SAF-skyrmion ICs in `src.simulator.initial_conditions`.
+Adds five seeds beyond the simulator's built-in
+`skyrmion_profile`, `uniform_state`, and `saf_skyrmion`:
 
-Both ICs return an antiparallel SAF pair: the bottom layer
-is the negative of the top so the AFM RKKY ground state is
-respected at the start of relaxation.
+* random spheres (statistical exploration),
+* helical stripes (1D periodic SS seed),
+* hex skyrmion lattices (true SkX seed, Q != 0 per cell),
+* hex bubble lattices (Q = 0 per cell, BX seed).
+
+Every IC returns an antiparallel SAF pair: the bottom
+layer is the negation of the top so the antiferromagnetic
+RKKY ground state is respected at the start of
+relaxation.
 
 Functions
 ---------
 random_state
-    Uniform-on-the-sphere random spins with antiparallel
-    SAF pairing.
+    Uniform-on-the-sphere random spins.
 stripe_state
-    Helical stripe pattern with period lambda = 4*pi*A/D.
+    Helical stripe pattern of given period.
+hex_lattice_skyrmions
+    Hex array of Neel skyrmions (each carries Q = +-1).
+hex_lattice_bubbles
+    Hex array of axially-symmetric Q = 0 bubbles with the
+    same m_z profile as `hex_lattice_skyrmions` but no in-
+    plane winding.
 """
 #
 #                                                                Modules
@@ -133,6 +143,163 @@ def stripe_state(nx, ny, period, a, axis='x'):
     m_top = np.zeros((ny, nx, 3))
     m_top[..., 0] = sin_t * ip_dir[0]
     m_top[..., 1] = sin_t * ip_dir[1]
+    m_top[..., 2] = cos_t
+    m_bot = -m_top
+    return m_top, m_bot
+
+
+# ---------------------------------------------------------------------
+def _hex_centers(nx, ny, a, period):
+    """Return all hex-lattice site coordinates inside the box.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice cell counts.
+    a : float
+        Lattice constant (m).
+    period : float
+        Hex lattice constant (nearest-neighbor distance) in
+        metres.
+
+    Returns
+    -------
+    centers : numpy.ndarray(2d)
+        Shape (n_centers, 2). The (x, y) coordinates of all
+        hex sites whose Voronoi cell overlaps the box. Two
+        layers of margin around the box ensure that grid
+        points near the boundary see the correct nearest
+        center under PBC.
+    """
+    if period <= 0.0:
+        raise RuntimeError(
+            f'period must be positive, got {period}.'
+        )
+    a1 = np.array([period, 0.0])
+    a2 = np.array([0.5 * period, np.sqrt(3.0) / 2.0 * period])
+    L_x = nx * a
+    L_y = ny * a
+    n1_max = int(np.ceil(L_x / period)) + 2
+    n2_max = int(np.ceil(L_y / (np.sqrt(3.0) / 2.0 * period))) + 2
+    centers = []
+    for n1 in range(-2, n1_max + 1):
+        for n2 in range(-2, n2_max + 1):
+            r = n1 * a1 + n2 * a2
+            if (-period <= r[0] <= L_x + period
+                    and -period <= r[1] <= L_y + period):
+                centers.append(r)
+    return np.array(centers)
+
+
+# ---------------------------------------------------------------------
+def _nearest_center_field(nx, ny, a, centers):
+    """Map each grid point to (r, phi) relative to its nearest hex center."""
+    jj, ii = np.meshgrid(
+        np.arange(nx, dtype=float),
+        np.arange(ny, dtype=float),
+        indexing='xy',
+    )
+    x_grid = jj * a
+    y_grid = ii * a
+    # Broadcast distance to all centers; pick the argmin.
+    dx = x_grid[:, :, None] - centers[None, None, :, 0]
+    dy = y_grid[:, :, None] - centers[None, None, :, 1]
+    dist2 = dx * dx + dy * dy
+    nearest = np.argmin(dist2, axis=-1)
+    rx = x_grid - centers[nearest, 0]
+    ry = y_grid - centers[nearest, 1]
+    r = np.sqrt(rx * rx + ry * ry)
+    phi = np.arctan2(ry, rx)
+    return r, phi
+
+
+# ---------------------------------------------------------------------
+def hex_lattice_skyrmions(nx, ny, a, R, period, dw):
+    """Hex lattice of Neel skyrmions (each carries Q = -1).
+
+    Each grid point picks up the profile of the nearest
+    hex-site skyrmion. Top layer has core m_z = -1 with
+    radial in-plane winding (Neel chirality); the bottom
+    layer is the negation, giving a SAF skyrmion lattice.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice cell counts.
+    a : float
+        Lattice constant (m).
+    R : float
+        Skyrmion radius (m_z = 0 contour) in metres.
+    period : float
+        Hex lattice constant in metres. Typical choice:
+        the natural DMI helix wavelength lambda = 4 pi A / D.
+    dw : float
+        Domain-wall width (m) controlling the profile
+        slope. Use ~ sqrt(A_ex / K_eff).
+
+    Returns
+    -------
+    m_top, m_bot : numpy.ndarray(3d)
+        Shape (ny, nx, 3). Antiparallel SAF pair.
+    """
+    if R <= 0.0 or dw <= 0.0:
+        raise RuntimeError(
+            f'R and dw must be positive; got R={R}, dw={dw}.'
+        )
+    centers = _hex_centers(nx, ny, a, period)
+    r, phi = _nearest_center_field(nx, ny, a, centers)
+    theta = 2.0 * np.arctan(np.exp(-(r - R) / dw))
+    sin_t = np.sin(theta)
+    cos_t = np.cos(theta)
+    m_top = np.zeros((ny, nx, 3))
+    m_top[..., 0] = sin_t * np.cos(phi)   # Neel winding
+    m_top[..., 1] = sin_t * np.sin(phi)
+    m_top[..., 2] = cos_t
+    m_bot = -m_top
+    return m_top, m_bot
+
+
+# ---------------------------------------------------------------------
+def hex_lattice_bubbles(nx, ny, a, R, period, dw):
+    """Hex lattice of Q = 0 bubbles.
+
+    Same hex sites and same m_z profile as
+    `hex_lattice_skyrmions`, but the in-plane direction is
+    held constant (along +x) rather than winding radially.
+    Each bubble therefore carries zero topological charge,
+    and the full state carries Q = 0 -- it sits in the BX
+    branch of the classifier.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice cell counts.
+    a : float
+        Lattice constant (m).
+    R : float
+        Bubble radius (m_z = 0 contour) in metres.
+    period : float
+        Hex lattice constant in metres.
+    dw : float
+        Domain-wall width (m).
+
+    Returns
+    -------
+    m_top, m_bot : numpy.ndarray(3d)
+        Antiparallel SAF pair.
+    """
+    if R <= 0.0 or dw <= 0.0:
+        raise RuntimeError(
+            f'R and dw must be positive; got R={R}, dw={dw}.'
+        )
+    centers = _hex_centers(nx, ny, a, period)
+    r, _phi = _nearest_center_field(nx, ny, a, centers)
+    theta = 2.0 * np.arctan(np.exp(-(r - R) / dw))
+    sin_t = np.sin(theta)
+    cos_t = np.cos(theta)
+    m_top = np.zeros((ny, nx, 3))
+    m_top[..., 0] = sin_t        # constant in-plane direction (+x)
+    m_top[..., 1] = 0.0
     m_top[..., 2] = cos_t
     m_bot = -m_top
     return m_top, m_bot

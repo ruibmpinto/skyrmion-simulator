@@ -4,9 +4,9 @@
 #SBATCH --error=logs/%x_%A_%a.err
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --time=22:00:00
+#SBATCH --time=36:00:00
 #SBATCH --mem-per-cpu=2048
-#SBATCH --array=[0-448]%192
+#SBATCH --array=[0-2699]%192
 
 set -euo pipefail
 

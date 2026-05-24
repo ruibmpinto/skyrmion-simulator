@@ -33,6 +33,16 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
+# Local
+from src.phase_diagram.axis_specs import (
+    display_value,
+    label_for,
+)
+from src.phase_diagram.params_helper import make_params
+from src.simulator.energy import (
+    critical_dmi,
+    pma_anisotropy_field,
+)
 
 #
 #                                                   Authorship & Credits
@@ -58,11 +68,29 @@ _PHASE_COLORS = {
 
 
 def load(path):
-    """Load a sweep NPZ produced by `sweep.sweep`."""
+    """Load a generic 2D sweep NPZ.
+
+    Required keys: `axis_x_name`, `axis_x_values`,
+    `axis_y_name`, `axis_y_values`, `labels`, `ic_names`,
+    `gs_label_idx`. Missing required keys raise.
+    """
     raw = np.load(path, allow_pickle=True)
     data = {k: raw[k] for k in raw.files}
+    required = {
+        'axis_x_name', 'axis_x_values',
+        'axis_y_name', 'axis_y_values',
+        'labels', 'ic_names', 'gs_label_idx',
+    }
+    missing = required - set(data)
+    if missing:
+        raise RuntimeError(
+            f'NPZ {path!r} is missing required keys: '
+            f'{sorted(missing)}.'
+        )
     data['labels'] = list(data['labels'])
     data['ic_names'] = list(data['ic_names'])
+    data['axis_x_name'] = str(data['axis_x_name'])
+    data['axis_y_name'] = str(data['axis_y_name'])
     return data
 
 
@@ -70,38 +98,62 @@ def load(path):
 def _axes_units(data, units):
     """Return (x_arr, y_arr, x_label, y_label, title_tag).
 
-    For `units='reduced'` the NPZ must contain `D_c` and
-    `H_K` scalars (sweep.py writes them); otherwise a
-    `RuntimeError` is raised so absent normalizations are
-    not silently swapped for fallback absolute axes.
+    Two unit modes:
+
+    - `units='absolute'`: axis values multiplied by the
+      `display_scale` from `axis_specs.axes`; labels taken
+      from the same registry. Works for any axis pair in
+      the registry.
+    - `units='reduced'`: supported only when the axes are
+      exactly `('D', 'H_z')` and `fixed_overrides` carried
+      a fixed K so that D_c, H_K are well-defined scalars.
+      Other axis pairs raise.
+
+    Any other value of `units` raises.
     """
-    D = data['D']            # J/m^2
-    H = data['H_z']          # T
+    x_name = data['axis_x_name']
+    y_name = data['axis_y_name']
+    x_si = np.asarray(data['axis_x_values'])
+    y_si = np.asarray(data['axis_y_values'])
     if units == 'absolute':
         return (
-            D * 1.0e3, H,
-            r'DMI strength $D$ (mJ/m$^2$)',
-            r'External field $H_z$ (T)',
+            np.array([display_value(x_name, v) for v in x_si]),
+            np.array([display_value(y_name, v) for v in y_si]),
+            label_for(x_name),
+            label_for(y_name),
             '',
         )
     if units == 'reduced':
-        if 'D_c' not in data or 'H_K' not in data:
+        if (x_name, y_name) != ('D', 'H_z'):
             raise RuntimeError(
-                'Reduced units requested but the NPZ does '
-                'not store `D_c` and `H_K`. Re-run the '
-                'sweep with the current `sweep.py`, or use '
-                '`--units absolute`.'
+                f"units='reduced' is only defined for "
+                f"axes ('D', 'H_z'); got "
+                f"({x_name!r}, {y_name!r}).  Use "
+                f"units='absolute'."
             )
-        D_c = float(data['D_c'])
-        H_K = float(data['H_K'])
+        # Rebuild D_c, H_K from the K stored in the NPZ.
+        # NPZ must carry K_top_probe and K_bot_probe so we
+        # can reconstruct the material consistently.
+        for key in ('K_top_probe', 'K_bot_probe'):
+            if key not in data:
+                raise RuntimeError(
+                    f"Reduced units require {key!r} in the "
+                    f"NPZ. Re-run the sweep with the "
+                    f"current sweep.py."
+                )
+        p = make_params(
+            K_top=float(data['K_top_probe']),
+            K_bot=float(data['K_bot_probe']),
+        )
+        D_c = critical_dmi(p)
+        H_K = pma_anisotropy_field(p)
         if D_c <= 0.0 or H_K <= 0.0:
             raise RuntimeError(
-                f'Reduced units require positive D_c and '
-                f'H_K; got D_c={D_c}, H_K={H_K}. '
-                f'(K_eff_avg <= 0?)'
+                f'Reduced units require positive D_c, H_K; '
+                f'got D_c={D_c}, H_K={H_K}.'
             )
         return (
-            D / D_c, H / H_K,
+            x_si / D_c, y_si / H_K,
             r'$D / D_c$',
             r'$H_z / H_K$',
             (
@@ -117,18 +169,29 @@ def _axes_units(data, units):
 
 # ---------------------------------------------------------------------
 def _phase_label_grid(data):
-    """Return an (n_H, n_D) array of label strings."""
+    """Return an (n_y, n_x) array of label strings.
+
+    Raises if any `gs_label_idx` value is out of range:
+    the sweep must always set gs_label_idx >= 0 for cells
+    where at least one IC converged, and the per-IC label
+    indices must come from `data['labels']`.
+    """
     labels = data['labels']
-    gs_idx = data['gs_label_idx']  # (n_D, n_H)
+    gs_idx = data['gs_label_idx']  # (n_x, n_y)
     out = np.empty(gs_idx.shape, dtype=object)
     for i in range(gs_idx.shape[0]):
         for j in range(gs_idx.shape[1]):
             k = int(gs_idx[i, j])
+            if k < -1 or k >= len(labels):
+                raise RuntimeError(
+                    f'gs_label_idx[{i},{j}] = {k} is out '
+                    f'of range for labels of length '
+                    f'{len(labels)}.'
+                )
             out[i, j] = (
-                labels[k] if 0 <= k < len(labels)
-                else 'undetermined'
+                labels[k] if k >= 0 else 'undetermined'
             )
-    return out.T  # transpose so H is row, D is column
+    return out.T  # transpose so y is row, x is column
 
 
 # ---------------------------------------------------------------------
@@ -210,7 +273,11 @@ def plot_order_parameters(data, axes=None, units='reduced'):
         axes[0].axvline(1.0, color='k', lw=0.8, ls='--',
                         alpha=0.6)
     plt.colorbar(im0, ax=axes[0])
-    Q_max = float(np.nanmax(np.abs(Q_gs))) or 1.0
+    Q_abs = np.abs(Q_gs)
+    if np.isnan(Q_abs).all():
+        Q_max = 1.0
+    else:
+        Q_max = float(np.nanmax(Q_abs)) or 1.0
     im1 = axes[1].pcolormesh(
         x, y, Q_gs, cmap='PuOr',
         vmin=-Q_max, vmax=Q_max, shading='auto',
@@ -228,10 +295,10 @@ def plot_order_parameters(data, axes=None, units='reduced'):
 # ---------------------------------------------------------------------
 def _select_texture_points(data, n_per_axis=3):
     """Return a small (i, j) grid spanning the parameter space."""
-    n_D = len(data['D'])
-    n_H = len(data['H_z'])
-    i_idx = np.linspace(0, n_D - 1, n_per_axis, dtype=int)
-    j_idx = np.linspace(0, n_H - 1, n_per_axis, dtype=int)
+    n_x = len(data['axis_x_values'])
+    n_y = len(data['axis_y_values'])
+    i_idx = np.linspace(0, n_x - 1, n_per_axis, dtype=int)
+    j_idx = np.linspace(0, n_y - 1, n_per_axis, dtype=int)
     return [(int(i), int(j))
             for j in j_idx for i in i_idx]
 
@@ -249,9 +316,7 @@ def plot_textures(data, fig=None, n_per_axis=3,
         axes = fig.subplots(n_per_axis, n_per_axis)
     axes = np.atleast_2d(axes)
     labels = data['labels']
-    if units == 'reduced':
-        D_c = float(data['D_c'])
-        H_K = float(data['H_K'])
+    x_si, y_si, x_label, y_label, _ = _axes_units(data, units)
     for ax, (i, j) in zip(axes.ravel(), points):
         m_top = data['gs_m_top'][i, j]
         if m_top.shape[0] == 0:
@@ -261,19 +326,10 @@ def plot_textures(data, fig=None, n_per_axis=3,
             m_top[..., 2], cmap='RdBu_r',
             vmin=-1.0, vmax=1.0, origin='lower',
         )
-        if units == 'reduced':
-            x_val = float(data['D'][i]) / D_c
-            y_val = float(data['H_z'][j]) / H_K
-            title_xy = (
-                f'$D/D_c$={x_val:.2f}, '
-                f'$H_z/H_K$={y_val:+.2f}'
-            )
-        else:
-            x_val = float(data['D'][i]) * 1e3
-            y_val = float(data['H_z'][j])
-            title_xy = (
-                f'D={x_val:.2f}, $H_z$={y_val:+.2f}'
-            )
+        title_xy = (
+            f'{x_label}={x_si[i]:.2f}, '
+            f'{y_label}={y_si[j]:+.2f}'
+        )
         gs_lab = labels[int(data['gs_label_idx'][i, j])]
         ax.set_title(
             f'{title_xy}\n{gs_lab}',
@@ -340,16 +396,9 @@ def render_all(npz_path, out_dir=None, units='reduced'):
 def main():
     """Read the User Configuration block and render PNGs."""
     # ================ User Configuration ================
-    # Source NPZ. Use either `in_path` (direct path) or
-    # `grid_name` (loads output/phase_diagram/<grid>.npz);
-    # exactly one must be non-None.
-    in_path = None
-    grid_name = 'medium'
-    # Output directory. None = same directory as the NPZ.
+    in_path = 'output/phase_diagram/D_H_z.npz'
+    grid_name = None
     out_dir = None
-    # Axis units: 'reduced' uses (D/D_c, H_z/H_K) and
-    # requires D_c, H_K in the NPZ. 'absolute' uses
-    # (D in mJ/m^2, H_z in T).
     units = 'reduced'
     # ============ End User Configuration =================
     if in_path is not None and grid_name is not None:

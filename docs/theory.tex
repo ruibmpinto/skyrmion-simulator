@@ -7,6 +7,7 @@
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{hyperref}
 \usepackage{enumitem}
+\usepackage{graphicx}
 
 \hypersetup{
     colorlinks=true,
@@ -280,31 +281,46 @@ Three regimes arise depending on the sign of $\Keff$:
 \end{itemize}
 %
 For the Co/Pt system in~\cite{pham2024},
-$K \approx 1.3 \times 10^6$~J/m$^3$ and
-$\mu_0 \Ms^2/2 \approx 1.286 \times 10^6$~J/m$^3$, giving
-$\Keff \approx 10^4$~J/m$^3$ --- barely positive, right at the SRT.
+$K \approx 1.294 \times 10^6$~J/m$^3$ and
+$\mu_0 \Ms^2/2 \approx 1.285 \times 10^6$~J/m$^3$, giving
+$\Keff \approx 9 \times 10^3$~J/m$^3$ --- barely positive,
+right at the SRT.
 This is why the system can host skyrmions.
 
 %----------------------------------------------------------------------
-\subsubsection*{Interface PMA vs shape anisotropy: the spin
-reorientation transition}
+\subsubsection*{Interface PMA (Perpendicular Magnetic
+Anisotropy) vs shape anisotropy: the spin reorientation
+transition}
 
-In a thin ferromagnetic film, two anisotropies compete:
+In a thin ferromagnetic film, three anisotropy sources coexist:
 \begin{enumerate}[leftmargin=2em, nosep]
-    \item \textbf{Interfacial PMA} ($K_s$, J/m$^2$) --- created by
-        spin-orbit hybridization at heavy-metal interfaces (Pt, Ir,
-        W, Pd, Au). Favors out-of-plane.
+    \item \textbf{Volume (bulk crystal) anisotropy}
+        ($K_{\text{vol}}$, J/m$^3$) --- intrinsic
+        magnetocrystalline plus magneto-elastic anisotropy
+        of the Co bulk, per unit volume, independent of
+        layer thickness.  It is grouped together with the
+        interfacial $2K_s/t$ into the single bare anisotropy
+        $K = K_{\text{vol}} + 2K_s/t$ carried by the simulator.
+        Sputter-deposited Co/Pt multilayers give
+        $K_{\text{vol}} \approx -1.0 \times 10^6$~J/m$^3$
+        \cite{lin1991}.
+    \item \textbf{Interfacial PMA} ($K_s$, J/m$^2$) --- created
+        by spin-orbit hybridization at heavy-metal interfaces
+        (Pt, Ir, W, Pd, Au).  Energy per unit \emph{interface
+        area}; spread over the layer volume each interface
+        contributes $K_s/t$ per unit volume, so two equivalent
+        interfaces give $2K_s/t$.  Favors out-of-plane.
     \item \textbf{Shape anisotropy}
         ($\tfrac{1}{2}\mu_0 \Ms^2$, J/m$^3$) --- from the demag
         field of a thin slab uniformly magnetized along $\zhat$.
-        Favors in-plane.
+        Per unit volume, independent of $t$.  Favors in-plane.
 \end{enumerate}
 
 The per-volume effective anisotropy of a film of thickness $t$ with
 two equivalent interfaces is
 %
 \begin{equation}\label{eq:Keff_full}
-\Keff = K_{\text{vol}} + \frac{2 K_s}{t}
+\Keff = \underbrace{K_{\text{vol}} + \frac{2 K_s}{t}}_{K}
         - \frac{1}{2}\mu_0 \Ms^2,
 \end{equation}
 %
@@ -329,8 +345,9 @@ There is a critical thickness $t_c$ where $\Keff$ changes sign:
 t_c = \frac{2 K_s}{\tfrac{1}{2}\mu_0 \Ms^2 - K_{\text{vol}}}.
 \end{equation}
 %
-For Co/Pt: $K_s \sim 0.5$--$1$~mJ/m$^2$,
-$\mu_0 \Ms^2/2 \sim 1.3 \times 10^6$~J/m$^3$, $K_{\text{vol}}$ tiny
+For Co/Pt: $K_s \sim 5\times 10^{-4}$--$10^{-3}$~J/m$^2$,
+$\tfrac{1}{2}\mu_0 \Ms^2 \sim 1.3 \times 10^6$~J/m$^3$,
+$K_{\text{vol}}$ tiny
 $\;\Longrightarrow\; t_c \sim 1$~nm.
 \begin{itemize}[leftmargin=2em, nosep]
     \item $t < t_c$: PMA wins, magnetization out-of-plane.
@@ -339,11 +356,30 @@ $\;\Longrightarrow\; t_c \sim 1$~nm.
 
 The simulator's Co layer is $\tCo = 1.3$~nm --- \textbf{right at
 the SRT, deliberately}. That is why
-$\Keff = K_{\text{top}} - \mu_0 \Ms^2/2 \approx 8\times10^3$~J/m$^3$
+$\Keff = K_{\text{top}} - \mu_0 \Ms^2/2 \approx 9\times10^3$~J/m$^3$
 is a small difference of two large numbers ($\sim 10^6$ each), and
 why 7\% uncertainty in $K$ propagates to $\sim$100\% uncertainty in
 $\Keff$ (see Implementation Notes,
 Sec.~\ref{sec:implementation_notes}).
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/srt_schematic.pdf}
+\caption{Spin reorientation transition (SRT) in Co/Pt. The
+interface PMA $+2K_s/t$ (green) decreases with the Co
+thickness $t$; the shape anisotropy $-\tfrac12\mu_0\Ms^2$
+(red, dashed) is thickness-independent. Their sum $\Keff$
+(black) crosses zero at the critical thickness
+$t_c$, where the easy axis flips from out-of-plane (PMA
+wins, $\Keff>0$, blue region) to in-plane (shape wins,
+$\Keff<0$, orange region). With $K_s$ set so that
+$K_{\text{top}} = 2K_s/\tCo$ matches the simulator's bare
+anisotropy ($K_s \approx 8.4\times 10^{-4}$~J/m$^2$),
+$t_c \approx \tCo = 1.3$~nm. The Co layer of \cite{pham2024}
+sits exactly at the SRT --- which is why $\Keff$ is the
+small difference of two $\sim 10^6$~J/m$^3$ numbers.}
+\label{fig:srt_schematic}
+\end{figure}
 
 %----------------------------------------------------------------------
 \subsection{Zeeman Energy}
@@ -817,35 +853,550 @@ where $D > 0$ favors left-handed N\'{e}el skyrmions, consistent with
 the Pt/Co interface.
 
 %----------------------------------------------------------------------
-\subsection{Perpendicular Magnetic Anisotropy}
+\subsection{Anisotropy and demagnetization}
+\label{sec:anis_demag}
 
-Uniaxial anisotropy along the film normal ($\zhat$):
+The perpendicular magnetic anisotropy (PMA) and the
+demagnetization field share the same functional form
+$\propto m_z\,\zhat$ in the uniform limit but originate from
+completely different physics and have completely different
+locality.  Throughout this subsection $\ell \in \{\text{top},
+\text{bot}\}$ indexes the two Co layers of the SAF, and
+$K_\ell$ is the per-layer bare anisotropy
+$K_\ell = K_{\text{vol}} + 2K_s/\tCo$ of Sec.~2.3 (with
+distinct values $K_{\text{top}}$ and $K_{\text{bot}}$ because
+the Pt and Ru interfaces give different $K_s$).  The
+codebase supports three levels of approximation, of
+increasing physical fidelity:
+%
+\begin{itemize}[leftmargin=2em, nosep]
+\item \textbf{Local $K_{\text{eff}}$ approximation}: absorbs
+    the uniform-$\mb{m}$ part of the demag (i.e.\ the
+    $-\tfrac{1}{2}\mu_0 \Ms^2$ shape-anisotropy energy
+    density of Sec.~2.4) into a single effective constant
+    $K_{\text{eff},\ell} = K_\ell - \tfrac{1}{2}\mu_0 \Ms^2$
+    in the PMA term; the demag is not computed explicitly.
+    Valid for textures whose in-plane variation is slow
+    compared with $\tCo$ (skyrmion-scale wavelengths satisfy
+    this).
+\item \textbf{Analytic slab demag}: writes the full demag
+    tensor analytically via the thin-film shape factor in
+    Fourier space.  Uses the bare $K_\ell$ in the PMA term
+    and adds the demag separately.
+\item \textbf{Numerical Newell demag}: mumax3-style
+    numerical surface-charge integration with variable
+    integration density and a convergence assertion; adds
+    the inter-layer cross terms $N_{xz}$, $N_{yz}$ that the
+    slab kernel discards.  Same bare $K_\ell$ in the PMA
+    term.
+\end{itemize}
+%
+The next three subsubsections give: (i)~the discrete PMA
+formula and the choice of $K_\ell$ vs $K_{\text{eff},\ell}$
+in each branch; (ii)~the conceptual distinction between PMA
+and demagnetization and why they look identical for uniform
+$\mb{m}$; and (iii)~the explicit kernel formulas for the
+three demag approaches.
+
+%......................................................................
+\subsubsection{Perpendicular magnetic anisotropy: discrete form}
+
+Uniaxial anisotropy along the film normal ($\zhat$).  The
+anisotropy field is local in space (no spatial derivative), so
+its discrete form is just the continuum formula evaluated at
+each lattice site $(i, j)$.  In the SAF the top and bottom Co
+layers are inequivalent (Pt and Ru interfaces); the simulator
+carries two distinct anisotropy constants $K_{\text{top}}$ and
+$K_{\text{bot}}$:
+%
+\begin{align}
+\mb{H}_{\text{anis},\text{top}}(i,j) &=
+    \frac{2 K_{\text{top}}}{\Ms} \, m^{\text{top}}_z(i,j) \, \zhat, \\
+\mb{H}_{\text{anis},\text{bot}}(i,j) &=
+    \frac{2 K_{\text{bot}}}{\Ms} \, m^{\text{bot}}_z(i,j) \, \zhat.
+\end{align}
+%
+With the local $N_z = 1$ approximation
+(Sec.~\ref{sec:demag}), the shape-anisotropy term is absorbed
+into an effective constant
+$K_{\text{eff},\ell} = K_\ell - \tfrac{1}{2}\mu_0 \Ms^2$
+($\ell \in \{\text{top}, \text{bot}\}$), and the discrete
+combined field becomes:
 %
 \begin{equation}
-\Hanis = \frac{2K}{\Ms} \, m_z \, \zhat
+\mb{H}_{\text{anis+demag},\ell}(i,j) =
+    \frac{2 K_{\text{eff},\ell}}{\Ms} \,
+    m^{\ell}_z(i,j) \, \zhat.
 \end{equation}
+%
+In short: in the slab and Newell branches, equations
+(47)--(48) apply with the bare $K_\ell$ and the demag is
+added separately; in the local-$N_z = 1$ branch, equation
+(49) applies with the combined $K_{\text{eff},\ell}$ and no
+separate demag is needed.  The next subsubsection explains
+why this single-constant substitution is exact for
+spatially uniform $\mb{m}$ and where it breaks; the kernel
+formulas for the slab and Newell branches follow in
+Sec.~\ref{sec:demag}.
 
-%----------------------------------------------------------------------
-\subsection{Thin-Film Demagnetization}
+%......................................................................
+\subsubsection{PMA vs demagnetization: same form, different
+physics}
+\label{sec:pma_vs_demag}
 
-In a thin film, the demagnetizing field is:
+PMA and the demagnetizing field happen to enter the LLGS
+right-hand side as terms with the same functional form
+$\propto m_z\,\zhat$, which makes them visually
+indistinguishable in the uniform limit and motivates the
+local $K_{\text{eff},\ell} = K_\ell -
+\tfrac{1}{2}\mu_0 \Ms^2$ approximation.
+
+\paragraph{Different physical origin.}
+PMA is a \emph{quantum-mechanical interface effect}.  Strong
+spin--orbit coupling at the Co/Pt and Co/Ru contacts
+hybridizes Co~3d orbitals with the heavy-metal $d$~band; the
+hybridization lifts the orbital degeneracy in favor of the
+out-of-plane $d_{z^2}$-like orbital, and Hund coupling locks
+the spin to the orbital.  The result is an interfacial easy
+axis along $\zhat$, with energy density $-K_s\,m_z^2/t$ per
+unit volume for a film of thickness $t$ (Sec.~2.3).
+
+Demagnetization is a \emph{classical magnetostatic effect}.
+Every magnetic moment generates a dipole field; Maxwell's
+equation $\nabla \cdot \mb{B} = 0$ forces the magnetization
+distribution to source surface and volume ``charges'' that
+produce a self-field opposing $\mb{M}$ (Sec.~2.4).  No
+spin--orbit coupling, no orbital physics --- pure classical
+electromagnetism.
+
+\paragraph{Different locality.}
+The PMA field at lattice site $(i, j)$ depends only on
+$m^\ell_z(i, j)$ at that same site --- it is strictly
+\emph{local}, as the discrete formula above already shows.
+The demagnetization field at $(i, j)$ depends on $\mb{m}$ at
+\emph{every} site of \emph{both} layers through a real-space
+convolution
+$\Hdemag = -\mu_0 (\hat N * \mb{m})$
+with a long-range demag tensor $\hat N$.  Evaluating it
+requires either an FFT-based convolution (slab kernel,
+Sec.~\ref{sec:demag}) or a numerical integration of magnetic
+surface charges (Newell kernel, Sec.~\ref{sec:demag}).
+
+\paragraph{Why they look identical in the uniform limit.}
+For spatially uniform $\mb{m} = m_z\,\zhat$ (the same
+configuration analyzed in Sec.~2.4), the demag field of an
+infinite slab is purely out-of-plane and constant,
 %
 \begin{equation}
-\Hdemag = -\mu_0 \Ms \, m_z \, \zhat
+\Hdemag\bigl|_{\text{uniform}\ \mb{m}} =
+    -\mu_0 \Ms \, m_z\,\zhat ,
 \end{equation}
+%
+which is the field equivalent of the
+$+\tfrac{1}{2}\mu_0 \Ms^2 \tCo \int m_z^2\, dS$
+energy density of Sec.~2.4.  Combined with the bare PMA
+field $\Hanis = (2K_\ell/\Ms)\,m_z\,\zhat$ (for layer
+$\ell$):
+%
+\begin{equation}
+\Hanis + \Hdemag\bigl|_{\text{uniform}\ \mb{m}} =
+\left(\frac{2K_\ell}{\Ms} - \mu_0 \Ms\right) m_z \,\zhat
+= \frac{2\,K_{\text{eff},\ell}}{\Ms}\, m_z \,\zhat,
+\qquad
+K_{\text{eff},\ell} = K_\ell - \tfrac{1}{2}\mu_0 \Ms^2 .
+\label{eq:keff_identity}
+\end{equation}
+%
+For uniform $\mb{m}$ the two effects are mathematically
+indistinguishable from a single uniaxial anisotropy with
+constant $K_{\text{eff},\ell}$.
 
-The combined anisotropy + demagnetization field uses the effective
-anisotropy:
+\paragraph{Bare $K_\ell$ versus effective $K_{\text{eff},\ell}$.}
+\textbf{Bare $K_\ell$} is the \emph{physically measured}
+interfacial PMA constant.  It is purely interfacial in
+origin and has no information about the layer's shape or
+thickness baked in.  For our system:
+%
+\begin{equation*}
+K_{\text{top}} = 1.294\times 10^6\ \text{J/m}^3,\qquad
+K_{\text{bot}} = 1.310\times 10^6\ \text{J/m}^3,
+\end{equation*}
+%
+both $\sim 10^6$ J/m$^3$, both positive, both
+\emph{out-of-plane}.
+
+\textbf{Effective $K_{\text{eff},\ell}$} is the
+\emph{algebraic combination}
+$K_\ell - \tfrac{1}{2}\mu_0 \Ms^2$ that emerges from
+identity~\eqref{eq:keff_identity}.  It is a numerical
+artifact of the local-demag approximation, \emph{not} a
+measurable quantity.  For our system,
+%
+\begin{equation*}
+K_{\text{eff,top}} \approx 1.294\times 10^6
+- 1.285\times 10^6
+\approx 9\times 10^3\ \text{J/m}^3 ,
+\end{equation*}
+%
+a 100\% relative uncertainty band coming from a 7\%
+uncertainty in $K_\ell$ alone (Sec.~14.3).
+
+\paragraph{Where the local approximation breaks.}
+To see where the identity \eqref{eq:keff_identity} stops
+holding, decompose the in-plane magnetization texture into
+Fourier modes with wavevector $\mb{k}$:
+%
+\begin{equation}
+\mb{m}(\mb{r}) =
+    \sum_{\mb{k}} \mb{m}_{\mb{k}}\, e^{i\mb{k}\cdot\mb{r}}.
+\end{equation}
+%
+The uniform-$\mb{m}$ result of \eqref{eq:keff_identity} is
+the $\mb{k} = 0$ mode of this expansion.  The slab demag
+kernel component acting on $m_z$ is
+%
+\begin{equation}
+N_{zz}^{\text{slab}}(\mb{k}) = f(|\mb{k}|\,\tCo),
+\qquad
+f(x) = \frac{1 - e^{-x}}{x},
+\label{eq:f_shape}
+\end{equation}
+%
+with the long- and short-wavelength limits
+%
+\begin{equation}
+\lim_{|\mb{k}|\,\tCo \to 0} f(|\mb{k}|\,\tCo) = 1,
+\qquad
+\lim_{|\mb{k}|\,\tCo \to \infty} f(|\mb{k}|\,\tCo) = 0.
+\end{equation}
+%
+The PMA field is local, so it is wavevector-independent;
+combined with the demag, the per-mode out-of-plane
+effective field is
+%
+\begin{equation}
+H_z(\mb{k}) =
+\left(\frac{2K_\ell}{\Ms}
+      - \mu_0 \Ms\, f(|\mb{k}|\,\tCo)\right) m_z(\mb{k}).
+\label{eq:Hz_per_mode}
+\end{equation}
+%
+At $\mb{k} = 0$, $f = 1$ and \eqref{eq:Hz_per_mode} reduces
+to $H_z = 2K_{\text{eff},\ell}/\Ms\,m_z(\mb 0)$ --- the
+identity \eqref{eq:keff_identity}.  At short wavelengths
+$|\mb{k}|\,\tCo \gg 1$, $f \to 0$ and the demag piece
+vanishes:
+%
+\begin{equation}
+\lim_{|\mb{k}|\,\tCo \to \infty} H_z(\mb{k}) =
+\frac{2K_\ell}{\Ms}\, m_z(\mb{k})
+\;\neq\;
+\frac{2K_{\text{eff},\ell}}{\Ms}\, m_z(\mb{k}).
+\end{equation}
+%
+Substituting $K_{\text{eff},\ell}$ for $K_\ell$ at those
+wavelengths is wrong by a factor of
+$2K_\ell/(2K_{\text{eff},\ell}) \sim 160$ for our parameters
+($K_\ell \sim 1.3\times 10^6$ vs
+$K_{\text{eff},\ell} \sim 9\times 10^3$~J/m$^3$).
+
+For the present skyrmion problem the relevant length scales
+are $R \sim 100$~nm and $\Delta_{\text{DW}} \sim 27$~nm, so
+$|\mb{k}|\,\tCo \sim 2\pi \tCo / \Delta \sim 0.30$ at the DW
+(modestly small) and $\sim 0.08$ at the skyrmion edge.  The
+slab kernel is close to its long-wavelength limit there
+($f \approx 1 - |\mb{k}|\tCo/2$), so the
+local-$K_{\text{eff},\ell}$ approximation produces only a
+few-percent error.  The Newell correction
+(Sec.~\ref{sec:demag}, Level~2) restores the missing in-plane
+components $N_{xx}$, $N_{yy}$ at $|\mb{k}| > 0$ and the
+finite-prism corrections at $|\mb{k}|\tCo \sim 1$ --- effects
+that the local-$K_{\text{eff},\ell}$ branch discards
+entirely.
+
+\paragraph{Summary of the three branches.}
+\begin{itemize}[leftmargin=2em, nosep]
+\item \textbf{Local-$N_z = 1$ branch}: PMA field uses
+    $K_{\text{eff},\ell}$; no separate demag evaluation.
+    Fast, correct in the long-wavelength uniform-$m_z$
+    regime, inadequate inside the domain wall where $\mb{m}$
+    is in-plane.
+\item \textbf{Slab or Newell branch}: PMA field uses the
+    bare $K_\ell$; demag is computed separately for every
+    Fourier mode $\mb{k}$.  No double counting because the
+    bare $K_\ell$ has no shape correction folded into it.
+\end{itemize}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/pma_demag_spectrum.pdf}
+\caption{Per-mode comparison of the PMA and slab-demag
+contributions to the out-of-plane field, as a function of the
+in-plane wavelength $\lambda = 2\pi/|k|$. Top axis: the
+dimensionless ratio $|k|\,\tCo$ for $\tCo = 1.3$~nm.  The PMA
+contribution (green, dashed) is constant
+$\Hanis = 2K/\Ms$ because PMA is local in real space.  The slab
+demag contribution (red, dashed) is
+$\Hdemag = -\mu_0\Ms\,f(|k|\,\tCo)$ with
+$f(x) = (1 - e^{-x})/x$; it starts at $-\mu_0\Ms$ for uniform
+$\mb{m}$ ($\lambda \to \infty$) and decays toward zero at the
+cell scale.  Their sum (black, solid) shows that the two
+nearly cancel at long wavelengths (giving the small
+$2K_{\text{eff}}/\Ms$) but separate sharply at short
+wavelengths, where the demag has died away and the PMA
+dominates.  The local-$K_{\text{eff}}$ approximation
+(grey dotted) sits at the long-wavelength value
+$2K_{\text{eff}}/\Ms$ for all $\lambda$ --- correct only in
+the shaded skyrmion regime.  Vertical bands mark the relevant
+length scales: domain-wall width
+$\Delta_{\text{DW}} \approx 27$~nm, skyrmion radius
+$R \approx 100$~nm, and cell scale $a = 2$~nm.}
+\label{fig:pma_demag_spectrum}
+\end{figure}
+
+%......................................................................
+\subsubsection{Demagnetization kernels}
+\label{sec:demag}
+
+The demagnetizing (stray-dipolar) field is the long-range Coulomb-like
+field generated by the magnetic ``charges'' $\rho_m = -\nabla\cdot\mb{M}$
+and $\sigma_m = \mb{M}\cdot\hat{\mb{n}}$ at internal and surface
+discontinuities of $\mb{M}$. Three levels of approximation are used
+in the codebase, in increasing fidelity.
+
+\paragraph{Level 0: Local $N_z = 1$ (uniform-slab limit).}
+For a uniformly magnetized infinite slab of thickness $\tCo$, the
+demag field is purely out-of-plane and constant:
+%
+\begin{equation}
+\Hdemag = -\mu_0 \Ms \, m_z \, \zhat .
+\end{equation}
+%
+Absorbed into an effective anisotropy:
 %
 \begin{equation}
 \Keff = K - \frac{\mu_0 \Ms^2}{2}
 \qquad\Longrightarrow\qquad
 \mb{H}_{\text{anis+demag}} =
-    \frac{2\Keff}{\Ms} \, m_z \, \zhat
+    \frac{2\Keff}{\Ms} \, m_z \, \zhat .
+\end{equation}
+%
+This is the default for the time-stepping hot path: fast (no
+FFT), correct in the long-wavelength uniform-$m_z$ regime,
+but \emph{wrong inside the domain wall} where in-plane
+$\mb{m}$ produces lateral surface charges that the local
+formula ignores.
+
+\paragraph{Level 1: Analytic slab kernel (k-space).}
+Each layer is treated as a continuous thin slab of thickness $\tCo$
+with periodic boundary conditions in $(x, y)$.  The demag tensor is
+analytic in 2D Fourier space.  Define the slab shape factor
+%
+\begin{equation}
+f(|k|, \tCo) = \frac{1 - e^{-|k|\,\tCo}}{|k|\,\tCo}\,,
+\qquad |k| = \sqrt{k_x^2 + k_y^2},
+\end{equation}
+%
+which interpolates between the uniform limit
+$f \to 1$ at $|k|\tCo \to 0$ and the short-wave limit
+$f \to 0$ at $|k|\tCo \to \infty$.  Define the structure factor
+for two parallel slabs of thickness $\tCo$ separated edge-to-edge by
+the non-magnetic spacer $d_{\text{Ru}}$:
+%
+\begin{equation}
+S(|k|) =
+\frac{\bigl(1 - e^{-|k|\,\tCo}\bigr)^2}{2\,|k|\,\tCo}\,
+e^{-|k|\,d_{\text{Ru}}}\,.
+\end{equation}
+%
+The self-layer tensor $\hat{N}^{\text{slab}}_{\text{self}}(\mb{k})$
+acts on the source layer's own magnetization, the inter-layer tensor
+$\hat{N}^{\text{slab}}_{\text{inter}}(\mb{k})$ couples it to the
+other layer:
+%
+\begin{align}
+N^{\text{self}}_{xx}(\mb{k}) &=
+    \bigl(1 - f(|k|,\tCo)\bigr)\,\frac{k_x^2}{|k|^2} ,
+&
+N^{\text{self}}_{xy}(\mb{k}) &=
+    \bigl(1 - f(|k|,\tCo)\bigr)\,\frac{k_x k_y}{|k|^2} ,
+\\
+N^{\text{self}}_{yy}(\mb{k}) &=
+    \bigl(1 - f(|k|,\tCo)\bigr)\,\frac{k_y^2}{|k|^2} ,
+&
+N^{\text{self}}_{zz}(\mb{k}) &=
+    f(|k|, \tCo) ,
+\\
+N^{\text{inter}}_{xx}(\mb{k}) &=
+    S(|k|)\,\frac{k_x^2}{|k|^2} ,
+&
+N^{\text{inter}}_{xy}(\mb{k}) &=
+    S(|k|)\,\frac{k_x k_y}{|k|^2} ,
+\\
+N^{\text{inter}}_{yy}(\mb{k}) &=
+    S(|k|)\,\frac{k_y^2}{|k|^2} ,
+&
+N^{\text{inter}}_{zz}(\mb{k}) &=
+    -S(|k|) .
+\end{align}
+%
+At $\mb{k} = 0$ (uniform $\mb{m}$):
+$N_{zz}^{\text{self}} = 1$, all other components vanish, recovering
+the local-slab limit.  The cross-layer $z$\,--$xy$ couplings
+$N_{xz}^{\text{inter}}, N_{yz}^{\text{inter}}$ are
+\emph{identically zero} in the slab formulation because each layer is
+treated as infinite in-plane, which decouples in-plane source $\mb{m}$
+from the other layer's $z$-field by symmetry.  Sign convention:
+%
+\begin{equation}
+\Hdemag(\mb{r}) = -\mu_0 \Ms\,(\hat{N}^{\text{self}} * \mb{m})(\mb{r})
+                  -\mu_0 \Ms\,(\hat{N}^{\text{inter}} * \mb{m}_{\text{other}})(\mb{r}),
+\end{equation}
+%
+where $*$ denotes 2D convolution (multiplication in $\mb{k}$).
+Cost per call: 6 forward + 6 inverse FFTs.
+
+\paragraph{Level 2: Newell numerical kernel (finite prisms).}
+Each lattice cell is a uniformly magnetized rectangular prism of
+size $a\times a \times \tCo$.  The cell-to-cell demag tensor is
+constructed by direct numerical integration of the
+surface-charge formulation (MuMax3 algorithm,
+\cite{mumax3}).
+For source magnetization $\mb{M} = M_u\,\hat{u}$ ($u \in\{x,y,z\}$),
+surface charges $\pm M_u$ live on the two $u$-faces.  The
+volume-averaged field at a destination cell with center-to-center
+displacement $\mb{R}$ is
+%
+\begin{equation}
+\bigl\langle H_i^{\text{Newell}}(\mb{R})\bigr\rangle_{V_{\text{dest}}}
+= \frac{M_u}{V_{\text{dest}}}\!\!
+  \int_{V_{\text{dest}}}\!\!\!\!d^3 r
+  \left[
+    \int_{+u\text{ face}}\!\!\!\!\!\frac{(\mb{r} - \mb{r}')_i}
+                                          {4\pi\,|\mb{r}-\mb{r}'|^3}\,
+                           dA'
+   -\int_{-u\text{ face}}\!\!\!\!\!\frac{(\mb{r} - \mb{r}')_i}
+                                          {4\pi\,|\mb{r}-\mb{r}'|^3}\,
+                           dA'
+  \right].
+\label{eq:newell_integral}
+\end{equation}
+%
+The 5-D integral (2-D source surface $\times$ 3-D destination volume)
+is evaluated by Gauss--Legendre quadrature.  Integration density
+follows MuMax3's adaptive recipe, with one quadrature node per
+$\text{maxSize} = d/\text{accuracy}$ along each axis, where $d$ is
+the edge-to-edge distance between cells; touching cells fall back
+to $d = L = \min(a, \tCo)$.  The source-surface stagger factor of 2
+doubles density on the $(v, w)$ axes orthogonal to the source
+direction $u$, avoiding source--destination grid resonance at near
+cells.
+
+For the self-cell $\mb{R} = \mb{0}$ the integral~\eqref{eq:newell_integral}
+has a removable Coulomb singularity that converges slowly under
+numerical quadrature.  It is replaced by Aharoni's closed-form
+demag factor for a rectangular prism~\cite{aharoni1998}:
+%
+\begin{equation}
+N_c^{\text{Aharoni}}(a, b, c)
+= \frac{1}{\pi}\!\Bigl[
+    \tfrac{b^2 - c^2}{2bc}\!
+       \log\!\tfrac{R_{abc} - a}{R_{abc} + a}
+    + \tfrac{a^2 - c^2}{2ac}\!
+       \log\!\tfrac{R_{abc} - b}{R_{abc} + b}
+    + \tfrac{b}{2c}\!
+       \log\!\tfrac{R_{ab} + a}{R_{ab} - a}
+    + \cdots
+  \Bigr],
+\end{equation}
+%
+where $R_{abc} = \tfrac12\sqrt{a^2 + b^2 + c^2}$,
+$R_{ab} = \tfrac12\sqrt{a^2 + b^2}$, and the remaining terms close
+the formula (full expression: Aharoni~\cite{aharoni1998}, Eq.~1).
+This evaluates $N^{\text{self}}_{xx, yy, zz}(\mb{R}=0)$ exactly;
+off-diagonals vanish by the cell mirror symmetries.
+
+The inter-layer tensor includes the
+$z$\,--$xy$ cross-couplings that the slab kernel discards:
+%
+\begin{equation}
+N^{\text{inter}}_{xz}, N^{\text{inter}}_{yz} \neq 0
+\quad\text{(odd in the inter-layer } z\text{-displacement)} .
+\end{equation}
+%
+These add the contributions
+$-\mu_0 \Ms\bigl(N_{xz}^{\text{inter}}\, m^{\text{other}}_z\bigr)$ to
+$H_x^{\text{dest}}$ (and symmetric variants); the sign flips when
+swapping source and destination layers because
+$N_{xz}(\mb{R}, +Z) = -N_{xz}(\mb{R}, -Z)$.
+
+After real-space construction over all $(n_x, n_y)$ lattice
+displacements, each tensor component is FFT-transformed to
+$\mb{k}$-space so the per-step demag evaluation remains
+6 forward $+$ 6 inverse FFTs --- the same cost as the slab
+kernel.  The result is a pair of demag tensors
+$\hat N^{\text{Newell,self}}(\mb{k})$ and
+$\hat N^{\text{Newell,inter}}(\mb{k})$ that play the same
+role as their slab counterparts but are obtained
+\emph{numerically} (no closed-form
+$f(|\mb{k}|\,\tCo)$ shape factor).  Schematically,
+%
+\begin{align}
+N^{\text{Newell,self}}_{xx}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{xx}^{\text{self}}(\mb{R})\bigr\},
+&
+N^{\text{Newell,self}}_{xy}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{xy}^{\text{self}}(\mb{R})\bigr\}, \\
+N^{\text{Newell,self}}_{yy}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{yy}^{\text{self}}(\mb{R})\bigr\},
+&
+N^{\text{Newell,self}}_{zz}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{zz}^{\text{self}}(\mb{R})\bigr\}, \\
+N^{\text{Newell,inter}}_{xx}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{xx}^{\text{inter}}(\mb{R})\bigr\},
+&
+N^{\text{Newell,inter}}_{xy}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{xy}^{\text{inter}}(\mb{R})\bigr\}, \\
+N^{\text{Newell,inter}}_{yy}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{yy}^{\text{inter}}(\mb{R})\bigr\},
+&
+N^{\text{Newell,inter}}_{zz}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{zz}^{\text{inter}}(\mb{R})\bigr\}, \\
+N^{\text{Newell,inter}}_{xz}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{xz}^{\text{inter}}(\mb{R})\bigr\},
+&
+N^{\text{Newell,inter}}_{yz}(\mb{k}) &=
+    \mathcal{F}\bigl\{\bar N_{yz}^{\text{inter}}(\mb{R})\bigr\},
+\end{align}
+%
+where $\bar N_{ij}^{\text{layer}}(\mb{R})$ is the real-space
+cell-cell tensor from Eq.~\eqref{eq:newell_integral} for
+$\mb{R} \neq \mb{0}$ and the Aharoni override at
+$\mb{R} = \mb{0}$, and $\mathcal{F}$ is the 2-D discrete
+Fourier transform.  The schema is the same as the slab
+kernel except that the Newell case adds the inter-layer
+cross-terms $N_{xz}^{\text{inter}}$ and
+$N_{yz}^{\text{inter}}$, which vanish identically in the
+slab approximation.  The sign convention is the same as the
+slab kernel:
+%
+\begin{equation}
+\Hdemag(\mb{r}) =
+    -\mu_0 \Ms \,
+    \bigl(\hat N^{\text{Newell,self}} * \mb{m}\bigr)(\mb{r})
+    -\mu_0 \Ms \,
+    \bigl(\hat N^{\text{Newell,inter}} * \mb{m}_{\text{other}}\bigr)(\mb{r}).
 \end{equation}
 
-The system in~\cite{pham2024} is close to the spin reorientation
-transition ($\Keff \approx 0$), which favors skyrmion formation.
+\paragraph{Default.}
+The slab kernel is the default because at skyrmion-scale
+wavelengths
+$|\mb{k}|\,\tCo \sim 2\pi \tCo / R \sim 0.08 \ll 1$, the
+slab and Newell formulations agree to $<1\%$.  The Newell
+kernel remains available as a strict cross-check at shorter
+wavelengths, where the finite-cell corrections (in-plane
+components at $|\mb{k}| > 0$ and prism-shape effects at
+$|\mb{k}|\,\tCo \sim 1$) become physically relevant.
 
 %----------------------------------------------------------------------
 \subsection{Zeeman Field}
@@ -856,14 +1407,43 @@ lattice sites.
 %----------------------------------------------------------------------
 \subsection{RKKY Interlayer Coupling}
 
-The antiferromagnetic RKKY interaction promotes antiparallel alignment:
+The antiferromagnetic RKKY interaction promotes antiparallel
+alignment between the two Co layers across the Ru/Pt spacer.
+Like the PMA, it is \emph{local} in the in-plane lattice: the
+field on the top spin at site $(i,j)$ depends only on the
+bottom spin at the same in-plane position, and vice versa.
+The discrete form is the continuum formula evaluated
+site-by-site:
 %
 \begin{align}
-\mb{H}_{\text{RKKY, on top}} &=
-    -H_{\text{RKKY}} \, \mb{m}_{\text{bot}} \\
-\mb{H}_{\text{RKKY, on bot}} &=
-    -H_{\text{RKKY}} \, \mb{m}_{\text{top}}
+\mb{H}_{\text{RKKY,top}}(i,j) &=
+    -H_{\text{RKKY}} \, \mb{m}^{\text{bot}}(i,j), \\
+\mb{H}_{\text{RKKY,bot}}(i,j) &=
+    -H_{\text{RKKY}} \, \mb{m}^{\text{top}}(i,j),
 \end{align}
+%
+with $H_{\text{RKKY}} > 0$ (antiferromagnetic) carried as a
+single scalar in Tesla.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/rkky_schematic.pdf}
+\caption{Antiferromagnetic RKKY interlayer coupling in the SAF
+stack. The Ru/Pt spacer mediates an indirect exchange
+interaction between the two Co layers whose oscillating sign
+is tuned to favour antiparallel alignment at the chosen
+thickness $d_{\text{Ru}}+d_{\text{Pt}}=1.35$~nm. Each top spin
+$\mb{m}^{\text{top}}(i,j)$ feels an effective field
+$-H_{\text{RKKY}}\,\mb{m}^{\text{bot}}(i,j)$ pointing
+opposite to the bottom spin at the same in-plane site, and
+vice versa. The result is the AFM-locked skyrmion pair shown
+on the right: identical lateral position, opposite core
+polarities, opposite topological charges. The Magnus and
+skyrmion-Hall contributions cancel between layers, allowing
+the SAF skyrmion to move along the current direction with no
+transverse drift.}
+\label{fig:rkky_schematic}
+\end{figure}
 
 %======================================================================
 \section{Spin-Orbit Torques}
@@ -959,6 +1539,128 @@ charges of the two layers cancel the Magnus force, resulting in
 motion along the current direction with no skyrmion Hall
 effect~\cite{pham2024}.
 
+%----------------------------------------------------------------------
+\subsection{Topological Spin Hall Torque}
+\label{sec:tsh}
+
+The SOT discussed above is an \emph{interface} effect generated in
+the heavy-metal Pt layer.  A second current-driven torque exists in
+the \emph{bulk} of the Co layer, originating from the Berry phase
+that conduction electrons pick up as they adiabatically follow a
+non-trivial spin texture~\cite{bruno2004, yin2015}.  This
+\emph{topological spin Hall} (TSH) torque is the Pham~2024
+mechanism explored in Figure~S49 and switches on whenever the
+texture carries a non-zero local skyrmion-number density.
+
+\paragraph{Topological charge density.}
+Define the local skyrmion-number density (Pontryagin density):
+%
+\begin{equation}
+N_{xy}(\mb{r}, t) =
+    \mb{m} \cdot
+    \bigl(\partial_x \mb{m} \times \partial_y \mb{m}\bigr) \,.
+\label{eq:topo_density}
+\end{equation}
+%
+Units of $1/\text{m}^2$.  Integrated over the layer, $(4\pi)^{-1}
+\int N_{xy}\, dA$ gives the total topological charge $Q$ (Section
+\ref{sec:topcharge}).  $N_{xy}$ is concentrated in the domain-wall
+ring of the skyrmion and vanishes in the uniformly magnetized
+background.
+
+\paragraph{Berry-phase spin current.}
+An electron with spin polarization $P$ drifting through a region
+of nonzero $N_{xy}$ acquires a Berry phase that deflects its
+trajectory transversely to the applied charge current.  The
+resulting topological Hall current is itself spin-polarized; it
+re-deposits angular momentum onto the underlying magnetization
+through a spin-transfer-torque-like coupling.  The leading-order
+contribution to $d\mb{m}/dt$ is~\cite{yin2015}:
+%
+\begin{equation}
+\boxed{
+\left.\frac{d\mb{m}}{dt}\right|_{\text{TSH}} =
+    -\,b_j\,\lambda^2\,
+    N_{xy}(\mb{r}, t)\,
+    \partial_y \mb{m}
+}
+\label{eq:tsh_torque}
+\end{equation}
+%
+with the spin-drift velocity
+%
+\begin{equation}
+b_j = \frac{\mu_B}{q_e}\,\frac{P\,J(t)}{\Ms}
+\qquad [\text{m/s}],
+\label{eq:bj_def}
+\end{equation}
+%
+where $\mu_B$ is the Bohr magneton, $q_e$ the elementary
+charge, $P$ the conduction-electron spin polarization, $J(t)$
+the applied charge current density, and $\Ms$ the saturation
+magnetization.  $\lambda^2$ is the topological coupling length
+squared (m$^2$); it sets the effective spin-diffusion area
+relevant to the topological Hall current and is treated as a
+material parameter.  For the Pt/Co/Ru stack of \cite{pham2024},
+Figure~S49 sweeps $\lambda^2 \in \{3,\,50\}\ \text{nm}^2$.
+
+\paragraph{Dimensions.}
+The product
+$b_j[\text{m/s}] \cdot \lambda^2[\text{m}^2] \cdot N_{xy}
+[1/\text{m}^2] \cdot \partial_y\mb{m}[1/\text{m}]$ evaluates to
+$1/\text{s}$, the correct unit for $d\mb{m}/dt$.
+
+\paragraph{Selection of the $y$-derivative.}
+The charge current is taken along $\hat{x}$ (the convention of
+the simulator and the paper).  The topological Hall current
+flows along $\hat{y}$, so the resulting spin transfer couples
+to the magnetization gradient \emph{along $\hat{y}$} ---
+$\partial_y\mb{m}$.  Rotating the current direction would
+permute this through $\hat{x} \leftrightarrow \hat{y}$ in
+\eqref{eq:tsh_torque}.
+
+\paragraph{Where the torque acts.}
+In the uniformly magnetized background $N_{xy} = 0$ and the
+TSH torque vanishes identically.  Inside the skyrmion ring,
+$|N_{xy}|$ peaks at the domain wall, so the TSH torque is
+localized there.  The DL-SOT in
+Eq.~\eqref{eq:llgs_explicit} drives the entire skyrmion;
+the TSH adds a wall-localized push along the
+direction set by $\partial_y \mb{m}$.  The two torques are
+\textbf{independent and additive} --- TSH does not replace SOT.
+
+\paragraph{Sign convention and net force.}
+With $J > 0$ along $+\hat{x}$, $P > 0$, and a skyrmion of
+charge $Q = -1$ in the top layer (the convention used in the
+codebase), $N_{xy}$ is predominantly negative in the wall.
+Equation~\eqref{eq:tsh_torque} then produces a transverse
+push consistent with the topological Hall sign (electrons
+deflect toward $+\hat{y}$, magnetization responds in $-\hat{y}$
+via spin angular-momentum conservation).  In the SAF the
+opposite skyrmion charges on the two layers send the TSH push
+in opposite $\hat{y}$ directions; the net translational
+contribution along $\hat{x}$ survives, but the transverse
+components cancel just as the Magnus force does.
+
+\paragraph{Discrete-lattice implementation.}
+On the simulation grid, $\partial_{x,y}\mb{m}$ are evaluated as
+second-order central differences via
+\texttt{numpy.roll}.  $N_{xy}$ is the elementwise scalar
+$\mb{m}\cdot(\partial_x\mb{m}\times \partial_y\mb{m})$.  The
+TSH contribution is added to $d\mb{m}/dt$ after the LLGS
+right-hand side:
+%
+\begin{equation*}
+\text{dmdt} \mathrel{+}= -b_j\,\lambda^2\,
+    N_{xy}\,\partial_y\mb{m},
+\end{equation*}
+%
+gated by \texttt{p.lambda\_sq != 0.0} so the entire block is
+skipped (bit-identical to the SOT-only baseline) when the
+mechanism is disabled.  The default $\lambda^2 = 0$ keeps TSH
+off; the Figure~S49 sweep activates it through the script
+parameter.
+
 %======================================================================
 \section{Magnus Force and the Thiele Equation}
 %======================================================================
@@ -1024,6 +1726,7 @@ simulations ($\theta_{\text{SkHE}} = 0.3^\circ$).
 
 %======================================================================
 \section{Topological Charge}
+\label{sec:topcharge}
 %======================================================================
 
 The topological charge (skyrmion number) is:
@@ -1245,6 +1948,11 @@ The velocity is within the uncertainty band of the damping constant
 ($\alpha = 0.14 \pm 0.04$). The four approximations are detailed in
 Sec.~\ref{sec:implementation_notes}.
 
+Empirically, widening the inter-layer spacer from $d_{\text{Ru}}=0.8$ to
+$1.35$~nm (Pt$+$Ru, Sec.~\ref{sec:demag}) shifts $d_{\text{top}}$ by
+$<1\%$, confirming that the slab self-layer kernel dominates the
+equilibrium size and that the inter-layer term is a weak perturbation.
+
 %======================================================================
 \section{Implementation Notes}
 \label{sec:implementation_notes}
@@ -1336,9 +2044,9 @@ The catch is that $\Keff = K - \mu_0 \Ms^2/2$ is a
 %
 \begin{equation}
 K = 1.294\times 10^6,\quad
-\mu_0 \Ms^2/2 = 1.286\times 10^6\ \text{J/m}^3
+\mu_0 \Ms^2/2 = 1.285\times 10^6\ \text{J/m}^3
 \;\Longrightarrow\;
-\Keff \approx 8\times 10^3\ \text{J/m}^3.
+\Keff \approx 9\times 10^3\ \text{J/m}^3.
 \end{equation}
 %
 A 7\% error on $K$ ($\sim 9\times 10^4$~J/m$^3$) is
@@ -1724,6 +2432,38 @@ M.~Krounbi, K.~A.~Zvezdin, A.~Anane, J.~Grollier, A.~Fert,
 ``Matching domain-wall configuration and spin-orbit torques for
 efficient domain-wall motion,''
 \emph{Physical Review B} \textbf{87}, 020402(R) (2013).
+
+\bibitem{mumax3}
+A.~Vansteenkiste, J.~Leliaert, M.~Dvornik, M.~Helsen,
+F.~Garcia-Sanchez, B.~Van~Waeyenberge,
+``The design and verification of MuMax3,''
+\emph{AIP Advances} \textbf{4}, 107133 (2014).
+Source code: \url{https://github.com/mumax/3},
+file \texttt{mag/demagkernel.go}.
+
+\bibitem{aharoni1998}
+A.~Aharoni,
+``Demagnetizing factors for rectangular ferromagnetic prisms,''
+\emph{Journal of Applied Physics} \textbf{83}, 3432--3434 (1998).
+
+\bibitem{lin1991}
+C.-J.~Lin, G.~L.~Gorman, C.~H.~Lee, R.~F.~C.~Farrow,
+E.~E.~Marinero, H.~V.~Do, H.~Notarys, C.~J.~Chien,
+``Magnetic and structural properties of Co/Pt multilayers,''
+\emph{Journal of Magnetism and Magnetic Materials}
+\textbf{93}, 194--206 (1991).
+
+\bibitem{bruno2004}
+P.~Bruno, V.~K.~Dugaev, M.~Taillefumier,
+``Topological Hall effect and Berry phase in magnetic
+nanostructures,''
+\emph{Physical Review Letters} \textbf{93}, 096806 (2004).
+
+\bibitem{yin2015}
+G.~Yin, Y.~Liu, Y.~Barlas, J.~Zang, R.~K.~Lake,
+``Topological spin Hall effect resulting from magnetic
+skyrmions,''
+\emph{Physical Review B} \textbf{92}, 024411 (2015).
 \end{thebibliography}
 
 \end{document}

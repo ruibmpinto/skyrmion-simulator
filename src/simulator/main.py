@@ -25,6 +25,7 @@ from src.simulator.lattice import lattice_positions
 from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.integrator import rk4_step
 from src.simulator.io_ovito import write_dump
+from src.simulator.pulses import ConstantPulse
 
 #
 #                                                   Authorship & Credits
@@ -144,12 +145,22 @@ def run(p=None):
         print('Relaxation phase (J=0)...')
         # Temporarily disable SOT
         # Cache and zero SOT so llgs_rhs skips that branch entirely.
+        # The pulse is also swapped to ConstantPulse(0) so the
+        # integrator path (which reads p.pulse(t), not p.H_DL/p.H_FL)
+        # also sees zero current. The scalar zeroing keeps header
+        # prints and any external diagnostic consistent with that.
         H_DL_save = p.H_DL
         H_FL_save = p.H_FL
+        pulse_save = p.pulse
         p.H_DL = 0.0
         p.H_FL = 0.0
+        p.pulse = ConstantPulse(0.0)
+        # Phase 1 starts at t = 0 internally; the pulse is zero so the
+        # exact time origin does not affect the dynamics here.
+        t = 0.0
         for step in range(1, p.n_relax + 1):
-            m_top, m_bot = rk4_step(m_top, m_bot, p.dt, p)
+            m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+            t += p.dt
             if step % (p.n_relax // 5) == 0:
                 Q = topological_charge(m_top, p.a)
                 t_ps = step * p.dt * 1e12
@@ -158,12 +169,17 @@ def run(p=None):
         # Re-enable the cached drive before entering Phase 2.
         p.H_DL = H_DL_save
         p.H_FL = H_FL_save
+        p.pulse = pulse_save
         print('Relaxation done.')
         print('-' * 50)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Phase 2: Current-driven dynamics
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     print('Current-driven phase...')
+    # Pulse time is reset to zero at the start of Phase 2, so user-
+    # supplied SquarePulse / GaussianPulse parameters are specified
+    # relative to pulse-start.
+    t = 0.0
     for step in range(p.n_steps + 1):
         # Dump and diagnostics
         if step % p.dump_every == 0:
@@ -183,7 +199,8 @@ def run(p=None):
         # RK4 step
         # Guard: don't advance past the final dump frame.
         if step < p.n_steps:
-            m_top, m_bot = rk4_step(m_top, m_bot, p.dt, p)
+            m_top, m_bot = rk4_step(m_top, m_bot, t, p.dt, p)
+            t += p.dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Summary
     elapsed = time.time() - t_start
