@@ -14,9 +14,9 @@ Real total_energy(const Field3& m_top, const Field3& m_bot,
     // Internal (bilinear) field, bare-K anisotropy, both layers.
     Field3 H_top(p.ny, p.nx), H_bot(p.ny, p.nx);
     effective_field(m_top, m_bot, p.C_ex, p.C_dmi, ba.C_top,
-                    Vec3{0, 0, 0}, p.H_RKKY, H_top);
+                    Vec3{0, 0, 0}, p.H_RKKY, H_top, nullptr);
     effective_field(m_bot, m_top, p.C_ex, p.C_dmi, ba.C_bot,
-                    Vec3{0, 0, 0}, p.H_RKKY, H_bot);
+                    Vec3{0, 0, 0}, p.H_RKKY, H_bot, nullptr);
 
     Field3 H_dem_top(p.ny, p.nx), H_dem_bot(p.ny, p.nx);
     demag.compute(m_top, m_bot, H_dem_top, H_dem_bot);

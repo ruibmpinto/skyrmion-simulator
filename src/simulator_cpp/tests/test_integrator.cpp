@@ -30,9 +30,9 @@ int main() {
         // llgs_rhs on each layer at t = 0.
         Field3 H_top(p.ny, p.nx), H_bot(p.ny, p.nx);
         effective_field(m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
-                        p.H_ext, p.H_RKKY, H_top);
+                        p.H_ext, p.H_RKKY, H_top, nullptr);
         effective_field(m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
-                        p.H_ext, p.H_RKKY, H_bot);
+                        p.H_ext, p.H_RKKY, H_bot, nullptr);
         Field3 dt_top(p.ny, p.nx), dt_bot(p.ny, p.nx);
         const double t = ref.scalar<double>("integrator_t_eval");
         llgs_rhs(m_top, H_top, p, t, dt_top);
@@ -46,7 +46,7 @@ int main() {
     }
     // ---- RHSLocalKeff -------------------------------------------------------
     {
-        RHSLocalKeff rhs(p);
+        RHSLocalKeff rhs(p, nullptr);
         Field3 dt_top(p.ny, p.nx), dt_bot(p.ny, p.nx);
         rhs(m_top, m_bot, 0.0, dt_top, dt_bot);
         Field3 exp_t = ref.field3("integrator_rhs_keff_top");
@@ -60,7 +60,7 @@ int main() {
     {
         p.demag_kind = DemagKind::Slab;
         DemagState s(p, 0);
-        RHSDemag rhs(p, s);
+        RHSDemag rhs(p, s, nullptr);
         Field3 dt_top(p.ny, p.nx), dt_bot(p.ny, p.nx);
         rhs(m_top, m_bot, 0.0, dt_top, dt_bot);
         Field3 exp_t = ref.field3("integrator_rhs_demag_top");
@@ -75,7 +75,7 @@ int main() {
     {
         Field3 mt = m_top;  // deep copy
         Field3 mb = m_bot;
-        RHSLocalKeff rhs(p);
+        RHSLocalKeff rhs(p, nullptr);
         rk4_step(rhs, mt, mb, 0.0, p.dt, p);
         Field3 exp_t = ref.field3("integrator_rk4_keff_top");
         Field3 exp_b = ref.field3("integrator_rk4_keff_bot");
@@ -88,7 +88,7 @@ int main() {
     {
         p.demag_kind = DemagKind::Slab;
         DemagState s(p, 0);
-        RHSDemag rhs(p, s);
+        RHSDemag rhs(p, s, nullptr);
         Field3 mt = m_top;
         Field3 mb = m_bot;
         rk4_step(rhs, mt, mb, 0.0, p.dt, p);
@@ -98,6 +98,25 @@ int main() {
                 test_common::array(mt.data.data(), exp_t.data.data(), mt.data.size()));
         r.check("rk4_step_demag_bot",
                 test_common::array(mb.data.data(), exp_b.data.data(), mb.data.size()));
+    }
+    // ---- rk4_step_single (single layer, local-K_eff) ------------------------
+    {
+        Field3 m = m_top;  // deep copy
+        RHSSingleKeff rhs(p, nullptr);
+        rk4_step_single(rhs, m, 0.0, p.dt, p);
+        Field3 exp = ref.field3("integrator_rk4_single");
+        r.check("rk4_step_single",
+                test_common::array(m.data.data(), exp.data.data(), m.data.size()));
+    }
+    // ---- rk4_step_single + free-boundary mask -------------------------------
+    {
+        std::vector<std::uint8_t> mask = ref.vec<std::uint8_t>("mask_disk");
+        Field3 m = m_top;  // deep copy
+        RHSSingleKeff rhs(p, mask.data());
+        rk4_step_single(rhs, m, 0.0, p.dt, p);
+        Field3 exp = ref.field3("integrator_rk4_single_mask");
+        r.check("rk4_step_single_mask",
+                test_common::array(m.data.data(), exp.data.data(), m.data.size()));
     }
     return r.report("test_integrator");
 }

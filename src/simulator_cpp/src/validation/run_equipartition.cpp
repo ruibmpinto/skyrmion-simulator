@@ -113,7 +113,7 @@ int main() {
     stochastic::ThermalRng rng(static_cast<std::uint64_t>(seed));
     const double sigma = p.sigma_noise;
     stochastic::HeunStochasticStepper stepper(p, nullptr, rng, sigma,
-                                              tol_norm);
+                                              tol_norm, /*mask=*/nullptr);
 
     // ---- Relaxation -----------------------------------------------------
     std::printf("Relaxation phase...\n");

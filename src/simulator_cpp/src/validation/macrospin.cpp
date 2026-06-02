@@ -100,7 +100,7 @@ MacrospinHistory run_macrospin_ensemble(Params& p, Vec3 m0_top, Real dt,
     stochastic::ThermalRng rng(static_cast<std::uint64_t>(p.seed));
     const Real sigma = p.sigma_noise;
     stochastic::HeunStochasticStepper stepper(p, nullptr, rng, sigma,
-                                              tol_norm);
+                                              tol_norm, /*mask=*/nullptr);
 
     const int n_samples = (n_steps + sample_every - 1) / sample_every;
     MacrospinHistory h;

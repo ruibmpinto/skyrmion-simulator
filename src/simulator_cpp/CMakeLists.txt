@@ -174,7 +174,7 @@ set(SKYRMION_TESTS
     pulses parameters lattice initial_conditions
     demag_slab demag_newell demag_field
     fields energy integrator observables io_npz simulation
-    sweep edge_cases thermal stochastic_t0 lcc stochastic_diag pair_ic
+    sweep relax edge_cases thermal stochastic_t0 lcc stochastic_diag pair_ic
     stochastic_scans validation)
 foreach(t ${SKYRMION_TESTS})
     add_executable(test_${t} tests/test_${t}.cpp)

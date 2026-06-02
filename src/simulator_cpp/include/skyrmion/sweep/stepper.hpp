@@ -23,9 +23,12 @@ public:
 };
 
 // Plain RK4 with local-K_eff anisotropy (no explicit FFT demag).
+// `mask` (row-major ny*nx, or nullptr for the periodic path) is forwarded
+// to the field assembly for free-boundary geometries.
 class RK4LocalKeffStepper : public Stepper {
 public:
-    explicit RK4LocalKeffStepper(const Params& p) : rhs_(p) {}
+    RK4LocalKeffStepper(const Params& p, const std::uint8_t* mask)
+        : rhs_(p, mask) {}
     void step(Field3& m_top, Field3& m_bot,
               Real t, Real dt, Params& p) override {
         rk4_step(rhs_, m_top, m_bot, t, dt, p);
@@ -37,7 +40,9 @@ private:
 // RK4 with explicit FFT demag (slab or Newell kernel).
 class RK4DemagStepper : public Stepper {
 public:
-    RK4DemagStepper(const Params& p, DemagState& demag) : rhs_(p, demag) {}
+    RK4DemagStepper(const Params& p, DemagState& demag,
+                    const std::uint8_t* mask)
+        : rhs_(p, demag, mask) {}
     void step(Field3& m_top, Field3& m_bot,
               Real t, Real dt, Params& p) override {
         rk4_step(rhs_, m_top, m_bot, t, dt, p);

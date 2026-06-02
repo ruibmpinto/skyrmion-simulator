@@ -23,10 +23,19 @@
 namespace skyrmion {
 namespace stochastic {
 
+// `mask` (row-major ny*nx, 1 = inside the magnetic region, or nullptr for
+// the periodic path) is forwarded to the field assembly for free-boundary
+// geometries; the noise sample is zeroed outside the region so frozen
+// cells do not random-walk. Single-layer mode is selected by passing an
+// empty `m_bot` (n_sites() == 0) to step(): a lone ferromagnet is evolved
+// with the top layer as its own RKKY partner; it requires demag == nullptr
+// (demag is a bilayer coupling), else step() raises. Matches Python
+// integrator_sllg.heun_stochastic_step(mask=..., m_bot=None).
 class HeunStochasticStepper : public sweep::Stepper {
 public:
     HeunStochasticStepper(const Params& p, DemagState* demag,
-                          ThermalRng& rng, Real sigma, Real tol_norm);
+                          ThermalRng& rng, Real sigma, Real tol_norm,
+                          const std::uint8_t* mask);
 
     void step(Field3& m_top, Field3& m_bot,
               Real t, Real dt, Params& p) override;
@@ -38,6 +47,7 @@ private:
     ThermalRng& rng_;
     Real sigma_;
     Real tol_norm_;
+    const std::uint8_t* mask_;
     Real last_drift_ = 0.0;
     // Scratch (sized at construction).
     Field3 H_top_, H_bot_;
@@ -47,7 +57,9 @@ private:
 
     // Assemble H_top_/H_bot_ from (m_top, m_bot) using the configured
     // field model, then add the current noise sample h_top_/h_bot_.
-    void field_plus_noise(const Field3& m_top, const Field3& m_bot, Params& p);
+    // `single` evolves the top layer alone (m_bot ignored).
+    void field_plus_noise(const Field3& m_top, const Field3& m_bot,
+                          Params& p, bool single);
 };
 
 } // namespace stochastic

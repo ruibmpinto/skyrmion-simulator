@@ -53,7 +53,8 @@ long long run_brown_ensemble(Params& p, Vec3 m0, double dt, long long n_steps,
     }
     stochastic::ThermalRng rng(static_cast<std::uint64_t>(p.seed));
     stochastic::HeunStochasticStepper stepper(p, nullptr, rng,
-                                              p.sigma_noise, tol_norm);
+                                              p.sigma_noise, tol_norm,
+                                              /*mask=*/nullptr);
     std::vector<long long> flip_step(n_traj, n_steps);
     std::vector<char> flipped(n_traj, 0);
     int n_flipped = 0;

@@ -68,7 +68,8 @@ int main() {
         Field3 m_bot = std::move(ic.m_bot);
 
         ThermalRng rng(static_cast<std::uint64_t>(seed));
-        HeunStochasticStepper stepper(p, demag.get(), rng, p.sigma_noise, tol_norm);
+        HeunStochasticStepper stepper(p, demag.get(), rng, p.sigma_noise,
+                                      tol_norm, /*mask=*/nullptr);
 
         // Relax (J = 0).
         Real t = 0.0;

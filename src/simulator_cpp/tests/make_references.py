@@ -42,7 +42,7 @@ from src.simulator.parameters import default_params
 from src.simulator.pulses import (
     ConstantPulse, SquarePulse, GaussianPulse, SuperpositionPulse,
 )
-from src.simulator.lattice import lattice_positions
+from src.simulator.lattice import lattice_positions, disk_mask
 from src.simulator.initial_conditions import (
     skyrmion_profile, uniform_state, saf_skyrmion,
 )
@@ -54,7 +54,9 @@ from src.simulator.fields import (
 )
 from src.simulator.integrator import (
     normalize, llgs_rhs, rhs_local_keff, rhs_demag, rk4_step,
+    rk4_step_single,
 )
+from src.phase_diagram.relaxation import relax
 from src.simulator.main import topological_charge
 from src.simulator.analysis import (
     skyrmion_center, skyrmion_diameter, skyrmion_ellipse, dw_angle,
@@ -368,6 +370,96 @@ def main():
         t_h += ph.dt
     refs['heun_t0_slab_m_top'] = hmt
     refs['heun_t0_slab_m_bot'] = hmb
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Free-boundary mask + single-layer parity references. A disk mask
+    # (radius < box) exercises the Rohart-Thiaville ghost cells, the
+    # region zeroing, and the masked demag convolution.
+    msk = disk_mask(nx, ny, a, 24.0e-9)
+    refs['mask_disk'] = msk.astype(np.uint8)
+    # effective_field with mask (local-K_eff path).
+    refs['fields_H_top_keff_mask'] = effective_field(
+        m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
+        p.H_ext, p.H_RKKY, mask=msk)
+    refs['fields_H_bot_keff_mask'] = effective_field(
+        m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
+        p.H_ext, p.H_RKKY, mask=msk)
+    # effective_field_demag_pair with mask (slab kernel).
+    Hmt_dem, Hmb_dem = effective_field_demag_pair(
+        m_top, m_bot, p, K_slab, mask=msk)
+    refs['fields_H_top_demag_mask'] = Hmt_dem
+    refs['fields_H_bot_demag_mask'] = Hmb_dem
+    # rk4_step_single: one step of the single-layer local-K_eff RHS,
+    # with and without the mask. Mirrors relaxation._rhs_single.
+    def _rhs_single_nomask(m, pp, tt):
+        H = effective_field(
+            m, m, pp.C_ex, pp.C_dmi, pp.C_anis_top,
+            pp.H_ext, pp.H_RKKY, mask=None)
+        return llgs_rhs(m, H, pp, tt)
+
+    def _rhs_single_mask(m, pp, tt):
+        H = effective_field(
+            m, m, pp.C_ex, pp.C_dmi, pp.C_anis_top,
+            pp.H_ext, pp.H_RKKY, mask=msk)
+        return llgs_rhs(m, H, pp, tt)
+
+    refs['integrator_rk4_single'] = rk4_step_single(
+        _rhs_single_nomask, m_top, 0.0, p.dt, p)
+    refs['integrator_rk4_single_mask'] = rk4_step_single(
+        _rhs_single_mask, m_top, 0.0, p.dt, p)
+    # relax: short runs (chosen not to converge, so n_steps = max_steps),
+    # single-layer + mask and pair + slab-demag + mask.
+    relax_max_steps = 500
+    relax_alpha = 1.0
+    relax_tol_torque = 1.0e-5
+    relax_tol_dE = 1.0e-8
+    relax_check_every = 100
+    refs['relax_max_steps'] = np.int64(relax_max_steps)
+    refs['relax_alpha'] = float(relax_alpha)
+    refs['relax_tol_torque'] = float(relax_tol_torque)
+    refs['relax_tol_dE'] = float(relax_tol_dE)
+    refs['relax_check_every'] = np.int64(relax_check_every)
+    pr_s = _dc(p)
+    mt_s, mb_s, conv_s, ns_s, E_s, tau_s = relax(
+        m_top.copy(), None, pr_s, None,
+        max_steps=relax_max_steps, alpha_relax=relax_alpha,
+        tol_torque=relax_tol_torque, tol_dE=relax_tol_dE,
+        check_every=relax_check_every, print_every=0, mask=msk)
+    refs['relax_single_mask_m_top'] = mt_s
+    refs['relax_single_mask_converged'] = np.int64(1 if conv_s else 0)
+    refs['relax_single_mask_n_steps'] = np.int64(ns_s)
+    refs['relax_single_mask_tau_max'] = float(tau_s)
+    pr_p = _dc(p)
+    K_relax = precompute_demag_kernels(
+        pr_p, kind='slab', accuracy=None, tol_conv=None)
+    mt_p, mb_p, conv_p, ns_p, E_p, tau_p = relax(
+        m_top.copy(), m_bot.copy(), pr_p, K_relax,
+        max_steps=relax_max_steps, alpha_relax=relax_alpha,
+        tol_torque=relax_tol_torque, tol_dE=relax_tol_dE,
+        check_every=relax_check_every, print_every=0, mask=msk)
+    refs['relax_pair_mask_m_top'] = mt_p
+    refs['relax_pair_mask_m_bot'] = mb_p
+    refs['relax_pair_mask_converged'] = np.int64(1 if conv_p else 0)
+    refs['relax_pair_mask_n_steps'] = np.int64(ns_p)
+    refs['relax_pair_mask_tau_max'] = float(tau_p)
+    # Heun stepper at T = 0 with mask: single-layer and pair (slab).
+    hmt = m_top.copy()
+    t_h = 0.0
+    for _ in range(n_heun):
+        hmt, _, _ = heun_stochastic_step(
+            hmt, None, ph.dt, ph, None, zero, None, tol_norm,
+            t=t_h, mask=msk)
+        t_h += ph.dt
+    refs['heun_single_mask_m_top'] = hmt
+    hmt = m_top.copy()
+    hmb = m_bot.copy()
+    t_h = 0.0
+    for _ in range(n_heun):
+        hmt, hmb, _ = heun_stochastic_step(
+            hmt, hmb, ph.dt, ph, K_heun, zero, zero, tol_norm,
+            t=t_h, mask=msk)
+        t_h += ph.dt
+    refs['heun_pair_mask_m_top'] = hmt
+    refs['heun_pair_mask_m_bot'] = hmb
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # LCC diagnostics: mask, diameter, centre for the canonical state
     # (single dominant component) and a half-box-rolled state (core

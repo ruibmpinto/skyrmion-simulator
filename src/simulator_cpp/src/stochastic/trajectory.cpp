@@ -81,7 +81,8 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
 
     ThermalRng rng(static_cast<std::uint64_t>(cfg.seed));
     const Real sigma = p.sigma_noise;
-    HeunStochasticStepper stepper(p, demag.get(), rng, sigma, cfg.tol_norm);
+    HeunStochasticStepper stepper(p, demag.get(), rng, sigma, cfg.tol_norm,
+                                  /*mask=*/nullptr);
     const Real a = p.a;
 
     auto dump = [&](const Field3& mt, const Field3& mb, int64_t step,

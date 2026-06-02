@@ -71,7 +71,8 @@ int main() {
         RelaxResult rr = relax(std::move(ic.m_top), std::move(ic.m_bot), p,
                                /*demag=*/nullptr, relax_max_steps, relax_alpha,
                                relax_tol_torque, relax_tol_dE,
-                               relax_check_every, print_every);
+                               relax_check_every, print_every,
+                               /*mask=*/nullptr);
 
         // Perturb.
         Field3 m_top = std::move(rr.m_top);
@@ -89,7 +90,7 @@ int main() {
         // pulse is the free evolution.
         p.alpha = free_alpha;
         p.gamma_p = p.gamma_ / (1.0 + p.alpha * p.alpha);
-        RK4LocalKeffStepper stepper(p);
+        RK4LocalKeffStepper stepper(p, /*mask=*/nullptr);
 
         RunTraceArgs ta;
         ta.p = &p;

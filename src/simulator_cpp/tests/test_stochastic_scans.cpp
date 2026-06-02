@@ -131,7 +131,7 @@ int main() {
 
         ThermalRng rng(static_cast<std::uint64_t>(p.seed));
         HeunStochasticStepper stepper(p, nullptr, rng, p.sigma_noise,
-                                      5.0e-2);
+                                      5.0e-2, /*mask=*/nullptr);
         std::vector<double> t_sample, r_pair, Q;
         Real t = 0.0;
         for (int s = 1; s <= 4; ++s) {

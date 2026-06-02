@@ -26,11 +26,24 @@ struct RelaxResult {
 // local-K_eff effective field, no energy-trend check (only tau_torque).
 // `demag != nullptr` selects the bare-K + FFT-demag path with both the
 // torque and relative-energy convergence gates.
+//
+// `mask` (row-major ny*nx, 1 = inside the magnetic region, or nullptr for
+// the periodic path) selects a free-boundary geometry; it is forwarded to
+// the field assembly so cells outside the region receive no field and the
+// DMI edge condition applies.
+//
+// Single-layer mode is selected by an empty `m_bot` (n_sites() == 0): a
+// lone ferromagnet relaxes via the no-demag local-K_eff field and
+// rk4_step_single, converging on the tangential torque alone. It requires
+// `demag == nullptr` (a single layer has no interlayer demag); otherwise
+// the call raises. The returned `m_bot` is empty and `E_final` is NaN.
+// Matches Python phase_diagram.relaxation.relax(mask=..., m_bot=None).
 RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
                   DemagState* demag,
                   int max_steps, double alpha_relax,
                   double tol_torque, double tol_dE,
-                  int check_every, int print_every);
+                  int check_every, int print_every,
+                  const std::uint8_t* mask);
 
 } // namespace sweep
 } // namespace skyrmion

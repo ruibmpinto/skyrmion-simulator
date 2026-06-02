@@ -101,7 +101,7 @@ int main() {
     // ---- Reference: deterministic RK4 -----------------------------------
     Params p_det = make_default_params();
     p_det.dt = dt;
-    RHSLocalKeff rhs(p_det);
+    RHSLocalKeff rhs(p_det, /*mask=*/nullptr);
     std::printf("Running deterministic RK4 reference "
                 "(%d relax + %d drive)...\n", n_relax, n_drive);
     Track ref = run_phase(p_det, n_relax, n_drive, dt,
@@ -120,7 +120,7 @@ int main() {
     }
     stochastic::ThermalRng rng(static_cast<std::uint64_t>(seed));
     stochastic::HeunStochasticStepper stepper(p_sim, nullptr, rng, 0.0,
-                                              tol_norm);
+                                              tol_norm, /*mask=*/nullptr);
     std::printf("Running stochastic Heun at T = 0...\n");
     Track sim = run_phase(p_sim, n_relax, n_drive, dt,
         [&](Field3& a, Field3& b, double tt) {

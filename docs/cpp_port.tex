@@ -132,6 +132,7 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \code{integrator.rhs_local_keff} & \code{RHSLocalKeff} & \code{integrator.cpp}\\
 \code{integrator.rhs_demag} & \code{RHSDemag} & \code{integrator.cpp}\\
 \code{integrator.rk4_step} & \code{rk4_step} & \code{integrator.cpp}\\
+\code{integrator.rk4_step_single} & \code{rk4_step_single} & \code{integrator.cpp}\\
 \addlinespace
 \multicolumn{3}{l}{\textit{Observables}}\\
 \code{main.topological_charge} & \code{topological_charge} & \code{observables.cpp}\\
@@ -147,13 +148,13 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \addlinespace
 \multicolumn{3}{l}{\textit{Sweep layer}}\\
 \code{phase_diagram.relaxation.relax} & \code{sweep::relax} & \code{sweep/relax.cpp}\\
-\code{sweeps.driver.run_one} & \code{sweep::run_trace} & \code{sweep/driver.cpp}\\
-\code{sweeps.observers.observe_state} & \code{sweep::observe_state} & \code{sweep/observations.cpp}\\
-\code{sweeps.io.save_trace} & \code{sweep::save_trace} & \code{sweep/trace_io.cpp}\\
+\code{orchestrator.driver.run_one} & \code{sweep::run_trace} & \code{sweep/driver.cpp}\\
+\code{orchestrator.observers.observe_state} & \code{sweep::observe_state} & \code{sweep/observations.cpp}\\
+\code{orchestrator.io.save_trace} & \code{sweep::save_trace} & \code{sweep/trace_io.cpp}\\
 \code{orchestrator.io.load_trace} & Python (bytes-metadata patch) & \code{src/orchestrator/io.py}\\
-\code{sweeps.integrators.step_deterministic} & \code{sweep::RK4LocalKeffStepper} & \code{sweep/stepper.hpp}\\
-\code{sweeps.integrators.step_demag_deterministic} & \code{sweep::RK4DemagStepper} & \code{sweep/stepper.hpp}\\
-\code{sweeps.integrators.step_stochastic} & \code{HeunStochasticStepper} & \code{stochastic/heun.cpp}\\
+\code{orchestrator.integrators.step_deterministic} & \code{sweep::RK4LocalKeffStepper} & \code{sweep/stepper.hpp}\\
+\code{orchestrator.integrators.step_demag_deterministic} & \code{sweep::RK4DemagStepper} & \code{sweep/stepper.hpp}\\
+\code{orchestrator.integrators.step_stochastic} & \code{HeunStochasticStepper} & \code{stochastic/heun.cpp}\\
 \addlinespace
 \multicolumn{3}{l}{\textit{Stochastic LLG}}\\
 \code{parameters_thermal.attach_thermal} & \code{attach_thermal} & \code{stochastic/thermal.cpp}\\
@@ -166,10 +167,10 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \code{diagnostics.unwrap_trajectory} & \code{unwrap_trajectory} & \code{stochastic/diagnostics.cpp}\\
 \code{diagnostics.detect_annihilation} & \code{detect_annihilation} & \code{stochastic/diagnostics.cpp}\\
 \code{diagnostics.hall_angle} & \code{hall_angle} & \code{stochastic/diagnostics.cpp}\\
-\code{production.run_single.trajectory_worker} & \code{run_trajectory} & \code{stochastic/trajectory.cpp}\\
+\code{experiments.run_single.trajectory_worker} & \code{run_trajectory} & \code{stochastic/trajectory.cpp}\\
 \code{stochastic_llgs.io.save_trajectory} & \code{save_trajectory} & \code{stochastic/trajectory_io.cpp}\\
-\code{production.pair_potential.skyrmion_at_position} & \code{skyrmion_at_position} & \code{stochastic/pair_ic.cpp}\\
-\code{production.pair_potential.two_skyrmion_pair_ic} & \code{two_skyrmion_pair_ic} & \code{stochastic/pair_ic.cpp}\\
+\code{experiments.pair_potential.skyrmion_at_position} & \code{skyrmion_at_position} & \code{stochastic/pair_ic.cpp}\\
+\code{experiments.pair_potential.two_skyrmion_pair_ic} & \code{two_skyrmion_pair_ic} & \code{stochastic/pair_ic.cpp}\\
 \addlinespace
 \multicolumn{3}{l}{\textit{Validation-gate helpers}}\\
 \code{validation.macrospin.make_macrospin_params} & \code{make_macrospin_params} & \code{validation/macrospin.cpp}\\
@@ -183,6 +184,21 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \code{scripts/plot_*.py}, \code{animate_*.py} & --- (plotting stays in Python) & ---\\
 \end{longtable}
 }
+
+\paragraph{Free-boundary mask and single-layer mode.} The field
+builders \code{effective_field} and \code{effective_field_demag}, the
+relaxation \code{sweep::relax}, and the stochastic
+\code{HeunStochasticStepper} all take an optional free-boundary mask (a
+row-major \code{ny*nx} array of 0/1 flags, or \code{nullptr} for the
+periodic path, which is byte-identical to the unmasked code). Inside a
+mask, out-of-region neighbours are replaced by the
+Rohart--Thiaville/Bogdanov--Roesler ghost-cell extrapolation shared by
+the exchange and DMI stencils, the field is zeroed outside the region,
+and the demag magnetisation is zeroed before the convolution.
+Single-layer mode (a lone ferromagnet) is selected by an empty bottom
+layer; it uses \code{rk4_step_single} and requires no demag kernel.
+These mirror the Python \code{mask=} / \code{m_bot=None} additions in
+\code{fields.py}, \code{relaxation.py}, and \code{integrator_sllg.py}.
 
 Each sweep script maps one-to-one to a C++ binary
 (Table~\ref{tab:sweeps}).
@@ -213,12 +229,12 @@ Each sweep script maps one-to-one to a C++ binary
 \end{longtable}
 }
 
-The stochastic production scans and the physics-validation gates each map
+The stochastic experiment scans and the physics-validation gates each map
 to a standalone C++ binary (Tables~\ref{tab:stoch} and~\ref{tab:gates}).
 
 {\small
 \setlength{\tabcolsep}{5pt}\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
-\caption{Stochastic production scan to C++ binary mapping.}
+\caption{Stochastic experiment scan to C++ binary mapping.}
 \label{tab:stoch}\\
 \toprule
 \textbf{Python script} & \textbf{C++ binary} \\
@@ -226,11 +242,11 @@ to a standalone C++ binary (Tables~\ref{tab:stoch} and~\ref{tab:gates}).
 \endhead
 \bottomrule
 \endfoot
-\code{production.run_single} & \code{run_single}\\
-\code{production.scan_tj} & \code{scan_tj}\\
-\code{production.scan_arrhenius} & \code{scan_arrhenius}\\
-\code{production.scan_radius} & \code{scan_radius}\\
-\code{production.pair_potential} & \code{pair_potential}\\
+\code{experiments.run_single} & \code{run_single}\\
+\code{experiments.scan_tj} & \code{scan_tj}\\
+\code{experiments.scan_arrhenius} & \code{scan_arrhenius}\\
+\code{experiments.scan_radius} & \code{scan_radius}\\
+\code{experiments.pair_potential} & \code{pair_potential}\\
 \end{longtable}
 }
 
@@ -332,7 +348,7 @@ layout as the Python sweeps, so \code{scripts/analyze_*.py} and
 \code{load_trace} patch that accepts the C++ byte-encoded metadata).
 
 \subsection{Running the stochastic scans and validation gates}
-The stochastic production scans use the same dispatch as the sweeps: the
+The stochastic experiment scans use the same dispatch as the sweeps: the
 grid is baked into \code{main()} and \code{SLURM_ARRAY_TASK_ID} selects a
 single point. Each writes a trajectory npz under the per-scan output
 directory:

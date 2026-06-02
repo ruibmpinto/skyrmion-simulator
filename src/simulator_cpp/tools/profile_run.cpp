@@ -55,7 +55,7 @@ int main() {
 
     // ---- local-K_eff path ---------------------------------------------------
     {
-        RK4LocalKeffStepper stepper(p);
+        RK4LocalKeffStepper stepper(p, /*mask=*/nullptr);
         const double sec = time_steps(stepper, ic.m_top, ic.m_bot,
                                       p, n_warmup, n_steps);
         std::printf("  keff   : %8.2f us/step  (%6.1f steps/s, %.3f s total)\n",
@@ -68,7 +68,7 @@ int main() {
         pd.pulse = std::make_shared<ConstantPulse>(pd.J_current);
         precompute(pd);
         DemagState demag(pd, /*threads=*/0);
-        RK4DemagStepper stepper(pd, demag);
+        RK4DemagStepper stepper(pd, demag, /*mask=*/nullptr);
         const double sec = time_steps(stepper, ic.m_top, ic.m_bot,
                                       pd, n_warmup, n_steps);
         std::printf("  slab   : %8.2f us/step  (%6.1f steps/s, %.3f s total)\n",

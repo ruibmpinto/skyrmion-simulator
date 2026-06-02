@@ -101,7 +101,7 @@ void run(Params& p) {
         }
 
         if (demag) {
-            RHSDemag rhs(p, *demag);
+            RHSDemag rhs(p, *demag, /*mask=*/nullptr);
             Real t = 0.0;
             for (int s = 1; s <= p.n_relax; ++s) {
                 rk4_step(rhs, m_top, m_bot, t, p.dt, p);
@@ -112,7 +112,7 @@ void run(Params& p) {
                 }
             }
         } else {
-            RHSLocalKeff rhs(p);
+            RHSLocalKeff rhs(p, /*mask=*/nullptr);
             Real t = 0.0;
             for (int s = 1; s <= p.n_relax; ++s) {
                 rk4_step(rhs, m_top, m_bot, t, p.dt, p);
@@ -152,7 +152,7 @@ void run(Params& p) {
         }
 
         if (demag) {
-            RHSDemag rhs(p, *demag);
+            RHSDemag rhs(p, *demag, /*mask=*/nullptr);
             Real t = 0.0;
             for (int s = 1; s <= p.n_steps; ++s) {
                 rk4_step(rhs, m_top, m_bot, t, p.dt, p);
@@ -163,7 +163,7 @@ void run(Params& p) {
                 }
             }
         } else {
-            RHSLocalKeff rhs(p);
+            RHSLocalKeff rhs(p, /*mask=*/nullptr);
             Real t = 0.0;
             for (int s = 1; s <= p.n_steps; ++s) {
                 rk4_step(rhs, m_top, m_bot, t, p.dt, p);

@@ -124,27 +124,38 @@ void llgs_rhs(const Field3& m, const Field3& H_eff, const Params& p, Real t,
     }
 }
 
-RHSLocalKeff::RHSLocalKeff(const Params& p)
-    : p_(p), H_top_(p.ny, p.nx), H_bot_(p.ny, p.nx) {}
+RHSLocalKeff::RHSLocalKeff(const Params& p, const std::uint8_t* mask)
+    : p_(p), mask_(mask), H_top_(p.ny, p.nx), H_bot_(p.ny, p.nx) {}
 
 void RHSLocalKeff::operator()(const Field3& m_top, const Field3& m_bot, Real t,
                               Field3& dmdt_top, Field3& dmdt_bot) {
     effective_field(m_top, m_bot, p_.C_ex, p_.C_dmi, p_.C_anis_top,
-                    p_.H_ext, p_.H_RKKY, H_top_);
+                    p_.H_ext, p_.H_RKKY, H_top_, mask_);
     effective_field(m_bot, m_top, p_.C_ex, p_.C_dmi, p_.C_anis_bot,
-                    p_.H_ext, p_.H_RKKY, H_bot_);
+                    p_.H_ext, p_.H_RKKY, H_bot_, mask_);
     llgs_rhs(m_top, H_top_, p_, t, dmdt_top);
     llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot);
 }
 
-RHSDemag::RHSDemag(const Params& p, DemagState& demag)
-    : p_(p), demag_(demag), H_top_(p.ny, p.nx), H_bot_(p.ny, p.nx) {}
+RHSDemag::RHSDemag(const Params& p, DemagState& demag,
+                   const std::uint8_t* mask)
+    : p_(p), demag_(demag), mask_(mask),
+      H_top_(p.ny, p.nx), H_bot_(p.ny, p.nx) {}
 
 void RHSDemag::operator()(const Field3& m_top, const Field3& m_bot, Real t,
                           Field3& dmdt_top, Field3& dmdt_bot) {
-    effective_field_demag(m_top, m_bot, p_, demag_, H_top_, H_bot_);
+    effective_field_demag(m_top, m_bot, p_, demag_, H_top_, H_bot_, mask_);
     llgs_rhs(m_top, H_top_, p_, t, dmdt_top);
     llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot);
+}
+
+RHSSingleKeff::RHSSingleKeff(const Params& p, const std::uint8_t* mask)
+    : p_(p), mask_(mask), H_(p.ny, p.nx) {}
+
+void RHSSingleKeff::operator()(const Field3& m, Real t, Field3& dmdt) {
+    effective_field(m, m, p_.C_ex, p_.C_dmi, p_.C_anis_top,
+                    p_.H_ext, p_.H_RKKY, H_, mask_);
+    llgs_rhs(m, H_, p_, t, dmdt);
 }
 
 namespace {
@@ -250,10 +261,36 @@ void rk4_step(RHS& rhs, Field3& m_top, Field3& m_bot,
     combine_rk4_normalize(m_bot, k1b, k2b, k3b, k4b, m_bot);
 }
 
-// Explicit instantiations for the two RHS types declared in this TU.
+template <typename RHS>
+void rk4_step_single(RHS& rhs, Field3& m, Real t, Real dt, const Params& p) {
+    Field3 k1(p.ny, p.nx), k2(p.ny, p.nx);
+    Field3 k3(p.ny, p.nx), k4(p.ny, p.nx);
+    Field3 m2(p.ny, p.nx);
+
+    rhs(m, t, k1);
+    scale_inplace(k1, dt);
+
+    axpby_normalize(m, k1, 0.5, m2);
+    rhs(m2, t + 0.5 * dt, k2);
+    scale_inplace(k2, dt);
+
+    axpby_normalize(m, k2, 0.5, m2);
+    rhs(m2, t + 0.5 * dt, k3);
+    scale_inplace(k3, dt);
+
+    axpby_normalize(m, k3, 1.0, m2);
+    rhs(m2, t + dt, k4);
+    scale_inplace(k4, dt);
+
+    combine_rk4_normalize(m, k1, k2, k3, k4, m);
+}
+
+// Explicit instantiations for the RHS types declared in this TU.
 template void rk4_step<RHSLocalKeff>(RHSLocalKeff&, Field3&, Field3&,
                                      Real, Real, const Params&);
 template void rk4_step<RHSDemag>(RHSDemag&, Field3&, Field3&,
                                  Real, Real, const Params&);
+template void rk4_step_single<RHSSingleKeff>(RHSSingleKeff&, Field3&,
+                                             Real, Real, const Params&);
 
 } // namespace skyrmion

@@ -67,6 +67,8 @@ def main():
     from src.simulator.demag import precompute_demag_kernels
     from src.simulator.demag_newell import precompute_demag_kernels_newell
     from src.stochastic_llgs.diagnostics import skyrmion_center_pbc
+    from src.phase_diagram.relaxation import relax
+    from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
 
     res = []
     # ---- Pulses --------------------------------------------------------------
@@ -146,6 +148,46 @@ def main():
         precompute_demag_kernels(p, kind='slab', accuracy=None,
                                  tol_conv=None)
     _expect_raise('demag_slab_tCo_nonpositive', _slab_bad_tco, res)
+    # ---- Free-boundary / single-layer contract -------------------------------
+
+    def _small_p():
+        p = default_params()
+        p.nx = 8
+        p.ny = 8
+        _precompute(p)
+        return p
+
+    def _relax_single_with_kernels():
+        p = _small_p()
+        K = precompute_demag_kernels(p, kind='slab', accuracy=None,
+                                     tol_conv=None)
+        m = np.zeros((8, 8, 3))
+        m[..., 2] = 1.0
+        relax(m, None, p, K, max_steps=1, alpha_relax=1.0,
+              tol_torque=1.0e-5, tol_dE=1.0e-8, check_every=1,
+              print_every=0, mask=None)
+    _expect_raise('relax_single_with_kernels',
+                  _relax_single_with_kernels, res)
+
+    def _heun_single_h_bot_not_none():
+        p = _small_p()
+        m = np.zeros((8, 8, 3))
+        m[..., 2] = 1.0
+        z = np.zeros((8, 8, 3))
+        heun_stochastic_step(m, None, p.dt, p, None, z, z, 1.0, t=0.0)
+    _expect_raise('heun_single_h_bot_not_none',
+                  _heun_single_h_bot_not_none, res)
+
+    def _heun_single_with_kernels():
+        p = _small_p()
+        K = precompute_demag_kernels(p, kind='slab', accuracy=None,
+                                     tol_conv=None)
+        m = np.zeros((8, 8, 3))
+        m[..., 2] = 1.0
+        z = np.zeros((8, 8, 3))
+        heun_stochastic_step(m, None, p.dt, p, K, z, None, 1.0, t=0.0)
+    _expect_raise('heun_single_with_kernels',
+                  _heun_single_with_kernels, res)
     # ---- Sanity: normal cases do NOT raise -----------------------------------
     _expect_no_raise('critical_dmi_normal',
                      lambda: critical_dmi(default_params()), res)

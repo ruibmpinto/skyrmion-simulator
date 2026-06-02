@@ -28,7 +28,7 @@ int main() {
     const int sample_every = static_cast<int>(std::ceil(5.0e-12 / p.dt));
 
     p.pulse = std::make_shared<SquarePulse>(J0, 0.0, t_pulse);
-    RK4LocalKeffStepper stepper(p);
+    RK4LocalKeffStepper stepper(p, /*mask=*/nullptr);
 
     SAFPair ic = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw);
 

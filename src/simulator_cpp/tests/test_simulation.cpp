@@ -27,7 +27,7 @@ int main() {
     p.H_FL = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     {
-        RHSLocalKeff rhs(p);
+        RHSLocalKeff rhs(p, /*mask=*/nullptr);
         double t = 0.0;
         for (int s = 0; s < n_relax; ++s) {
             rk4_step(rhs, m_top, m_bot, t, p.dt, p);
@@ -47,7 +47,7 @@ int main() {
     p.H_FL = p.FL_SOT * J_save;
     p.pulse = std::make_shared<ConstantPulse>(J_save);
     {
-        RHSLocalKeff rhs(p);
+        RHSLocalKeff rhs(p, /*mask=*/nullptr);
         double t = 0.0;
         for (int s = 0; s < n_steps; ++s) {
             rk4_step(rhs, m_top, m_bot, t, p.dt, p);

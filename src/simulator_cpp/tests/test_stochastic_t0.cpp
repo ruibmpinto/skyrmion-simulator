@@ -33,7 +33,8 @@ int main() {
     {
         Field3 mt = m_top0, mb = m_bot0;
         stochastic::HeunStochasticStepper stepper(
-            p, /*demag=*/nullptr, rng, /*sigma=*/0.0, /*tol_norm=*/1.0);
+            p, /*demag=*/nullptr, rng, /*sigma=*/0.0, /*tol_norm=*/1.0,
+            /*mask=*/nullptr);
         Real t = 0.0;
         for (int s = 0; s < N; ++s) {
             stepper.step(mt, mb, t, p.dt, p);
@@ -52,7 +53,8 @@ int main() {
         DemagState demag(p, 0);
         Field3 mt = m_top0, mb = m_bot0;
         stochastic::HeunStochasticStepper stepper(
-            p, &demag, rng, /*sigma=*/0.0, /*tol_norm=*/1.0);
+            p, &demag, rng, /*sigma=*/0.0, /*tol_norm=*/1.0,
+            /*mask=*/nullptr);
         Real t = 0.0;
         for (int s = 0; s < N; ++s) {
             stepper.step(mt, mb, t, p.dt, p);
@@ -64,6 +66,58 @@ int main() {
                 test_common::array(mt.data.data(), exp_t.data.data(), mt.data.size()));
         r.check("heun_t0_slab_bot",
                 test_common::array(mb.data.data(), exp_b.data.data(), mb.data.size()));
+    }
+    // ---- single-layer + free-boundary mask (sigma = 0) ---------------------
+    {
+        std::vector<std::uint8_t> mask = ref.vec<std::uint8_t>("mask_disk");
+        Field3 mt = m_top0;
+        Field3 empty;  // n_sites() == 0 selects single-layer mode
+        stochastic::HeunStochasticStepper stepper(
+            p, /*demag=*/nullptr, rng, /*sigma=*/0.0, /*tol_norm=*/1.0,
+            mask.data());
+        Real t = 0.0;
+        for (int s = 0; s < N; ++s) {
+            stepper.step(mt, empty, t, p.dt, p);
+            t += p.dt;
+        }
+        Field3 exp_t = ref.field3("heun_single_mask_m_top");
+        r.check("heun_single_mask_top",
+                test_common::array(mt.data.data(), exp_t.data.data(), mt.data.size()));
+    }
+    // ---- pair + free-boundary mask (slab, sigma = 0) ------------------------
+    {
+        std::vector<std::uint8_t> mask = ref.vec<std::uint8_t>("mask_disk");
+        p.demag_kind = DemagKind::Slab;
+        DemagState demag(p, 0);
+        Field3 mt = m_top0, mb = m_bot0;
+        stochastic::HeunStochasticStepper stepper(
+            p, &demag, rng, /*sigma=*/0.0, /*tol_norm=*/1.0, mask.data());
+        Real t = 0.0;
+        for (int s = 0; s < N; ++s) {
+            stepper.step(mt, mb, t, p.dt, p);
+            t += p.dt;
+        }
+        Field3 exp_t = ref.field3("heun_pair_mask_m_top");
+        Field3 exp_b = ref.field3("heun_pair_mask_m_bot");
+        r.check("heun_pair_mask_top",
+                test_common::array(mt.data.data(), exp_t.data.data(), mt.data.size()));
+        r.check("heun_pair_mask_bot",
+                test_common::array(mb.data.data(), exp_b.data.data(), mb.data.size()));
+        p.demag_kind = DemagKind::None;
+    }
+    // ---- single-layer + demag must raise ------------------------------------
+    {
+        p.demag_kind = DemagKind::Slab;
+        DemagState demag(p, 0);
+        stochastic::HeunStochasticStepper stepper(
+            p, &demag, rng, /*sigma=*/0.0, /*tol_norm=*/1.0,
+            /*mask=*/nullptr);
+        Field3 mt = m_top0;
+        Field3 empty;
+        r.expect_throws("heun_single_with_demag_raises", [&] {
+            stepper.step(mt, empty, 0.0, p.dt, p);
+        });
+        p.demag_kind = DemagKind::None;
     }
     return r.report("test_stochastic_t0");
 }

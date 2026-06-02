@@ -97,7 +97,7 @@ int main() {
     DemagState demag(p, 0);
 
     // ---- Reference: deterministic RK4 with demag ------------------------
-    RHSDemag rhs(p, demag);
+    RHSDemag rhs(p, demag, /*mask=*/nullptr);
     std::printf("Running deterministic RK4-with-demag reference...\n");
     SAFPair ref = run_phase(p, n_relax, n_drive, dt,
         [&](Field3& a, Field3& b, double tt) {
@@ -113,7 +113,8 @@ int main() {
         throw std::runtime_error("t0_demag: sigma_noise must be 0 at T=0.");
     }
     stochastic::ThermalRng rng(static_cast<std::uint64_t>(seed));
-    stochastic::HeunStochasticStepper stepper(p, &demag, rng, 0.0, tol_norm);
+    stochastic::HeunStochasticStepper stepper(p, &demag, rng, 0.0, tol_norm,
+                                              /*mask=*/nullptr);
     std::printf("Running stochastic Heun-with-demag at T = 0...\n");
     SAFPair sim = run_phase(p, n_relax, n_drive, dt,
         [&](Field3& a, Field3& b, double tt) {

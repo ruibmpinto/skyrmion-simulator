@@ -117,7 +117,8 @@ inline void run_point(PointConfig& cfg) {
         RelaxResult rr = relax(m_top, m_bot, p, demag.get(),
                                cfg.relax_max_steps, cfg.relax_alpha,
                                cfg.relax_tol_torque, cfg.relax_tol_dE,
-                               cfg.relax_check_every, print_every);
+                               cfg.relax_check_every, print_every,
+                               /*mask=*/nullptr);
         m_top = std::move(rr.m_top);
         m_bot = std::move(rr.m_bot);
         // Relaxed equilibrium: last phase-0 frame before the drive.
@@ -139,8 +140,10 @@ inline void run_point(PointConfig& cfg) {
     }
 
     std::unique_ptr<Stepper> stepper;
-    if (cfg.use_demag) stepper.reset(new RK4DemagStepper(p, *demag));
-    else               stepper.reset(new RK4LocalKeffStepper(p));
+    if (cfg.use_demag)
+        stepper.reset(new RK4DemagStepper(p, *demag, /*mask=*/nullptr));
+    else
+        stepper.reset(new RK4LocalKeffStepper(p, /*mask=*/nullptr));
 
     RunTraceArgs ta;
     ta.p = &p;

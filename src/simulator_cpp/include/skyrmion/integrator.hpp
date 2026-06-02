@@ -24,27 +24,47 @@ void normalize_inplace(Field3& m);
 void llgs_rhs(const Field3& m, const Field3& H_eff, const Params& p, Real t,
               Field3& dmdt);
 
+// `mask` (row-major ny*nx, 1 = inside the magnetic region, or nullptr for
+// the periodic path) is forwarded to effective_field for free-boundary
+// geometries. Stored as a borrowed pointer; the array must outlive the
+// functor.
 class RHSLocalKeff {
 public:
-    explicit RHSLocalKeff(const Params& p);
+    RHSLocalKeff(const Params& p, const std::uint8_t* mask);
     void operator()(const Field3& m_top, const Field3& m_bot, Real t,
                     Field3& dmdt_top, Field3& dmdt_bot);
 private:
     const Params& p_;
+    const std::uint8_t* mask_;
     Field3 H_top_;
     Field3 H_bot_;
 };
 
 class RHSDemag {
 public:
-    RHSDemag(const Params& p, DemagState& demag);
+    RHSDemag(const Params& p, DemagState& demag, const std::uint8_t* mask);
     void operator()(const Field3& m_top, const Field3& m_bot, Real t,
                     Field3& dmdt_top, Field3& dmdt_bot);
 private:
     const Params& p_;
     DemagState& demag_;
+    const std::uint8_t* mask_;
     Field3 H_top_;
     Field3 H_bot_;
+};
+
+// Single-layer local-K_eff RHS (matches Python relaxation._rhs_single).
+// A lone ferromagnet: the layer is its own RKKY partner (harmless when
+// the caller sets H_RKKY = 0). Implements the rk4_step_single protocol:
+//   void operator()(const Field3& m, Real t, Field3& dmdt);
+class RHSSingleKeff {
+public:
+    RHSSingleKeff(const Params& p, const std::uint8_t* mask);
+    void operator()(const Field3& m, Real t, Field3& dmdt);
+private:
+    const Params& p_;
+    const std::uint8_t* mask_;
+    Field3 H_;
 };
 
 // One classical RK4 step, both layers in lockstep. Intermediate stages
@@ -52,5 +72,12 @@ private:
 template <typename RHS>
 void rk4_step(RHS& rhs, Field3& m_top, Field3& m_bot,
               Real t, Real dt, const Params& p);
+
+// One classical RK4 step for a single layer (matches Python
+// integrator.rk4_step_single). `rhs` is a callable
+//   void operator()(const Field3& m, Real t, Field3& dmdt);
+// Intermediate stages are renormalised to keep |m| = 1.
+template <typename RHS>
+void rk4_step_single(RHS& rhs, Field3& m, Real t, Real dt, const Params& p);
 
 } // namespace skyrmion
