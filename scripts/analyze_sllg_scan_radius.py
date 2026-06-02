@@ -78,6 +78,8 @@ def main():
     q_total_mean = d['q_total_mean']
     q_total_se = d['q_total_se']
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Four-panel figure: velocity, Hall angle, inter-layer
+    # offset, and compensation residual, all vs skyrmion size.
     fig, axes = plt.subplots(2, 2)
     xlbl = r'$\langle d_\mathrm{top} \rangle$ (nm)'
     # Velocity vs size.

@@ -54,6 +54,7 @@ __status__ = 'Development'
 # =====================================================================
 #
 # =====================================================================
+# Fixed phase -> hex color map shared across all phase-diagram plots.
 _PHASE_COLORS = {
     'FM_anti': '#9e9e9e',
     'FM_par+': '#d73027',
@@ -202,6 +203,7 @@ def plot_phase_map(data, ax=None, units='reduced'):
     x, y, xlabel, ylabel, tag = _axes_units(data, units)
     label_grid = _phase_label_grid(data)
     # Build categorical colormap
+    # Map each cell's label string to its index in the color list.
     cats = list(_PHASE_COLORS.keys())
     cat_index = np.array(
         [[cats.index(label_grid[j, i])
@@ -290,6 +292,8 @@ def plot_metastability(data, ic_name, ax=None, q_thr=0.5,
     if ax is None:
         _, ax = plt.subplots(figsize=(6.5, 5.0))
     x, y, xlabel, ylabel, tag = _axes_units(data, units)
+    # Floor vmax just above q_thr so the colorbar stays valid even
+    # when no cell exceeds the metastability threshold.
     vmax = max(float(np.nanmax(absQ)), q_thr * 1.001) \
         if absQ.size > 0 else max(q_thr * 1.001, 1.0)
     cmap = plt.get_cmap('magma').copy()
@@ -338,6 +342,7 @@ def _ground_state_field(data, name):
     full = data[name]  # (n_D, n_H, n_IC)
     gs = data['gs_idx']
     out = np.zeros(gs.shape)
+    # Pick the winning-IC slice per cell; NaN where none converged.
     for i in range(gs.shape[0]):
         for j in range(gs.shape[1]):
             k = int(gs[i, j])
@@ -390,6 +395,7 @@ def _select_texture_points(data, n_per_axis=3):
     """Return a small (i, j) grid spanning the parameter space."""
     n_x = len(data['axis_x_values'])
     n_y = len(data['axis_y_values'])
+    # Evenly spaced index samples along each axis, endpoints included.
     i_idx = np.linspace(0, n_x - 1, n_per_axis, dtype=int)
     j_idx = np.linspace(0, n_y - 1, n_per_axis, dtype=int)
     return [(int(i), int(j))
@@ -510,6 +516,7 @@ def main():
     out_dir = None
     units = 'reduced'
     # ============ End User Configuration =================
+    # Resolve the NPZ path: exactly one of in_path / grid_name.
     if in_path is not None and grid_name is not None:
         raise RuntimeError(
             'Set exactly one of in_path or grid_name in '

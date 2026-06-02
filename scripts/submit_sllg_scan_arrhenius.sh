@@ -23,4 +23,4 @@ module load python/3.11.6
 # window) and the cluster time budget dominates total wall time.
 export SWEEP_NPROC=1
 
-python3 -m src.stochastic_llgs.production.scan_arrhenius
+python3 -m src.stochastic_llgs.experiments.scan_arrhenius

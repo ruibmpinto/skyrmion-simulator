@@ -105,6 +105,7 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
     flipped : numpy.ndarray(1d, bool)
         Mask of trajectories that reversed within `n_steps`.
     """
+    # Broadcast IC across trajectories; bottom layer is inert.
     n_traj = int(p.ny)
     m_top = np.empty((n_traj, 1, 3), dtype=float)
     m_top[..., :] = m0_top[np.newaxis, np.newaxis, :]
@@ -114,6 +115,7 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
     ]
     rng = np.random.default_rng(int(p.seed))
     sigma = float(p.sigma_noise)
+    # Default flip_step = n_steps marks never-reversed (censored).
     flip_step = np.full(n_traj, n_steps, dtype=np.int64)
     flipped = np.zeros(n_traj, dtype=bool)
     for step in range(n_steps):
@@ -127,6 +129,8 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
             m_top, m_bot, dt, p, None,
             h_top, h_bot, tol_norm,
         )
+        # Record first-passage step for trajectories crossing
+        # the threshold this step; stop once all have reversed.
         mz = m_top[:, 0, 2]
         new_flip = (mz < mz_flip_threshold) & (~flipped)
         if np.any(new_flip):
@@ -139,6 +143,9 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
 
 # -----------------------------------------------------------------------------
 def main():
+    # Run the Brown gate: at each barrier Delta set T accordingly,
+    # run the ensemble to reversal, estimate tau, compare to
+    # Brown's formula via |log10(tau_sim/tau_brown)|.
     # =========================== User Configuration =========================
     # Default trims Delta=8 (it costs ~100 min wall on its
     # own at dt=5e-14, vectorized 256 traj). Enable by adding
@@ -177,6 +184,8 @@ def main():
     print('-' * 56)
     t_start = time.time()
     for i, delta in enumerate(delta_list):
+        # Set T so the barrier in kT units equals the target Delta;
+        # size the window to a multiple of the expected tau.
         T = K_top * V_cell / (delta * k_B)
         tau_b = brown_tau(delta, alpha, gamma)
         n_steps = int(n_steps_per_tau * tau_b / dt)

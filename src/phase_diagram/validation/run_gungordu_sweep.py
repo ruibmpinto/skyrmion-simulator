@@ -67,6 +67,8 @@ __status__ = 'Development'
 
 
 def main():
+    # Build the (a_s, h_g) -> (K_top, H_z) grid and dispatch it
+    # through the production sweep (serial or SLURM array).
     # =============================== User Configuration ======================
     # Fixed material: D and A_ex anchor the dimensionless map;
     # M_s is fixed for the h_RT axis conversion. RKKY off (the
@@ -209,6 +211,7 @@ def main():
         f'(box {nx_lat*a*1e9:.0f} nm); '
         f'max_steps={max_steps}, tol_torque={tol_torque:.0e}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # No array index: run the whole grid in one process.
     array_id_env = os.environ.get('SLURM_ARRAY_TASK_ID')
     if array_id_env is None:
         sweep(

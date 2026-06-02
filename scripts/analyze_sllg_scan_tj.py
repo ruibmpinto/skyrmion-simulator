@@ -48,6 +48,7 @@ def main():
     fig_dir     = 'output/figures_sllg'
     fig_path    = os.path.join(fig_dir, 'scan_tj.png')
     pareto_npz  = 'output/stochastic_llgs/scan_tj/pareto.npz'
+    # Survival threshold a cell must clear to enter the Pareto front.
     p_surv_min  = 0.8
     # ======================= End User Configuration =========================
     os.makedirs(fig_dir, exist_ok=True)
@@ -101,6 +102,8 @@ def main():
     )
     print(f'Saved {pareto_npz}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Four heatmaps over the (T_sub, log j) grid; the Pareto
+    # front is overlaid on the velocity panel below.
     fig, axes = plt.subplots(2, 2)
     panels = [
         (axes[0, 0], P_surv,
@@ -112,6 +115,8 @@ def main():
         (axes[1, 1], sy_mean * 1e9,
          r'$\sigma_y$ (nm)', 'magma'),
     ]
+    # Half-step padding so imshow pixels are centered on the
+    # grid values (T linear, j logarithmic on the x-axis).
     dT = (Ts[1] - Ts[0]) if Ts.size >= 2 else 1.0
     dlj = (
         (math.log10(Js[-1]) - math.log10(Js[0]))

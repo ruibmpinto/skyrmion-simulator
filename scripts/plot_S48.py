@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 try:
     from scipy.optimize import curve_fit
@@ -304,6 +304,7 @@ def _plot_freq(H_arr, mean_f, std_f, out_path):
     print(f'Saved {out_path}')
 
 
+# Render S48 transient panels and the fitted 1/tau and f panels.
 def main():
     in_dir = 'output/sweeps_S41_S49/S48'
     out_dir = 'output/figures_S41_S49'

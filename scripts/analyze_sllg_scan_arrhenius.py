@@ -48,6 +48,7 @@ def main():
     fig_path      = os.path.join(fig_dir, 'scan_arrhenius.png')
     fit_npz       = (
         'output/stochastic_llgs/scan_arrhenius/fit.npz')
+    # Minimum flips per T-cell to include it in the fit.
     min_flips_fit = 5
     # ======================= End User Configuration =========================
     os.makedirs(fig_dir, exist_ok=True)
@@ -62,6 +63,8 @@ def main():
     tau = d['tau_mle']
     n_flipped = d['n_flipped']
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Arrhenius fit: only use cells with enough flips for a
+    # reliable tau, then fit log(tau) vs 1/T for dE and tau_0.
     fit_mask = n_flipped >= min_flips_fit
     k_B = 1.380649e-23
     if int(fit_mask.sum()) >= 2:
@@ -87,6 +90,7 @@ def main():
             f'scan_arrhenius.py.'
         )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Persist the fit parameters for the report/downstream use.
     np.savez_compressed(
         fit_npz,
         T_arr=T_arr, tau=tau,
@@ -98,6 +102,8 @@ def main():
     )
     print(f'Saved {fit_npz}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Arrhenius plot: tau vs 1000/T, fit cells vs excluded
+    # cells, with the fitted line overlaid when available.
     fig, ax = plt.subplots()
     if np.any(fit_mask):
         ax.semilogy(

@@ -12,7 +12,7 @@ Execution modes
 - SLURM array: each task runs `grid[SLURM_ARRAY_TASK_ID]`.
 
 Run with:
-    python -m src.stochastic_llgs.production.scan_radius
+    python -m src.stochastic_llgs.experiments.scan_radius
 """
 #
 #                                                                       Modules
@@ -24,7 +24,7 @@ import os
 import numpy as np
 # Local
 from src.stochastic_llgs.io import save_trajectory
-from src.stochastic_llgs.production.run_single import (
+from src.stochastic_llgs.experiments.run_single import (
     trajectory_worker,
 )
 
@@ -47,6 +47,8 @@ def _run_one_point(args):
     H_z = float(point['H_z'])
     ens_idx = int(point['ens_idx'])
     cell_idx = int(point['cell_idx'])
+    # Decorrelate seeds: distinct stride per ensemble member and
+    # per grid cell so no two trajectories share an RNG stream.
     seed = int(cfg['seed_base']) + 1000 * ens_idx \
         + 1000_000 * cell_idx
     base_config = {
@@ -78,6 +80,8 @@ def _run_one_point(args):
     )
     out_path = os.path.join(cfg['out_dir'], out_name)
     save_trajectory(out_path, payload, base_config)
+    # Late-time mean diameter (second half) as the steady-state
+    # radius proxy for the progress line; NaN if no live track.
     if np.isfinite(payload['velocity']):
         diam = payload['diameter']
         half = max(1, diam.size // 2)
@@ -94,6 +98,7 @@ def _run_one_point(args):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Build the (D, H_z) x ensemble grid and dispatch it."""
     # =========================== User Configuration =========================
     # (D, H_z) cells targeting R values around
     # {40, 60, 80, 120} nm; retune after a first run.

@@ -50,7 +50,8 @@ __status__ = 'Development'
 # =============================================================================
 
 
-def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t):
+def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t,
+                    mask=None):
     """Assemble H_eff (noise-free), add thermal noise, return
     dm/dt for both layers via the existing llgs_rhs.
 
@@ -75,23 +76,29 @@ def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t):
     The substage time `t` is forwarded to `llgs_rhs` so that the
     SOT terms read `p.pulse(t)` consistently with the deterministic integrator.
     """
-    # Single-layer mode: evolve the top layer alone.
+    # Single-layer mode: evolve the top layer alone. A free-BC
+    # `mask` (if given) restricts the field to the magnetic
+    # region; the caller must pass noise already zeroed outside
+    # the mask so frozen cells do not random-walk.
     if m_bot is None:
         H_top = effective_field(
             m_top, m_top, p.C_ex, p.C_dmi, p.C_anis_top,
-            p.H_ext, p.H_RKKY,)
+            p.H_ext, p.H_RKKY, mask=mask)
         dmdt_top = llgs_rhs(m_top, H_top + h_top, p, t)
         return dmdt_top, None
     # Assemble H_eff from m only (no noise inside field assembly).
     if kernels is None:
         # Bare exchange + DMI + anisotropy + Zeeman + RKKY per layer.
         H_top = effective_field(
-            m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top, p.H_ext, p.H_RKKY,)
+            m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
+            p.H_ext, p.H_RKKY, mask=mask)
         H_bot = effective_field(
-            m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot, p.H_ext, p.H_RKKY,)
+            m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
+            p.H_ext, p.H_RKKY, mask=mask)
     else:
         # Same five terms plus the FFT magnetostatic demag.
-        H_top, H_bot = effective_field_demag_pair(m_top, m_bot, p, kernels,)
+        H_top, H_bot = effective_field_demag_pair(
+            m_top, m_bot, p, kernels, mask=mask)
     # Add the pre-sampled thermal field; cross-product structure
     # inside llgs_rhs then distributes the noise across the
     # precession and damping channels (Brown form).
@@ -106,7 +113,8 @@ def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t):
 
 # -----------------------------------------------------------------------------
 def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
-                         h_top, h_bot, tol_norm, *, t=0.0):
+                         h_top, h_bot, tol_norm, *, t=0.0,
+                         mask=None):
     """One Stratonovich-Heun step of the stochastic LLGS.
 
     Runs in two modes:
@@ -157,6 +165,11 @@ def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
         `p.pulse(t)`. Callers with constant drives can leave
         this at the default; callers with time-varying pulses
         should pass `t = step * dt` explicitly.
+    mask : numpy.ndarray(2d, bool) or None, default=None
+        Free-boundary magnetic-region mask, forwarded to the
+        field assembly. Cells outside the mask receive no field;
+        callers using a mask must also zero the noise (`h_top`,
+        `h_bot`) outside it so frozen cells do not random-walk.
 
     Returns
     -------
@@ -247,7 +260,7 @@ def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
     # Predictor: noise-free H + thermal h, no renorm
     # First slope f1 at substage time t (start of step).
     f1_top, f1_bot = _rhs_with_noise(
-        m_top, m_bot, h_top, h_bot, p, kernels, t,
+        m_top, m_bot, h_top, h_bot, p, kernels, t, mask=mask,
     )
     # Forward-Euler predictor; intentionally NOT renormalised so
     # the corrector inherits the same off-sphere drift the
@@ -259,7 +272,8 @@ def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
     # Second slope f2 at end-of-step time t + dt; reuses the SAME
     # noise h (Stratonovich) but re-evaluates H_eff at the predictor.
     f2_top, f2_bot = _rhs_with_noise(
-        m_top_pred, m_bot_pred, h_top, h_bot, p, kernels, t + dt,
+        m_top_pred, m_bot_pred, h_top, h_bot, p, kernels,
+        t + dt, mask=mask,
     )
     # Heun average of the two slopes.
     m_top_new = m_top + 0.5 * dt * (f1_top + f2_top)

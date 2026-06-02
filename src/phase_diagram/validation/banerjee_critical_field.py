@@ -115,6 +115,8 @@ def extract_fm_skx_hc(a_s_axis, h_g_axis, label_grid, labels,
 
 
 def main():
+    # Load the sweep phase map, extract the simulator FM<->SkX
+    # h_c at each slice, gate it against Banerjee.
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     in_path = 'output/phase_diagram/validation/gungordu_K_H.npz'
     # Easy-plane SkX slices where the FM<->SkX boundary is
@@ -160,6 +162,8 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     all_ok = True
     n_checked = 0
+    # Per-slice: compare simulator h_c to Banerjee within rtol,
+    # skipping slices with no clean transition or out of range.
     for a_s_t in a_s_slices:
         a_s_used, h_c_sim = extract_fm_skx_hc(
             a_s_axis, h_g_axis, label_grid, labels, a_s_t)

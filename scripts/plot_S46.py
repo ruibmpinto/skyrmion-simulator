@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -122,6 +122,7 @@ def _plot_panel(items, x_key, x_label, x_scale,
               f'max d_top = {d*1e9:.0f} nm')
 
 
+# Render whichever of the two S46 sweeps exist on disk.
 def main():
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

@@ -194,6 +194,8 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
 
 # -----------------------------------------------------------------------------
 def main():
+    # Run the T=0 no-demag gate: same relax+drive via RK4 and via
+    # zero-noise Heun, then gate on per-observable relative error.
     # =========================== User Configuration =========================
     # 256x256 lattice. Use shorter durations than
     # src/simulator/analysis.py (500 ps relax + 1 ns drive)
@@ -251,6 +253,7 @@ def main():
         f'Q={sim["Q"]:.4f}'
     )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Relative deviation per observable; collect those over tol.
     rel = {}
     failures = []
     for key in ('diameter', 'velocity', 'Q'):

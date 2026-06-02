@@ -271,6 +271,8 @@ def main():
         kernels = precompute_demag_kernels(
             pm, kind='newell', accuracy=spot_demag_accuracy,
             tol_conv=spot_demag_tol_conv)
+        # Stash kernels on the RHS function so the rk4_step
+        # closure can reach them without a closure variable.
         _rhs_saf_demag.kernels = kernels
         m_top, m_bot = saf_skyrmion(
             pm.nx, pm.ny, pm.a, R=R_imp, dw=Delta)
@@ -322,6 +324,7 @@ def main():
                 cx_s, cy_s = skyrmion_center(
                     m_top, spot_a, core_polarity=+1)
                 ddx = cx_s - cx_prev
+                # Minimum-image unwrap of the PBC centroid jump.
                 ddx -= box * round(ddx / box)
                 ux += ddx
                 cx_prev, cy_prev = cx_s, cy_s

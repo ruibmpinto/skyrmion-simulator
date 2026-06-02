@@ -43,7 +43,7 @@ from matplotlib.animation import FuncAnimation, FFMpegWriter, \
 from matplotlib.patches import Ellipse
 # Local
 from src.simulator.parameters import default_params
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits

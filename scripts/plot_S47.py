@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 from src.plots.plot_snapshot_mz import plot_snapshot_mz
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -47,6 +47,7 @@ plt.rcParams['figure.figsize'] = (6, 6)
 plt.rcParams['lines.linewidth'] = 1.5
 
 
+# Net displacement over the +/- 3 sigma window / FWHM (m/s).
 def _vavg(trace, metadata):
     # Time stamps and box dimensions from metadata.
     t = trace['t']
@@ -72,6 +73,7 @@ def _vavg(trace, metadata):
     return float(np.sqrt(dx * dx + dy * dy) / FWHM)
 
 
+# Load all NPZ traces bucketed by config index, J0-sorted.
 def _load_sweep(in_dir):
     # All NPZ traces in the sweep directory.
     paths = sorted(glob.glob(os.path.join(in_dir, '*.npz')))
@@ -90,6 +92,7 @@ def _load_sweep(in_dir):
     return bucket
 
 
+# Legend label for one configuration.
 def _config_label(metadata):
     # Short label encoding the config's FWHM and H_RKKY.
     return (f'cfg {int(metadata["cfg_idx"])}: '
@@ -98,6 +101,7 @@ def _config_label(metadata):
             f'{float(metadata["H_RKKY"])*1e3:.0f} mT')
 
 
+# Panel A: v_avg vs J, one curve per config.
 def _plot_v(bucket, out_path):
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
@@ -129,6 +133,7 @@ def _unwrap_to_zero_rest(psi_seq):
     return psi - (psi[0] - rest)
 
 
+# Panel B: psi_bot at max diameter vs J, one curve per config.
 def _plot_psi(bucket, out_path):
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
@@ -230,6 +235,7 @@ def _plot_snapshots(bucket, out_dir):
         print(f'Saved {out_path}')
 
 
+# Render all S47 panels (A-D curves, E-G snapshots) from sweep.
 def main():
     in_dir = 'output/sweeps_S41_S49/S47'
     out_dir = 'output/figures_S41_S49'

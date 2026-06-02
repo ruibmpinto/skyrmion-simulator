@@ -25,4 +25,4 @@ module load python/3.11.6
 # so the queue does not flood.
 export SWEEP_NPROC=1
 
-python3 -m src.stochastic_llgs.production.scan_tj
+python3 -m src.stochastic_llgs.experiments.scan_tj

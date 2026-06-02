@@ -197,6 +197,7 @@ def main():
     x_fit = x[sel]
     mz_fit = m_top[row, sel, 2]
 
+    # Analytic 180-deg wall profile; x0 and Delta are fitted.
     def _model(xx, x0, Delta):
         return -np.tanh((xx - x0) / Delta)
 

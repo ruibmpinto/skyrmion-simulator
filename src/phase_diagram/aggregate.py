@@ -217,6 +217,8 @@ def aggregate(partial_dir, out_path,
                     f'{m_top_d.shape[1:3]} != ({ny}, {nx}).'
                 )
             n_rec = int(np.asarray(d['i']).size)
+            # Scatter each record into its (i, j, k) cell of the
+            # aggregation arrays.
             for r in range(n_rec):
                 i = int(d['i'][r])
                 j = int(d['j'][r])
@@ -270,6 +272,8 @@ def aggregate(partial_dir, out_path,
                 arr['label_idx_per_ic'][i, j, k] = (
                     _phase_labels.index(lab)
                 )
+                # Track the lowest-energy converged IC at (i, j)
+                # as the ground state for that grid point.
                 if conv and float(d['E'][r]) < best_E[i, j]:
                     best_E[i, j] = float(d['E'][r])
                     arr['gs_idx'][i, j] = k

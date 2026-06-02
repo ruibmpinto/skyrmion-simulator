@@ -569,6 +569,8 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     H = H_exchange + H_DMI + H_anisotropy(bare K)
         + H_Zeeman + H_RKKY + H_demag.
     """
+    # Bare 2K/Ms prefactors: strip the K_eff demag correction
+    # since demag is added explicitly below.
     C_top_bare, C_bot_bare = bare_anis_prefactors(p)
     shape = m_top.shape[:2]
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -586,6 +588,7 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     else:
         nbrs_top = None
         nbrs_bot = None
+    # Top-layer local terms; RKKY on top is driven by m_bot.
     H_top = exchange_field(
         m_top, p.C_ex, mask=mask, neighbors_eff=nbrs_top)
     H_top += dmi_field(
@@ -593,6 +596,7 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     H_top += anisotropy_field(m_top, C_top_bare, mask=mask)
     H_ze_t = zeeman_field(p.H_ext, shape)
     H_rk_t = rkky_field(m_bot, p.H_RKKY)
+    # Bottom-layer local terms; RKKY on bottom is driven by m_top.
     H_bot = exchange_field(
         m_bot, p.C_ex, mask=mask, neighbors_eff=nbrs_bot)
     H_bot += dmi_field(

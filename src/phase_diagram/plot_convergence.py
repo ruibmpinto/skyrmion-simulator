@@ -123,6 +123,7 @@ def plot_convergence_fraction(data, ax=None, units='reduced'):
             f"'converged' must be 3D (n_x, n_y, n_IC); got "
             f"shape {conv.shape}."
         )
+    # Fraction of the IC ensemble that converged, per cell.
     frac = conv.mean(axis=2).T  # (n_y, n_x)
     if ax is None:
         _, ax = plt.subplots(figsize=(6.5, 5.0))

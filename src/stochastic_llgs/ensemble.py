@@ -94,6 +94,8 @@ def run_ensemble(worker_fn, base_config, n_ens, seed_base,
             f'{type(seed_base).__name__}.'
         )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # One deep-copied config per trajectory, each tagged with its
+    # own seed (seed_base + idx) and trajectory index.
     configs = []
     for idx in range(int(n_ens)):
         cfg = copy.deepcopy(base_config)
@@ -101,10 +103,13 @@ def run_ensemble(worker_fn, base_config, n_ens, seed_base,
         cfg['traj_idx'] = idx
         configs.append(cfg)
     results = [None] * int(n_ens)
+    # Single-worker fast path: run inline, no pool overhead.
     if int(n_workers) == 1:
         for idx, cfg in enumerate(configs):
             results[idx] = worker_fn(cfg)
         return results
+    # Parallel path: scatter over the pool, gather back into
+    # submission order via the future-to-index map.
     with ProcessPoolExecutor(max_workers=int(n_workers)) as pool:
         futures = {
             pool.submit(worker_fn, cfg): idx

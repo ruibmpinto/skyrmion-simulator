@@ -71,11 +71,10 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 # Local
+from src.phase_diagram.relaxation import relax
 from src.phase_diagram.validation.test_confined_skyrmion_radius_rt2013 import (
-    _make_freebc_rhs,
     _make_rt_params,
     _measure_Rs,
-    _relax,
 )
 from src.simulator.initial_conditions import skyrmion_profile
 from src.simulator.lattice import disk_mask
@@ -117,6 +116,8 @@ def _m_of_T(T):
 
 
 def main():
+    # Sweep (H, T) with m(T)-scaled parameters, relax in the dot,
+    # gate the H=0 expansion ratio, overlay the digitized data.
     # =========================== User Configuration =========================
     # Tomasello 2018 T = 0 absolute set (from Q, d, l_ex).
     Ms0 = 0.60e6             # A/m
@@ -134,7 +135,10 @@ def main():
     H_list = [0.0, 25.0e-3, 50.0e-3]
     T_list = [0., 50., 100., 150., 200., 250., 300.]
     R_init = 30.0e-9         # seed; dot + field relax to R_sk(T)
-    max_steps = 150_000
+    # The near-critical T=300/H=0 point relaxes slowly (flat
+    # energy landscape as d -> d_c); a large step budget lets it
+    # fully converge. Fast points still break early on torque.
+    max_steps = 500_000
     tol_torque = 1.0e-5
     check_every = 1_000
     # Gate: H = 0 expansion ratio R_sk(300)/R_sk(0) vs the paper
@@ -145,6 +149,8 @@ def main():
                  'tomasello_size_vs_T.png')
     # ======================= End User Configuration =========================
     half_mu0 = 0.5 * (4.0e-7 * math.pi)
+    # T=0 critical DMI D_c = (4/pi) sqrt(A K_eff); reference for
+    # the d -> d_c approach driving the expansion.
     Dc0 = (4.0 / math.pi) * math.sqrt(
         A0 * (Ku0 - half_mu0 * Ms0 * Ms0))
     print('test_skyrmion_size_vs_T_tomasello2018 (Fig. 1b, '
@@ -175,14 +181,17 @@ def main():
                 nx=nx, ny=ny, a=a, R=R_init,
                 dw=math.sqrt(A / K_eff), polarity=+1)
             m_top0[~mask, :] = np.array([0.0, 0.0, 1.0])
-            m_bot0 = np.zeros_like(m_top0)
-            m_bot0[..., 2] = 1.0
-            m_top, _m_bot, tau_max, n_done = _relax(
-                m_top0, m_bot0, p, mask, max_steps=max_steps,
-                tol_torque=tol_torque, check_every=check_every)
+            # Single FM layer relaxed through the production
+            # relax() (free-BC mask, no demag, over-damped).
+            m_top, _mb, _conv, n_done, _E, tau_max = relax(
+                m_top0, None, p, None, mask=mask,
+                alpha_relax=1.0, tol_torque=tol_torque,
+                max_steps=max_steps, check_every=check_every)
             R_s = _measure_Rs(m_top, ix_c, iy_c, a, mask)
             R_s_nm = float('nan') if R_s is None else R_s * 1e9
             Rs_T.append(R_s_nm)
+            # Reduced DMI d(m); diagnostic, printed to track its
+            # approach to the critical line as T rises.
             d_m = (D * math.sqrt(2.0 * A / (
                 (4.0e-7 * math.pi) * Ms * Ms))) / A
             print(f'    T={T:5.0f} K  m={m:.3f}  '

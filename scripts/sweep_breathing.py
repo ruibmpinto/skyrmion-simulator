@@ -44,7 +44,7 @@ from src.simulator.integrator import (
 )
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import ConstantPulse
-from src.sweeps.io import save_trace
+from src.orchestrator.io import save_trace
 
 #
 #                                                          Authorship & Credits
@@ -108,6 +108,8 @@ def _radial_perturb(m, eps):
 
 
 def _run_one_D(args):
+    """Relax + perturb + free-evolve at one D; saves d_top(t) and
+    returns a one-line summary. Picklable for multiprocessing."""
     cfg, D = args
     field_kind = cfg['field_kind']
     nx = cfg['nx']; ny = cfg['ny']; dt = cfg['dt']

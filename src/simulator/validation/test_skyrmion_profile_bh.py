@@ -181,6 +181,7 @@ def main():
         r[i0] - mz_r[i0]
         * (r[i0 + 1] - r[i0]) / (mz_r[i0 + 1] - mz_r[i0]))
     # Also fit the BH ansatz for the shape residual.
+    # Bogdanov-Hubert m_z(r) profile: 360-deg-arctan wall form.
     def _bh(rr, R, Delta):
         return np.cos(
             2.0 * np.arctan(np.exp(-(rr - R) / Delta)))

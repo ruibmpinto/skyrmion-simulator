@@ -178,6 +178,9 @@ def run_stochastic_t0_demag(p, kernels, n_relax, n_drive, dt,
 
 # -----------------------------------------------------------------------------
 def main():
+    # Run the T=0 with-demag gate: same relax+drive via demag RK4
+    # and via zero-noise demag Heun, gate on diameter and Q
+    # (m-field deviation recorded but not gated).
     # =========================== User Configuration =========================
     # Stabilising perpendicular field. Default H_z = 0 yields
     # a stripe-favoured demag equilibrium; H_z = 0.2 T

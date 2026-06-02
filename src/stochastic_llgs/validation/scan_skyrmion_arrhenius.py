@@ -53,6 +53,7 @@ def _run_one_point(args):
     T_sub = float(point['T_sub'])
     ens_idx = int(point['ens_idx'])
     cell_idx = int(point['cell_idx'])
+    # Unique seed per (ensemble member, temperature cell).
     seed = int(cfg['seed_base']) + 1000 * ens_idx \
         + 1000_000 * cell_idx
     traj_config = {
@@ -161,6 +162,7 @@ def main():
             f'got D = {D*1e3:.3f} mJ/m^2, D_c = {Dc*1e3:.3f} '
             f'mJ/m^2.')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Build the (T_sub x ens_idx) trajectory grid.
     grid = []
     for cell_idx, T_sub in enumerate(t_sub_list):
         for ens_idx in range(int(n_ens)):
@@ -180,6 +182,7 @@ def main():
         'k_consecutive': k_consecutive, 'out_dir': out_dir,
     }
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # SLURM array mode: this task runs only grid[TASK_ID].
     task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
     if task_id is not None:
         idx = int(task_id)

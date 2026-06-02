@@ -13,7 +13,7 @@ Execution modes
 - SLURM array: each task runs `grid[SLURM_ARRAY_TASK_ID]`.
 
 Run with:
-    python -m src.stochastic_llgs.production.pair_potential
+    python -m src.stochastic_llgs.experiments.pair_potential
 """
 #
 #                                                                       Modules
@@ -85,6 +85,8 @@ def two_skyrmion_pair_ic(nx, ny, a, R, dw, polarity_top,
         nx, ny, a, R, dw, polarity_top, c1[0], c1[1])
     m_top_2 = skyrmion_at_position(
         nx, ny, a, R, dw, polarity_top, c2[0], c2[1])
+    # Overlay the two single-skyrmion fields by keeping, per cell,
+    # whichever has the deeper core (lower m_z for the top layer).
     pick1 = (
         m_top_1[..., 2] <= m_top_2[..., 2]
     )[..., np.newaxis]
@@ -94,6 +96,7 @@ def two_skyrmion_pair_ic(nx, ny, a, R, dw, polarity_top,
         nx, ny, a, R, dw, pol_bot, c1[0], c1[1])
     m_bot_2 = skyrmion_at_position(
         nx, ny, a, R, dw, pol_bot, c2[0], c2[1])
+    # Bottom layer has opposite polarity: keep the higher-m_z core.
     pick1b = (
         m_bot_1[..., 2] >= m_bot_2[..., 2]
     )[..., np.newaxis]
@@ -108,6 +111,8 @@ def _run_one_point(args):
     r_init = float(point['r_init'])
     ens_idx = int(point['ens_idx'])
     cell_idx = int(point['cell_idx'])
+    # Decorrelate seeds: distinct stride per ensemble member and
+    # per grid cell so no two trajectories share an RNG stream.
     seed = int(cfg['seed_base']) + 1000 * ens_idx \
         + 1000_000 * cell_idx
     nx = int(cfg['nx'])
@@ -131,6 +136,8 @@ def _run_one_point(args):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     L_x = nx * p.a
     L_y = ny * p.a
+    # Place the two cores symmetrically about box center, r_init
+    # apart along x, on the same midline (separation drives V(r)).
     cy0 = L_y / 2.0
     c1 = (L_x / 2.0 - 0.5 * r_init, cy0)
     c2 = (L_x / 2.0 + 0.5 * r_init, cy0)
@@ -170,6 +177,8 @@ def _run_one_point(args):
             h_top, h_bot, tol_norm,
         )
         if step % sample_every == 0:
+            # Split the lattice into left/right halves and locate
+            # one core in each; their distance is the pair sep r(t).
             mid = nx // 2
             m_left = m_top[:, :mid, :]
             m_right = m_top[:, mid:, :]
@@ -180,6 +189,7 @@ def _run_one_point(args):
                     m_left, p.a, core_polarity=+1)
                 cx_r, cy_r = skyrmion_center_pbc(
                     m_right, p.a, core_polarity=+1)
+                # Shift right-half x back into full-lattice coords.
                 cx_r += mid * p.a
                 r_now = math.hypot(cx_r - cx_l, cy_r - cy_l)
             else:
@@ -223,6 +233,7 @@ def _run_one_point(args):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Build the r_init x ensemble grid and dispatch it."""
     # =========================== User Configuration =========================
     r_init_list     = [180e-9, 240e-9, 320e-9, 400e-9]
     t_sub           = 300.0

@@ -41,12 +41,12 @@ from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import GaussianPulse
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.driver import run_one
-from src.sweeps.integrators import (
+from src.orchestrator.driver import run_one
+from src.orchestrator.integrators import (
     step_demag_deterministic,
     step_deterministic,
 )
-from src.sweeps.io import save_trace
+from src.orchestrator.io import save_trace
 
 #
 #                                                          Authorship & Credits

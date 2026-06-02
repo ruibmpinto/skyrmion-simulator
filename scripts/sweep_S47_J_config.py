@@ -23,12 +23,12 @@ from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import GaussianPulse
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.driver import run_one
-from src.sweeps.integrators import (
+from src.orchestrator.driver import run_one
+from src.orchestrator.integrators import (
     step_demag_deterministic,
     step_deterministic,
 )
-from src.sweeps.io import save_trace
+from src.orchestrator.io import save_trace
 
 #
 #                                                          Authorship & Credits
@@ -43,25 +43,35 @@ __status__ = 'Development'
 
 
 def _make_saf_skyrmion_ic(p):
+    """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
         p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
 
 
 def _run_one_point(args):
+    """Worker: integrate one (config, J) grid point; returns a
+    one-line console summary."""
     cfg, point = args
+    # Per-point Gaussian sigma + drive window; FWHM and H_RKKY
+    # both come from the config selected for this point.
     FWHM = float(point['FWHM'])
     H_RKKY = float(point['H_RKKY'])
     sigma = FWHM / (2.0 * math.sqrt(2.0 * math.log(2.0)))
     t_center = cfg['tail_sigmas'] * sigma
     drive_time = 2.0 * cfg['tail_sigmas'] * sigma + 200.0e-12
     n_drive = int(math.ceil(drive_time / cfg['dt']))
+    # Record a spin snapshot at the pulse peak only for flagged
+    # points (highest J of each config).
     record_snapshot_at = (
         t_center if point['record_snapshot'] else None)
+    # Fresh parameter namespace; H_RKKY varies per config.
     p = default_params()
     p.D = cfg['D']
     p.nx = cfg['nx']; p.ny = cfg['ny']; p.dt = cfg['dt']
     p.H_RKKY = H_RKKY
     _precompute(p)
+    # Demag / relax branch: full FFT demag + convergence-stop, or
+    # local K_eff + fixed-time relax.
     if cfg['use_full_demag']:
         kernels = precompute_demag_kernels(
             p,
@@ -99,6 +109,7 @@ def _run_one_point(args):
         n_relax_for_driver = cfg['n_relax_fixed']
         n_relax_metadata = int(cfg['n_relax_fixed'])
         relax_extra = {'relax_mode': 'fixed_time'}
+    # Gaussian drive pulse for this J0.
     pulse = GaussianPulse(
         J0=point['J0'], t_center=t_center, FWHM=FWHM)
     trace = run_one(
@@ -109,6 +120,7 @@ def _run_one_point(args):
         ic_factory=ic_factory,
         record_snapshot_at=record_snapshot_at,
         print_every=10000)
+    # Persist trace + full run metadata; tag filename by cfg, J, D.
     metadata = {
         'figure': 'S47',
         'demag': ('full_fft' if cfg['use_full_demag']
@@ -137,6 +149,7 @@ def _run_one_point(args):
         f'_J_{point["J0"]:.2e}_{_D_tag}.npz')
     out_path = os.path.join(cfg['out_dir'], out_name)
     save_trace(path=out_path, trace=trace, metadata=metadata)
+    # PBC-aware v_avg proxy, peak diameter, snapshot flag.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)
@@ -187,6 +200,8 @@ def main():
     sample_every = int(math.ceil(sample_dt / dt))
     out_dir = 'output/sweeps_S41_S49/S47'
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Cross every config with every J; flag the highest-J point of
+    # each config for a peak-pulse spin snapshot.
     J_max = float(max(J_values))
     grid = []
     for cfg_dict, J0 in itertools.product(configs, J_values):

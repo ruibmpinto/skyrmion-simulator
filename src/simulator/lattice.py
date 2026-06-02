@@ -174,17 +174,21 @@ def disk_mask(nx, ny, a, R, center=None):
     if not (float(R) > 0.0):
         raise RuntimeError(
             f'disk_mask: R must be > 0, got R={R!r}.')
+    # Default centre: geometric centre of the lattice in metres.
     if center is None:
         cx = 0.5 * (int(nx) - 1) * float(a)
         cy = 0.5 * (int(ny) - 1) * float(a)
     else:
         cx, cy = float(center[0]), float(center[1])
+    # Index grids: jj is the column (x) index, ii the row (y) index.
     jj, ii = np.meshgrid(
         np.arange(int(nx), dtype=float),
         np.arange(int(ny), dtype=float),
     )
+    # Physical offsets from the disk centre (metres).
     x = jj * float(a) - cx
     y = ii * float(a) - cy
+    # Inside-the-disk test r^2 <= R^2 (squared to avoid a sqrt).
     return (x * x + y * y) <= (float(R) * float(R))
 
 
@@ -217,17 +221,21 @@ def rect_mask(nx, ny, a, Lx, Ly, center=None):
         raise RuntimeError(
             f'rect_mask: a, Lx, Ly must be > 0, got a={a!r}, '
             f'Lx={Lx!r}, Ly={Ly!r}.')
+    # Default centre: geometric centre of the lattice in metres.
     if center is None:
         cx = 0.5 * (int(nx) - 1) * float(a)
         cy = 0.5 * (int(ny) - 1) * float(a)
     else:
         cx, cy = float(center[0]), float(center[1])
+    # Index grids: jj is the column (x) index, ii the row (y) index.
     jj, ii = np.meshgrid(
         np.arange(int(nx), dtype=float),
         np.arange(int(ny), dtype=float),
     )
+    # Physical offsets from the rectangle centre (metres).
     x = jj * float(a) - cx
     y = ii * float(a) - cy
     half_Lx = 0.5 * float(Lx)
     half_Ly = 0.5 * float(Ly)
+    # Inside-the-rectangle test: within half-extents on both axes.
     return (np.abs(x) <= half_Lx) & (np.abs(y) <= half_Ly)

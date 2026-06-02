@@ -21,7 +21,7 @@ run_one
 import numpy as np
 # Local
 from src.simulator.pulses import ConstantPulse
-from src.sweeps.observers import observe_state
+from src.orchestrator.observers import observe_state
 
 #
 #                                                          Authorship & Credits

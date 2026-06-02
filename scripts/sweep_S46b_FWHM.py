@@ -20,12 +20,12 @@ from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import GaussianPulse
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.driver import run_one
-from src.sweeps.integrators import (
+from src.orchestrator.driver import run_one
+from src.orchestrator.integrators import (
     step_demag_deterministic,
     step_deterministic,
 )
-from src.sweeps.io import save_trace
+from src.orchestrator.io import save_trace
 
 #
 #                                                          Authorship & Credits
@@ -40,22 +40,29 @@ __status__ = 'Development'
 
 
 def _make_saf_skyrmion_ic(p):
+    """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
         p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
 
 
 def _run_one_point(args):
+    """Worker: integrate one FWHM grid point; returns a
+    one-line console summary."""
     cfg, point = args
+    # Per-point Gaussian sigma + drive window.
     FWHM = float(point['FWHM'])
     sigma = FWHM / (2.0 * math.sqrt(2.0 * math.log(2.0)))
     t_center = cfg['tail_sigmas'] * sigma
     drive_time = 2.0 * cfg['tail_sigmas'] * sigma + 200.0e-12
     n_drive = int(math.ceil(drive_time / cfg['dt']))
+    # Fresh parameter namespace; H_RKKY fixed across the sweep.
     p = default_params()
     p.D = cfg['D']
     p.nx = cfg['nx']; p.ny = cfg['ny']; p.dt = cfg['dt']
     p.H_RKKY = float(cfg['H_RKKY'])
     _precompute(p)
+    # Demag / relax branch: full FFT demag + convergence-stop, or
+    # local K_eff + fixed-time relax.
     if cfg['use_full_demag']:
         kernels = precompute_demag_kernels(
             p,
@@ -93,6 +100,7 @@ def _run_one_point(args):
         n_relax_for_driver = cfg['n_relax_fixed']
         n_relax_metadata = int(cfg['n_relax_fixed'])
         relax_extra = {'relax_mode': 'fixed_time'}
+    # Gaussian drive pulse at this FWHM (J0 fixed across sweep).
     pulse = GaussianPulse(
         J0=cfg['J0'], t_center=t_center, FWHM=FWHM)
     trace = run_one(
@@ -102,6 +110,7 @@ def _run_one_point(args):
         step_drive=step, step_relax=step,
         ic_factory=ic_factory, record_snapshot_at=None,
         print_every=10000)
+    # Persist trace + full run metadata; tag filename by FWHM, D.
     metadata = {
         'figure': 'S46b',
         'demag': ('full_fft' if cfg['use_full_demag']
@@ -124,6 +133,7 @@ def _run_one_point(args):
     out_name = f'FWHM_{FWHM*1e12:.0f}ps_{_D_tag}.npz'
     out_path = os.path.join(cfg['out_dir'], out_name)
     save_trace(path=out_path, trace=trace, metadata=metadata)
+    # PBC-aware v_avg proxy + peak diameter for the summary line.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)

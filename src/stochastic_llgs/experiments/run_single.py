@@ -177,6 +177,7 @@ def trajectory_worker(config):
     p.pulse = pulse_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Drive phase: record observables every sample_every steps.
+    # Ceiling division: number of sampled steps over n_drive.
     n_samples = (n_drive + sample_every - 1) // sample_every
     t_sample = np.empty(n_samples, dtype=float)
     # Top-layer centers (core m_z = -1, weight (1-m_z)/2).
@@ -347,6 +348,7 @@ def trajectory_worker(config):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Standalone single-trajectory driver; no argparse."""
     # =========================== User Configuration =========================
     t_sub           = 300.0          # K
     r_th            = 0.0            # K m^4 / A^2 (0 disables)

@@ -94,6 +94,8 @@ def _radial_power(power, K_radius):
     )
     np.add.at(radial, bin_idx, power.ravel())
     np.add.at(counts, bin_idx, 1.0)
+    # Floor empty bins to 1 to avoid divide-by-zero; bins with
+    # zero accumulated power then return a harmless 0/1 = 0.
     counts = np.where(counts > 0, counts, 1.0)
     return centers, radial / counts
 
@@ -207,6 +209,8 @@ def order_parameters(m_top, m_bot, p):
     # Radial peak (skip the DC bin)
     centers, radial = _radial_power(power, K_r)
     if len(centers) > 1:
+        # argmax over radial[1:] skips the DC bin; +1 restores
+        # the index into the full radial array.
         idx = int(np.argmax(radial[1:])) + 1
         k_star = float(centers[idx])
         peak_over_bg = float(

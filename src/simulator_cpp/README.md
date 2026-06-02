@@ -130,7 +130,7 @@ Each binary has its grid + run config as named variables at the top of
 `main()` (no argparse). It writes the same output layout as the Python
 sweeps (`output/sweeps_S41_S49/<analysis>/…npz`), so the existing
 `scripts/analyze_*.py` and `scripts/plot_*.py` read the results
-unchanged (after the one-line `src/sweeps/io.py::load_trace` patch that
+unchanged (after the one-line `src/orchestrator/io.py::load_trace` patch that
 accepts the C++ uint8-bytes metadata).
 
 Each grid point emits:

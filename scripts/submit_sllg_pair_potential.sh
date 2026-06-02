@@ -21,4 +21,4 @@ module load python/3.11.6
 # zero-current dynamics to record r(t).
 export SWEEP_NPROC=1
 
-python3 -m src.stochastic_llgs.production.pair_potential
+python3 -m src.stochastic_llgs.experiments.pair_potential

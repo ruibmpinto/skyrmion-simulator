@@ -20,8 +20,15 @@ relax
 import numpy as np
 # Local
 from src.simulator.energy import total_energy
-from src.simulator.fields import effective_field_demag_pair
-from src.simulator.integrator import llgs_rhs, normalize
+from src.simulator.fields import (
+    effective_field,
+    effective_field_demag_pair,
+)
+from src.simulator.integrator import (
+    llgs_rhs,
+    normalize,
+    rk4_step_single,
+)
 from src.simulator.pulses import ConstantPulse
 
 #
@@ -36,9 +43,14 @@ __status__ = 'Development'
 # =====================================================================
 
 
-def _rhs_pair(m_top, m_bot, p, kernels, t):
-    """Compute LLGS RHS for both layers using demag-aware H."""
-    H_t, H_b = effective_field_demag_pair(m_top, m_bot, p, kernels)
+def _rhs_pair(m_top, m_bot, p, kernels, t, mask=None):
+    """Compute LLGS RHS for both layers using demag-aware H.
+
+    `mask` (if given) is forwarded to
+    `effective_field_demag_pair` for free-boundary geometries.
+    """
+    H_t, H_b = effective_field_demag_pair(
+        m_top, m_bot, p, kernels, mask=mask)
     return (
         llgs_rhs(m_top, H_t, p, t),
         llgs_rhs(m_bot, H_b, p, t),
@@ -46,7 +58,28 @@ def _rhs_pair(m_top, m_bot, p, kernels, t):
 
 
 # ---------------------------------------------------------------------
-def _rk4_step(m_top, m_bot, t, dt, p, kernels):
+def _rhs_single(m, p, t):
+    """Single-layer LLGS RHS (no demag), `rk4_step_single` form.
+
+    Matches the 3-argument `rk4_step_single(rhs, m, t, dt, p)`
+    callback contract. The free-BC mask is read from
+    `p.relax_mask`, which `relax` sets on every call (just like
+    the SOT fields it temporarily overrides), so no closure is
+    needed; a direct attribute read raises loudly if this
+    private helper is ever called outside `relax`. The no-demag
+    `effective_field` is used (a lone ferromagnet has no
+    interlayer demag); the layer is its own RKKY partner,
+    harmless because single-layer relax sets `p.H_RKKY = 0`.
+    """
+    mask = p.relax_mask
+    H = effective_field(
+        m, m, p.C_ex, p.C_dmi, p.C_anis_top,
+        p.H_ext, p.H_RKKY, mask=mask)
+    return llgs_rhs(m, H, p, t)
+
+
+# ---------------------------------------------------------------------
+def _rk4_step(m_top, m_bot, t, dt, p, kernels, mask=None):
     """Advance both layers by one demag-aware RK4 step.
 
     The pulse is evaluated at the classical RK4 substage times.
@@ -56,25 +89,27 @@ def _rk4_step(m_top, m_bot, t, dt, p, kernels):
     simulator and makes future driven-relaxation variants
     straightforward.
     """
-    k1t, k1b = _rhs_pair(m_top, m_bot, p, kernels, t)
+    k1t, k1b = _rhs_pair(m_top, m_bot, p, kernels, t, mask=mask)
     k1t *= dt
     k1b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     mt2 = normalize(m_top + 0.5 * k1t)
     mb2 = normalize(m_bot + 0.5 * k1b)
-    k2t, k2b = _rhs_pair(mt2, mb2, p, kernels, t + 0.5 * dt)
+    k2t, k2b = _rhs_pair(
+        mt2, mb2, p, kernels, t + 0.5 * dt, mask=mask)
     k2t *= dt
     k2b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     mt3 = normalize(m_top + 0.5 * k2t)
     mb3 = normalize(m_bot + 0.5 * k2b)
-    k3t, k3b = _rhs_pair(mt3, mb3, p, kernels, t + 0.5 * dt)
+    k3t, k3b = _rhs_pair(
+        mt3, mb3, p, kernels, t + 0.5 * dt, mask=mask)
     k3t *= dt
     k3b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     mt4 = normalize(m_top + k3t)
     mb4 = normalize(m_bot + k3b)
-    k4t, k4b = _rhs_pair(mt4, mb4, p, kernels, t + dt)
+    k4t, k4b = _rhs_pair(mt4, mb4, p, kernels, t + dt, mask=mask)
     k4t *= dt
     k4b *= dt
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,35 +123,72 @@ def _rk4_step(m_top, m_bot, t, dt, p, kernels):
 
 
 # ---------------------------------------------------------------------
-def _max_tangential_torque(m_top, m_bot, p, kernels):
+def _max_tangential_torque(m_top, m_bot, p, kernels, mask=None):
     """Return max |m x (m x H)| across both layers (Tesla)."""
-    H_t, H_b = effective_field_demag_pair(m_top, m_bot, p, kernels)
+    H_t, H_b = effective_field_demag_pair(
+        m_top, m_bot, p, kernels, mask=mask)
     tau_t = np.cross(m_top, np.cross(m_top, H_t))
     tau_b = np.cross(m_bot, np.cross(m_bot, H_b))
+    if mask is not None:
+        msk = mask[..., np.newaxis]
+        tau_t = tau_t * msk
+        tau_b = tau_b * msk
     n_t = np.sqrt(np.sum(tau_t * tau_t, axis=-1))
     n_b = np.sqrt(np.sum(tau_b * tau_b, axis=-1))
     return float(max(n_t.max(), n_b.max()))
 
 
 # ---------------------------------------------------------------------
+def _max_tangential_torque_single(m, p, mask=None):
+    """Return max |m x (m x H)| for one layer (Tesla, no demag)."""
+    H = effective_field(
+        m, m, p.C_ex, p.C_dmi, p.C_anis_top,
+        p.H_ext, p.H_RKKY, mask=mask)
+    tau = np.cross(m, np.cross(m, H))
+    if mask is not None:
+        tau = tau * mask[..., np.newaxis]
+    return float(np.sqrt(np.sum(tau * tau, axis=-1)).max())
+
+
+# ---------------------------------------------------------------------
 def relax(m_top, m_bot, p, kernels,
           max_steps=200000, alpha_relax=None,
           tol_torque=1e-5, tol_dE=1e-8, check_every=1000,
-          print_every=0):
-    """Relax a SAF spin configuration to (meta)stable state.
+          print_every=0, mask=None):
+    """Relax a spin configuration to a (meta)stable state.
+
+    Two modes:
+
+    - SAF pair (default): `m_bot` is an array; both layers
+      relax together with demag from `kernels`.
+    - Single layer: `m_bot=None` relaxes a lone ferromagnet
+      via the no-demag `effective_field` + `rk4_step_single`.
+      Requires `kernels=None` (a single layer has no interlayer
+      demag) and converges on the tangential torque alone (no
+      two-layer energy). The returned bottom layer is `None`
+      and `E_final` is NaN.
+
+    A free-boundary geometry is selected with `mask` (a Boolean
+    array True inside the magnetic region); it is forwarded to
+    the field assembly so cells outside the mask receive no
+    field and the DMI edge condition is applied.
 
     Parameters
     ----------
     m_top : numpy.ndarray(3d)
         Top-layer spins, shape (ny, nx, 3).
-    m_bot : numpy.ndarray(3d)
-        Bottom-layer spins, shape (ny, nx, 3).
+    m_bot : numpy.ndarray(3d) or None
+        Bottom-layer spins; `None` selects single-layer mode.
     p : SimpleNamespace
         Parameters namespace. SOT fields and Gilbert
         damping are temporarily overridden inside this
         function and restored on exit.
-    kernels : dict
-        Demag kernels from `precompute_demag_kernels(p)`.
+    kernels : dict or None
+        Demag kernels from `precompute_demag_kernels(p)`;
+        `None` (required in single-layer mode) disables demag.
+    mask : numpy.ndarray(2d, bool) or None, default=None
+        Free-boundary magnetic-region mask; `None` is the
+        original periodic path.
     max_steps : int, default=200000
         Safety cutoff on the number of RK4 steps.
     alpha_relax : float or None, default=None
@@ -141,15 +213,16 @@ def relax(m_top, m_bot, p, kernels,
     -------
     m_top : numpy.ndarray(3d)
         Final top-layer spins.
-    m_bot : numpy.ndarray(3d)
-        Final bottom-layer spins.
+    m_bot : numpy.ndarray(3d) or None
+        Final bottom-layer spins; `None` in single-layer mode.
     converged : bool
-        True if both convergence criteria were satisfied
-        before the safety cutoff.
+        True if the convergence criteria were satisfied before
+        the safety cutoff (torque + energy in pair mode; torque
+        alone in single-layer mode).
     n_steps : int
         Number of RK4 steps actually executed.
     E_final : float
-        Final total energy in Joules.
+        Final total energy in Joules (NaN in single-layer mode).
     tau_max : float
         Final maximum tangential torque in Tesla.
     """
@@ -159,6 +232,12 @@ def relax(m_top, m_bot, p, kernels,
             '`H_FL` (precomputed by `parameters._precompute` '
             'or `make_params`). Got an incomplete `p`.'
         )
+    single = m_bot is None
+    if single and kernels is not None:
+        raise RuntimeError(
+            'relax: single-layer mode (m_bot is None) requires '
+            'kernels=None (a lone ferromagnet has no '
+            'interlayer demag).')
     alpha_save = p.alpha
     gamma_p_save = p.gamma_p
     H_DL_save = p.H_DL
@@ -172,6 +251,10 @@ def relax(m_top, m_bot, p, kernels,
     p.H_DL = 0.0
     p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
+    # Free-BC mask for the single-layer RHS (read by
+    # `_rhs_single` via `p.relax_mask`); set on every call and
+    # removed in the `finally` block.
+    p.relax_mask = mask
     if alpha_relax is not None:
         p.alpha = float(alpha_relax)
         p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
@@ -180,15 +263,20 @@ def relax(m_top, m_bot, p, kernels,
     n_steps = 0
     tau_max = np.inf
     try:
-        E_prev = total_energy(m_top, m_bot, p, kernels)
+        # Pair mode tracks the two-layer energy for the dE test;
+        # single-layer mode converges on the torque alone.
+        E_prev = None if single else total_energy(m_top, m_bot, p, kernels)
         # Internal pulse time; the pulse is zero so the exact value
         # does not affect dynamics, only kept consistent with the
         # pulse-aware integrator signature.
         t = 0.0
         for step in range(1, max_steps + 1):
-            m_top, m_bot = _rk4_step(
-                m_top, m_bot, t, p.dt, p, kernels,
-            )
+            if single:
+                m_top = rk4_step_single(
+                    _rhs_single, m_top, t, p.dt, p)
+            else:
+                m_top, m_bot = _rk4_step(
+                    m_top, m_bot, t, p.dt, p, kernels, mask=mask)
             t += p.dt
             n_steps = step
             if print_every > 0 and step % print_every == 0:
@@ -199,19 +287,27 @@ def relax(m_top, m_bot, p, kernels,
                     flush=True,
                 )
             if step % check_every == 0:
-                tau_max = _max_tangential_torque(
-                    m_top, m_bot, p, kernels,
-                )
-                E_now = total_energy(m_top, m_bot, p, kernels)
-                if E_now != 0.0:
-                    dE_rel = abs((E_now - E_prev) / E_now)
+                if single:
+                    tau_max = _max_tangential_torque_single(
+                        m_top, p, mask=mask)
+                    if tau_max < tol_torque:
+                        converged = True
+                        break
                 else:
-                    dE_rel = abs(E_now - E_prev)
-                E_prev = E_now
-                if tau_max < tol_torque and dE_rel < tol_dE:
-                    converged = True
-                    break
-        E_final = total_energy(m_top, m_bot, p, kernels)
+                    tau_max = _max_tangential_torque(
+                        m_top, m_bot, p, kernels, mask=mask)
+                    E_now = total_energy(m_top, m_bot, p, kernels)
+                    dE_rel = (abs((E_now - E_prev) / E_now)
+                              if E_now != 0.0
+                              else abs(E_now - E_prev))
+                    E_prev = E_now
+                    if tau_max < tol_torque and dE_rel < tol_dE:
+                        converged = True
+                        break
+        if single:
+            E_final = float('nan')
+        else:
+            E_final = total_energy(m_top, m_bot, p, kernels)
     finally:
         p.alpha = alpha_save
         p.gamma_p = gamma_p_save
@@ -219,4 +315,6 @@ def relax(m_top, m_bot, p, kernels,
         p.H_FL = H_FL_save
         if pulse_save is not None:
             p.pulse = pulse_save
+        # Remove the transient mask attribute (always set above).
+        del p.relax_mask
     return m_top, m_bot, converged, n_steps, E_final, tau_max

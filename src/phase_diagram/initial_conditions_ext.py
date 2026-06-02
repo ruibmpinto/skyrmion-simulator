@@ -248,6 +248,8 @@ def hex_lattice_skyrmions(nx, ny, a, R, period, dw):
         )
     centers = _hex_centers(nx, ny, a, period)
     r, phi = _nearest_center_field(nx, ny, a, centers)
+    # Standard 360-degree-wall skyrmion polar profile: m_z runs
+    # from -1 at the core (r=0) to +1 far out, crossing 0 at r=R.
     theta = 2.0 * np.arctan(np.exp(-(r - R) / dw))
     sin_t = np.sin(theta)
     cos_t = np.cos(theta)

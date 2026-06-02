@@ -75,7 +75,10 @@ _FM_TILT = [(0.0, 0.0), (1.6, 2.4)]   # grey aligned/tilted line
 
 
 def main():
+    # Load the sweep NPZ, recover Güngördü dimensionless coords,
+    # plot the phase map with the Fig. 3 + Banerjee boundaries.
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Input sweep NPZ and output overlay figure paths.
     in_path = 'output/phase_diagram/validation/gungordu_K_H.npz'
     out_path = ('docs/figures/validation/'
                 'gungordu_phase_overlay.pdf')
@@ -123,6 +126,8 @@ def main():
     h_g_axis = Ms * H_values * A_ex / (D * D)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     n_x, n_y = gs_label_idx.shape
+    # Simulated ground-state phase map as a coloured mesh in
+    # (a_s, h_g), one colour per classifier label.
     a_s_2d, h_g_2d = np.meshgrid(a_s_axis, h_g_axis,
                                  indexing='ij')
     cmap = plt.get_cmap('tab10', len(labels))

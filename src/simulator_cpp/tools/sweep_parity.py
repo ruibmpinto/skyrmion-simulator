@@ -36,8 +36,8 @@ def main():
     from src.simulator.parameters import _precompute, default_params
     from src.simulator.pulses import SquarePulse
     from src.simulator.initial_conditions import saf_skyrmion
-    from src.sweeps.driver import run_one
-    from src.sweeps.integrators import step_deterministic
+    from src.orchestrator.driver import run_one
+    from src.orchestrator.integrators import step_deterministic
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Identical config to tools/sweep_parity.cpp.
     p = default_params()

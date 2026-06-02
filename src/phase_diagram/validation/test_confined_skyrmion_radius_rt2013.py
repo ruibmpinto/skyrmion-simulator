@@ -69,9 +69,8 @@ import math
 # Third-party
 import numpy as np
 # Local
-from src.simulator.fields import effective_field
+from src.phase_diagram.relaxation import relax
 from src.simulator.initial_conditions import skyrmion_profile
-from src.simulator.integrator import llgs_rhs, rk4_step
 from src.simulator.lattice import disk_mask
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import ConstantPulse
@@ -147,23 +146,6 @@ def _make_rt_params(A_ex, D, K_eff, Ms, alpha, gamma, nx, ny,
     return p
 
 
-def _make_freebc_rhs(mask):
-    """SAF RHS with free-BC mask, no demag (RT local-dipolar
-    K_eff model). Bottom layer is decoupled (H_RKKY = 0)."""
-    def rhs(m_top, m_bot, p, t):
-        H_top = effective_field(
-            m_top, m_bot,
-            p.C_ex, p.C_dmi, p.C_anis_top,
-            p.H_ext, p.H_RKKY, mask=mask)
-        H_bot = effective_field(
-            m_bot, m_top,
-            p.C_ex, p.C_dmi, p.C_anis_bot,
-            p.H_ext, p.H_RKKY, mask=mask)
-        return (llgs_rhs(m_top, H_top, p, t),
-                llgs_rhs(m_bot, H_bot, p, t))
-    return rhs
-
-
 def _measure_Rs(m_top, ix_c, iy_c, a, mask):
     """Skyrmion core radius = first m_z = 0 crossing along +x
     from the dot centre, with linear interpolation.
@@ -197,41 +179,9 @@ def _measure_Rs(m_top, ix_c, iy_c, a, mask):
     return None
 
 
-def _relax(m_top, m_bot, p, mask, max_steps, tol_torque,
-           check_every):
-    """Over-damped descent at H = 0. Returns (m_top, m_bot,
-    tau_max, n_done)."""
-    saved = {'alpha': p.alpha, 'gamma_p': p.gamma_p}
-    try:
-        p.alpha = 1.0
-        p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-        rhs = _make_freebc_rhs(mask)
-        t = 0.0
-        tau_max = float('inf')
-        n_done = int(max_steps)
-        for step in range(int(max_steps)):
-            m_top, m_bot = rk4_step(
-                rhs, m_top, m_bot, t, p.dt, p)
-            t += p.dt
-            if (step + 1) % int(check_every) == 0:
-                H_top = effective_field(
-                    m_top, m_bot,
-                    p.C_ex, p.C_dmi, p.C_anis_top,
-                    p.H_ext, p.H_RKKY, mask=mask)
-                mxH = np.cross(m_top, H_top)
-                mxmxH = np.cross(m_top, mxH)
-                tau_max = float(np.max(np.linalg.norm(
-                    mxmxH * mask[..., np.newaxis], axis=-1)))
-                n_done = step + 1
-                if tau_max < tol_torque:
-                    break
-    finally:
-        p.alpha = saved['alpha']
-        p.gamma_p = saved['gamma_p']
-    return m_top, m_bot, tau_max, n_done
-
-
 def main():
+    # Relax an isolated skyrmion at H=0 in the dot, measure R_s,
+    # compare to RT 2013 Fig. 4(d).
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # RT 2013 material and dot.
     A_ex = 16.0e-12          # J/m
@@ -262,6 +212,8 @@ def main():
     ic_png = ('docs/figures/validation/'
               'confined_Rs_rt2013_initial.png')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Critical DMI D_c and the reduced DMI kappa = D / D_c
+    # (kappa > 1 is the confinement-dominated regime probed here).
     Dc = (4.0 / math.pi) * math.sqrt(A_ex * K_eff)
     kappa = math.pi * D / (4.0 * math.sqrt(A_ex * K_eff))
     print('test_confined_skyrmion_radius_rt2013 (RT 2013 '
@@ -292,21 +244,22 @@ def main():
     mask = disk_mask(nx=nx, ny=ny, a=a, R=R_dot)
     ix_c = nx // 2
     iy_c = ny // 2
-    # IC inside the dot, dummy +z outside.
+    # IC inside the dot, dummy +z outside (single FM layer).
     m_top0 = skyrmion_profile(
         nx=nx, ny=ny, a=a, R=R_init, dw=dw_init, polarity=+1)
     m_top0[~mask, :] = np.array([0.0, 0.0, 1.0])
-    m_bot0 = np.zeros_like(m_top0)
-    m_bot0[..., 2] = 1.0
     plot_ic_2d(
         m=m_top0, a=a, out_path=ic_png,
         title=(f'RT2013 confined R_s IC: dot R={R_dot*1e9:.0f} '
                f'nm, sk R_init={R_init*1e9:.0f} nm'))
     print(f'  IC figure: {ic_png}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    m_top, m_bot, tau_max, n_done = _relax(
-        m_top0, m_bot0, p, mask, max_steps=max_steps,
-        tol_torque=tol_torque, check_every=check_every)
+    # Single-layer relaxation through the production relax()
+    # (free-BC mask, no demag, over-damped quench).
+    m_top, _m_bot, _conv, n_done, _E, tau_max = relax(
+        m_top0, None, p, None, mask=mask, alpha_relax=1.0,
+        tol_torque=tol_torque, max_steps=max_steps,
+        check_every=check_every)
     R_s = _measure_Rs(m_top, ix_c, iy_c, a, mask)
     if R_s is None:
         print(f'  relax {n_done} steps, tau_max={tau_max:.2e} '

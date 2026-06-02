@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -179,6 +179,7 @@ def _plot_panel_b(in_dir, out_path):
                   f'v_avg = {v:>6.1f} m/s')
 
 
+# Render whichever of the two S43 sweeps exist on disk.
 def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration.

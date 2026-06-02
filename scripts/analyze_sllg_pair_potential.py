@@ -139,6 +139,7 @@ def main():
         dr_dt_binned = np.array([], dtype=float)
         V_over_mu = np.array([], dtype=float)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Persist the reconstructed V(r)/mu and its inputs.
     np.savez_compressed(
         out_npz,
         r_centers=r_centers,
@@ -147,6 +148,8 @@ def main():
     )
     print(f'Saved {out_npz}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Two panels: r(t) traces per r_init (left) and the
+    # reconstructed mobility-scaled V(r) (right).
     fig, axes = plt.subplots(1, 2)
     for i, r_init in enumerate(r0_arr):
         if int(n_alive[i]) == 0:

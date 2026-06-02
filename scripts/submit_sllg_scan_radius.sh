@@ -22,4 +22,4 @@ module load python/3.11.6
 # FFT backend; no extra Python-level parallelism.
 export SWEEP_NPROC=1
 
-python3 -m src.stochastic_llgs.production.scan_radius
+python3 -m src.stochastic_llgs.experiments.scan_radius

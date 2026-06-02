@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -217,6 +217,7 @@ def _plot_C(items, out_path):
     print(f'Saved {out_path}')
 
 
+# Render all three S44 panels from the shared S44 sweep.
 def main():
     in_dir = 'output/sweeps_S41_S49/S44'
     out_dir = 'output/figures_S41_S49'

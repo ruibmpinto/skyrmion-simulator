@@ -199,6 +199,8 @@ def _aggregate_scan_arrhenius(in_dir):
         n_flipped[i] = t_obs.size
         n_ens[i] = t_obs.size + n_c
         t_obs_by_T[i] = t_obs
+        # Censored-exponential MLE: total observed time (flips
+        # + right-censored runs capped at t_max) over flip count.
         if t_obs.size > 0:
             tau_mle[i] = float(
                 (t_obs.sum() + n_c * t_max_seen) / t_obs.size
@@ -250,6 +252,8 @@ def _aggregate_scan_radius(in_dir):
         # for NPZs written before the LCC enrichment.
         diam = d['diameter_lcc'] if 'diameter_lcc' in d.files \
             else d['diameter']
+        # Average over the second half of the trace as the
+        # steady-state window (skip the initial transient).
         half = max(1, diam.size // 2)
         d_t_mean = float(np.nanmean(diam[half:]))
         if np.isfinite(v):
@@ -417,6 +421,8 @@ def main():
         )
     out_path = os.path.join(in_dir, 'aggregate.npz')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Dispatch to the scan-specific aggregator and echo a
+    # per-cell summary as it builds the payload.
     print(f'aggregate_sllg: {analysis}')
     print('-' * 56)
     if analysis == 'scan_tj':
@@ -462,6 +468,7 @@ def main():
                 f'n_alive={int(na):3d}/{int(ne):3d}'
             )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Write the single aggregate the analysis script reads.
     np.savez_compressed(out_path, **payload)
     print(f'Saved {out_path}')
 

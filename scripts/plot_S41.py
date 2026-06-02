@@ -26,7 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 # Local
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -49,6 +49,7 @@ plt.rcParams['figure.figsize'] = (6, 6)
 plt.rcParams['lines.linewidth'] = 1.5
 
 
+# Build the S41 |v(t)| panel from the single S41 trace.
 def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration (edit here). The sweep encodes the

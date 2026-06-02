@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -91,6 +91,7 @@ def _v_inst(t, cx, cy):
     return np.sqrt(vx * vx + vy * vy)
 
 
+# Build both S42 panels: v_inst(t) traces and v_max/v_avg vs J.
 def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration.

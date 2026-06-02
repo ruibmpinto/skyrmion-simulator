@@ -39,12 +39,13 @@ to a production function; this is noted per test.
 |  6 | Banerjee 2014 Fig.1b FM↔SkX critical field | h_c ≈ 1.03–1.52 | h_c ≈ 0.18–0.96 (37–82% low) | 20% | **FAIL (documented)** |
 |  7 | RT 2013 Fig.4(d) confined skyrmion radius | R_s ≈ 25 nm (R=50 nm dot, D/D_c=1.25) | R_s = 27.6 nm | 25% | **PASS** |
 |  8 | Skyrmion Néel-Arrhenius collapse, j=0 (single FM layer) | Rohart 2016: Arrhenius form; ΔE=26±4 meV, τ₀=0.22 ns | R²=0.983; ΔE=11.5 meV; τ₀=0.35 ns | form+τ₀ | **PASS** |
-| 8b | ΔE-vs-DMI trend (Rohart 2016 Fig.5b) | ΔE rises with D | running on cluster | trend | **IN PROGRESS** |
+| 8b | ΔE-vs-DMI trend (Rohart 2016 Fig.5b) | ΔE rises with D | ΔE 5.7→31.5 meV over D=2.95→3.10 (monotone) | trend | **PASS** |
 | 10 | Thiele v_SOT(R/Δ) & v_TSH vs Pham 2024 Fig.S49 | closed forms (Pham supp §1.7) | analytic 2e-16; LLGS spot-check 1.5% | see §10 | **PASS** |
 | 11 | 1D domain-wall width | Δ = √(A/K_eff) | Δ = 12.6371 nm (analytic 12.6491) | 0.5% | **PASS** |
 | 12 | Uniform-mode FMR frequency | f = γ H_K / 2π, H_K = 2K_eff/M_s | rel.err < 5% (≈35 GHz) | 5% | **PASS** |
 | 14 | Free-BC demag kernel (infrastructure) | thin-slab N_zz ≈ 1 | interior H_z/μ₀M_s = −0.984 | — | **PASS** |
-|  9 | Skyrmion-size temperature scaling | 2018 nanodot R(T) | not yet implemented | — | TODO |
+|  9a | Skyrmion-size T-scaling, deterministic (Tomasello 2018 Fig.1b) | H=0 expansion ratio ~3.3 | R_sk(300)/R_sk(0) = 2.51 (converged) | 30% | **PASS** |
+| 9b | Skyrmion-size T-scaling, thermal (Fig.1b symbols) | <D_sk>±std vs T, ratio ~3.3 | ratio 4.76 (high-T over-expansion vs converged 2.51) | 30% | **FAIL (qual. OK)** |
 
 Supporting stochastic-infrastructure gates (underpin #8):
 Brown Néel-Brown reversal, Langevin function, spin-wave
@@ -261,6 +262,68 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   guards Eq.18 and compares to the Fig.4(d) read value with a
   loose figure-read tolerance.
 
+### 9. Skyrmion-size temperature scaling (Tomasello 2018)
+- **Reference**: R. Tomasello et al., *PRB* 97, 060402(R)
+  (2018), Fig. 1(b): skyrmion diameter vs temperature in a
+  confined dot at H = 0/25/50 mT. Temperature enters only
+  through the reduced magnetization m(T) = M_s(T)/M_s(0), which
+  scales the parameters by Callen-Callen exponents: M_s ∝ m,
+  A ∝ m^1.50, D ∝ m^1.50, K_u ∝ m^3.585. As T rises the reduced
+  DMI d ∝ m^−0.84 climbs toward the critical line
+  d_c(Q) = (4/π)√(Q−1) and the skyrmion expands (strongly at
+  H = 0, weakly at finite field).
+- **Material (T=0)**: from the paper's Q(0)=2.65, d(0)=1.41,
+  l_ex(0)=9.4 nm → M_s=0.60 MA/m, A=20 pJ/m, K_u=0.60 MJ/m³,
+  D=3.0 mJ/m². Dot R_d=141 nm (=15 l_ex, read from the Fig. 3
+  insets), thickness 0.8 nm, cell 2.5 nm. m(T) digitized from
+  Fig. 2 (D(T)/D(0)=m^1.5 ⇒ m: 1.000→0.928 over 0–300 K); the
+  R(T) gate target digitized from Fig. 1(b). Digitization
+  figures: `docs/figures/validation/tomasello_*`.
+- **Setup**: confined disk via the **production** `relax`
+  (single-layer mode + free-BC `mask`, no demag — K_eff =
+  K_u − ½μ₀M_s² folded by the simulator's anisotropy
+  convention). Per (H, T): scale parameters by m(T), relax the
+  seeded skyrmion, measure R_sk = ½·`skyrmion_diameter`.
+- **9a (deterministic) — PASS**: R_sk(T) reproduces the
+  field-ordered expansion of Fig. 1(b); H=25/50 mT track the
+  analytical curves closely. H=0 expansion ratio
+  R_sk(300)/R_sk(0) = **2.51** (converged: the T=300/H=0 point
+  reaches conv=True at 160 k steps, R_sk=33.4 nm) vs the paper's
+  3.29 (23%, within the 30% gate). The deterministic relaxation
+  stays in the small metastable minimum (at 300 K our scaling
+  gives d=1.44 < d_c=1.48, i.e. still below the metastable→
+  ground crossing), so it slightly under-expands relative to
+  the paper's analytical ansatz.
+  Figure: `docs/figures/validation/tomasello_size_vs_T.png`.
+- **9b (thermal) — FAIL on the quantitative ratio, qualitative
+  behaviour correct**: the finite-T branch
+  (`scan_skyrmion_size_thermal` + `test_skyrmion_size_thermal`,
+  168-task SLURM array) scales the parameters by m(T) **and**
+  adds FDT Brown noise via the production single-layer
+  `heun_stochastic_step` (with the free-BC `mask`), pooling
+  ⟨R_sk⟩±std per (H,T). It reproduces the qualitative Fig. 1(b)
+  thermal physics (size grows with T, std grows, field
+  suppresses it), but the H=0 ratio over-shoots: 4.76 (R_sk=71
+  nm at 300 K) vs the converged deterministic 33.4 nm and the
+  paper's ~46–52 nm. Root cause is **non-equilibration in the
+  strong-fluctuation regime**, not a measurement artifact: a
+  diagnostic showed the LCC and whole-field diameters agree
+  (63.3 vs 63.5 nm) but R_sk **drifts** 45→76 nm during the
+  sampling window. At T=300/H=0 the scaled point sits just
+  below the metastable→ground crossing (d=1.44 < d_c=1.48), so
+  the barrier out of the small metastable state is tiny; thermal
+  noise drives the skyrmion to escape and expand toward the dot
+  without reaching a steady size, making ⟨R_sk⟩ window-
+  dependent (71 nm at 8 k-step thermalize vs 63 nm at 4 k).
+  This is the paper's own "strongly thermal-fluctuation-
+  influenced" regime (T>200 K, H<10 mT, ±25 nm error bars,
+  horseshoe deformation); longer thermalization drifts larger,
+  not toward the paper value. **#9a (deterministic, matching
+  the analytical curves) is therefore the quantitative
+  benchmark; #9b is a qualitative reproduction of the
+  fluctuation-driven expansion** — analogous to the #5/#6
+  documented limitation.
+
 ## C. Stochastic-LLGS module
 
 ### 8. Skyrmion Néel-Arrhenius collapse at j = 0 (single FM layer)
@@ -302,12 +365,23 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
 ### 8b. ΔE-vs-DMI trend (Rohart 2016 Fig.5b)
 - **Reference**: Rohart 2016, Fig. 5(b): the collapse barrier
   rises strongly with DMI at fixed field.
-- **Setup**: the #8 scan repeated at 4 DMI values (D = 2.8, 3.0,
-  3.2, 3.4 mJ/m², all sub-critical) × 10 T × 64 ens at the same
+- **Setup**: the #8 scan repeated over a narrow DMI grid
+  D = 2.90–3.10 mJ/m² (5 values × 10 T × 64 ens) at the same
   95 mT; ΔE(D) fit per D; gate = monotone increase of ΔE with D
-  (absolute ΔE not gated). The analysis is validated on
-  synthetic Arrhenius data (recovers an imposed rising ΔE).
-- **Status**: **IN PROGRESS** — running on the cluster.
+  (absolute ΔE not gated). The narrow grid is required because
+  the barrier is exponentially D-sensitive at fixed field — the
+  τ-observable window (collapse within the 60 ns window, not
+  athermal) spans only D ≈ 2.95–3.10. The analysis was
+  validated on synthetic Arrhenius data (recovers an imposed
+  rising ΔE).
+- **Result: PASS.** ΔE rises monotonically and steeply —
+  5.7 → 12.9 → 21.5 → 31.5 meV over D = 2.95 → 3.00 → 3.05 →
+  3.10 (5.5× over a 5% DMI increase), reproducing Rohart
+  Fig. 5(b)'s strong barrier-vs-DMI nonlinearity; τ₀ stays
+  0.25–0.38 ns. D ≤ 2.90 is athermal (ΔE≈0) and D ≥ 3.20 never
+  collapses in-window — both correctly excluded by the
+  events/T gate. Absolute ΔE is reported, not gated
+  (grid-dependent, model-class mismatch as in #8).
 
 ### Supporting stochastic-infrastructure gates (underpin #8)
 These validate the thermal machinery (FDT noise amplitude +

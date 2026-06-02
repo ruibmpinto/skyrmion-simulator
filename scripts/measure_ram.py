@@ -64,6 +64,8 @@ def main():
     rss_before = _rss_mib()
     t0 = time.time()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # One representative phase-diagram task: build params and
+    # kernels, seed a SAF skyrmion, relax, then classify.
     p = make_params(
         nx=nx, ny=ny,
         D=1.0e-3,
@@ -83,6 +85,7 @@ def main():
     )
     label, _ = classify(m_top, m_bot, p)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Report peak RSS and wall time to size sbatch memory.
     rss_after = _rss_mib()
     dt = time.time() - t0
     print(

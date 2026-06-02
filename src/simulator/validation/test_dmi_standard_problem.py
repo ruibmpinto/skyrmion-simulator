@@ -53,9 +53,8 @@ import os
 # Third-party
 import numpy as np
 # Local
-from src.simulator.fields import effective_field
+from src.phase_diagram.relaxation import relax
 from src.simulator.initial_conditions import skyrmion_profile
-from src.simulator.integrator import llgs_rhs, rk4_step
 from src.simulator.lattice import disk_mask
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import ConstantPulse
@@ -75,35 +74,12 @@ __status__ = 'Development'
 #
 # =============================================================================
 
+# Bundled CO 2018 dataset dir holding the ODE reference profile.
 CO_DATA_DIR = (
     'refs/2018 Cortes-Ortuno - Dataset Proposal for a '
     'micromagnetic standard problem for materials with '
     'Dzyaloshinskii-Moriya interaction.zip.0/notebooks/data/'
     'results_2d')
-
-
-def _make_freebc_rhs(mask):
-    """Closure: free-BC SAF RHS using the masked effective_field.
-
-    Mirrors `rhs_local_keff` (in `src.simulator.integrator`)
-    but forwards the mask kwarg to `effective_field` so the
-    cells outside the magnetic disc evolve under the Neumann
-    BC mumax3 convention. Both layers are integrated; for
-    single-FM the caller initialises the bottom layer to a
-    uniform state and uses H_RKKY = 0 in `p`.
-    """
-    def rhs(m_top, m_bot, p, t):
-        H_top = effective_field(
-            m_top, m_bot,
-            p.C_ex, p.C_dmi, p.C_anis_top,
-            p.H_ext, p.H_RKKY, mask=mask)
-        H_bot = effective_field(
-            m_bot, m_top,
-            p.C_ex, p.C_dmi, p.C_anis_bot,
-            p.H_ext, p.H_RKKY, mask=mask)
-        return (llgs_rhs(m_top, H_top, p, t),
-                llgs_rhs(m_bot, H_bot, p, t))
-    return rhs
 
 
 def _co_2d_params(A_ex, D, K_eff, Ms, alpha, gamma, nx, ny, a, dt):
@@ -251,51 +227,18 @@ def main():
     # spins do not evolve and contribute nothing physical.
     outside = ~mask
     m_top[outside, :] = np.array([0.0, 0.0, 1.0])
-    # Bottom layer: uniform up everywhere; decoupled
-    # (H_RKKY=0) so its evolution is independent of top.
-    m_bot = np.zeros_like(m_top)
-    m_bot[..., 2] = 1.0
     plot_ic_2d(
         m=m_top, a=a, out_path=ic_png,
         title=(f'CO SP 2D IC (disk R={R_disk*1e9:.0f} nm): '
                f'core m_z=+1, polarity=-1'))
     print(f'  IC figure: {ic_png}')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Relax: rk4_step + free-BC RHS, alpha temporarily set to
-    # alpha_relax for fast over-damped quench.
-    rhs = _make_freebc_rhs(mask)
-    saved_alpha = p.alpha
-    saved_gamma_p = p.gamma_p
-    saved_pulse = p.pulse
-    try:
-        p.alpha = float(alpha_relax)
-        p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-        p.pulse = ConstantPulse(0.0)
-        t = 0.0
-        tau_max = float('inf')
-        n_done = int(max_steps)
-        for step in range(int(max_steps)):
-            m_top, m_bot = rk4_step(
-                rhs, m_top, m_bot, t, p.dt, p)
-            t += p.dt
-            if (step + 1) % int(check_every) == 0:
-                # Tau_max on top layer only (single FM).
-                H_top = effective_field(
-                    m_top, m_bot,
-                    p.C_ex, p.C_dmi, p.C_anis_top,
-                    p.H_ext, p.H_RKKY, mask=mask)
-                mxH = np.cross(m_top, H_top)
-                mxmxH = np.cross(m_top, mxH)
-                tau_max = float(np.max(
-                    np.linalg.norm(mxmxH, axis=-1)))
-                if tau_max < float(tol_torque):
-                    n_done = step + 1
-                    break
-                n_done = step + 1
-    finally:
-        p.alpha = saved_alpha
-        p.gamma_p = saved_gamma_p
-        p.pulse = saved_pulse
+    # Relax the single FM layer through the production relax()
+    # (free-BC mask, no demag, over-damped quench).
+    m_top, _mb, _conv, n_done, _E, tau_max = relax(
+        m_top, None, p, None, mask=mask,
+        alpha_relax=alpha_relax, tol_torque=tol_torque,
+        max_steps=max_steps, check_every=check_every)
     print(f'  relaxed in {n_done} steps, '
           f'tau_max = {tau_max:.2e} T')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -55,6 +55,7 @@ def _run_one_point(args):
     ens_idx = int(point['ens_idx'])
     d_idx = int(point['d_idx'])
     cell_idx = int(point['cell_idx'])
+    # Unique seed per (ensemble member, temperature cell, D).
     seed = int(cfg['seed_base']) + 1000 * ens_idx \
         + 1000_000 * cell_idx + 100_000_000 * d_idx
     # Per-D seed: Eq.(18) radius estimate, wall width = Delta.
@@ -143,6 +144,8 @@ def main():
                 f'sub-critical (D_c={Dc*1e3:.3f}); the isolated '
                 f'skyrmion would not be metastable.')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Build the (D x T_sub x ens_idx) trajectory grid; cell_idx
+    # is a flat (D, T) index used in the seed offset.
     grid = []
     cell_idx = 0
     for d_idx, D in enumerate(d_list):
@@ -164,6 +167,7 @@ def main():
         'k_consecutive': k_consecutive, 'out_dir': out_dir,
     }
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # SLURM array mode: this task runs only grid[TASK_ID].
     task_id = os.environ.get('SLURM_ARRAY_TASK_ID')
     if task_id is not None:
         idx = int(task_id)

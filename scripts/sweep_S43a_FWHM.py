@@ -23,12 +23,12 @@ from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.parameters import _precompute, default_params
 from src.simulator.pulses import GaussianPulse
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.driver import run_one
-from src.sweeps.integrators import (
+from src.orchestrator.driver import run_one
+from src.orchestrator.integrators import (
     step_demag_deterministic,
     step_deterministic,
 )
-from src.sweeps.io import save_trace
+from src.orchestrator.io import save_trace
 
 #
 #                                                          Authorship & Credits
@@ -43,11 +43,14 @@ __status__ = 'Development'
 
 
 def _make_saf_skyrmion_ic(p):
+    """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
         p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
 
 
 def _run_one_point(args):
+    """Worker: integrate one (FWHM, J) grid point; returns a
+    one-line console summary."""
     cfg, point = args
     # Per-point Gaussian sigma + drive window.
     FWHM = float(point['FWHM'])
@@ -111,6 +114,7 @@ def _run_one_point(args):
         ic_factory=ic_factory,
         record_snapshot_at=None,
         print_every=10000)
+    # Persist trace + full run metadata; tag filename by FWHM, J, D.
     metadata = {
         'figure': 'S43a',
         'demag': ('full_fft' if cfg['use_full_demag']
@@ -135,6 +139,7 @@ def _run_one_point(args):
         f'_J_{point["J0"]:.2e}_{_D_tag}.npz')
     out_path = os.path.join(cfg['out_dir'], out_name)
     save_trace(path=out_path, trace=trace, metadata=metadata)
+    # PBC-aware v_avg proxy over the +/- tail_sigmas drive window.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)

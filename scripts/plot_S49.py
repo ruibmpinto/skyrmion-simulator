@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 # Local
 from src.simulator.parameters import default_params
 from src.stochastic_llgs.diagnostics import unwrap_trajectory
-from src.sweeps.io import load_trace
+from src.orchestrator.io import load_trace
 
 #
 #                                                          Authorship & Credits
@@ -59,6 +59,7 @@ def _v_steady(trace, metadata):
             / float(t[window][-1] - t[window][0]))
 
 
+# Overlay analytic SOT/TSH speeds on the LLGS-measured speeds.
 def main():
     in_dir = 'output/sweeps_S41_S49/S49'
     out_dir = 'output/figures_S41_S49'

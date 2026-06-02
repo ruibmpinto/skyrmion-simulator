@@ -159,6 +159,9 @@ def magnon_stiffness_grid(p, ny, nx):
 
 # -----------------------------------------------------------------------------
 def main():
+    # Run the equipartition gate: relax, accumulate per-mode
+    # transverse variance, compare to Rayleigh-Jeans theory, and
+    # gate on the low-k median sim/theory ratio.
     # =========================== User Configuration =========================
     nx              = 16
     ny              = 16
@@ -238,6 +241,7 @@ def main():
             h_top, h_bot, tol_norm,
         )
         if step % sample_every == 0:
+            # Per-mode transverse power |M_x(k)|^2 + |M_y(k)|^2.
             M_x = np.fft.fft2(m_top[..., 0])
             M_y = np.fft.fft2(m_top[..., 1])
             accum += np.abs(M_x) ** 2 + np.abs(M_y) ** 2

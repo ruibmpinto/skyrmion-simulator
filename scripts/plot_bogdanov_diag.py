@@ -102,6 +102,7 @@ def _analytical_Dc(p=None):
     return Dc, K_bar, K_eff, A
 
 
+# Build the 2-panel d_eq(D) and residual-torque(D) diagnostic.
 def main():
     in_dir = 'output/sweeps_S41_S49/S41_D_sweep'
     out_dir = 'output/figures_S41_S49'

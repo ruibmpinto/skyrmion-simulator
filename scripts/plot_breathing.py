@@ -79,6 +79,7 @@ def _initial_guess(t, y):
     return [A0, tau0, f0, phi0, c0]
 
 
+# Load the 10 ns breathing runs, D-sorted, as plain dict records.
 def _load(in_dir):
     # Only the 10 ns variants; the duration tag is encoded in the
     # filename (`..._10ns_...`) so a glob suffices and avoids
@@ -103,6 +104,7 @@ def _load(in_dir):
     return records
 
 
+# Analytical critical DMI D_c = (4/pi) sqrt(A * K_eff), in mJ/m^2.
 def _analytical_Dc():
     p = default_params()
     K_bar = 0.5 * (float(p.K_top) + float(p.K_bot))
@@ -131,6 +133,7 @@ def _fit_one(t_ps, d_nm, d_eq_nm):
         return float('nan'), float('nan'), False
 
 
+# Build the 3-panel breathing/drift diagnostic figure.
 def main():
     in_dir = 'output/sweeps_S41_S49/S41_breathing'
     out_dir = 'output/figures_S41_S49'

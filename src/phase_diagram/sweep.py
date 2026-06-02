@@ -369,6 +369,7 @@ def run_one(task):
 
 # ---------------------------------------------------------------------
 def _label_to_int(label):
+    # Map a phase label string to its index in _PHASE_LABELS.
     return _PHASE_LABELS.index(label)
 
 
@@ -458,6 +459,8 @@ def sweep(axis_x_name, axis_x_values,
         futures = [pool.submit(run_one, t) for t in tasks]
         iterator = (f.result() for f in as_completed(futures))
     for r in iterator:
+        # Scatter each per-task result into the (i, j, k) cell
+        # of every aggregation array.
         i, j, k = r['i'], r['j'], r['k']
         arr['E'][i, j, k] = r['E']
         arr['Q'][i, j, k] = r['Q']

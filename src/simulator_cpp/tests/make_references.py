@@ -68,11 +68,11 @@ from src.stochastic_llgs.diagnostics import (
     detect_annihilation,
     hall_angle,
 )
-from src.sweeps.observers import observe_state
+from src.orchestrator.observers import observe_state
 from src.stochastic_llgs.parameters_thermal import attach_thermal
 from src.stochastic_llgs.joule_heating import T_of_j
 from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
-from src.stochastic_llgs.production.pair_potential import (
+from src.stochastic_llgs.experiments.pair_potential import (
     skyrmion_at_position, two_skyrmion_pair_ic,
 )
 from src.stochastic_llgs.validation.test_langevin import (

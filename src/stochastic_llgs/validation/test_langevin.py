@@ -70,6 +70,8 @@ def langevin_function(x):
 
 # -----------------------------------------------------------------------------
 def main():
+    # Run the Langevin gate: sweep (T, B_z), average <m_z>, fit
+    # against L(x), and pass/fail on the RMS relative error.
     # =========================== User Configuration =========================
     # T capped to <350 K (constant-M_s validity bound).
     t_kelvin_list   = [
@@ -105,6 +107,8 @@ def main():
         )
     os.makedirs(out_dir, exist_ok=True)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Result grids over (T, B_z): sim mean, standard error,
+    # Langevin theory, and the dimensionless argument x.
     n_T = len(t_kelvin_list)
     n_B = len(b_z_list)
     mz_sim = np.full((n_T, n_B), np.nan)
@@ -128,6 +132,7 @@ def main():
                 K=0.0, a=a, t_Co=t_co, Ms=ms,
                 gamma=gamma, seed=seed, n_traj=n_traj,
             )
+            # Langevin argument x = mu*B/(kT); mu = Ms * V_cell.
             mu_per_cell = p.Ms * p.V_cell
             x = mu_per_cell * B / (p.k_B * T)
             L = float(langevin_function(np.array([x]))[0])
@@ -145,6 +150,8 @@ def main():
             relax_samples = (
                 n_relax_steps + sample_every - 1
             ) // sample_every
+            # Time-average m_z per trajectory, then ensemble
+            # mean and standard error over trajectories.
             m_post = m_hist[relax_samples:, :, 2]
             mz_per_traj = m_post.mean(axis=0)
             mz_mean = float(mz_per_traj.mean())
