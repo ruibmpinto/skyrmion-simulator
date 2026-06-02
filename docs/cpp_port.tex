@@ -1,0 +1,419 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyvrb}
+\usepackage{url}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+% Monospace identifier command that handles literal underscores and
+% breaks long dotted/scoped names only at their natural separators
+% (. _ / :), so table cells wrap cleanly instead of overrunning the
+% column. Built on the url package's verbatim-style argument reading.
+\DeclareUrlCommand\code{\urlstyle{tt}}
+\makeatletter
+\g@addto@macro\UrlBreaks{\do\:\do\-}   % also break at '::' and '-'
+\makeatother
+
+% Shell / config blocks.
+\DefineVerbatimEnvironment{shell}{Verbatim}{frame=single,fontsize=\small,
+  xleftmargin=4pt}
+
+\title{Skyrmion Simulator: C++ Port \\
+       Function Equivalence, User Guide, and Profiling}
+\author{Rui Barreira}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+The micromagnetic SAF skyrmion simulator under \code{src/simulator/}
+(Python/NumPy) has been ported to C++17 under
+\code{src/simulator_cpp/}. The C++ build produces a deterministic
+simulator (\code{skyrmion_sim}), thirteen per-analysis sweep binaries,
+and a parity test-suite that checks every ported function against its
+Python counterpart to machine precision. Outputs remain NumPy
+\code{.npz} archives, so all Python post-processing, plotting, and
+animation scripts read the C++ results unchanged.
+
+This document lists the Python$\leftrightarrow$C++ function equivalence,
+explains how to build and configure runs, and reports a like-for-like
+performance comparison on a $64\times64$ lattice.
+
+\section{Function equivalence}
+
+Table~\ref{tab:equiv} maps each Python function to its C++ counterpart.
+Where several small Python field builders are fused into one C++ loop
+(for cache efficiency) this is noted. The deterministic simulator, the
+sweep layer, and the full stochastic-LLG path (thermal noise, the
+Stratonovich--Heun stepper, connected-component diagnostics, production
+scans, and the physics-validation gates) are all ported. The analytic
+Thiele helpers and all plotting intentionally remain on the Python side.
+
+\paragraph{Error contract.} The port follows a strict ``no silent
+errors'' rule: every invalid input raises. Four cases where the Python
+original previously emitted a silent NaN (or accepted an out-of-range
+value) were aligned so Python and C++ now raise identically:
+\code{skyrmion_center} on an empty core mask, \code{uniform_state} on a
+zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
+\code{skyrmion_profile} on a polarity outside $\{+1,-1\}$.
+
+{\small
+\begin{longtable}{p{0.40\textwidth} p{0.33\textwidth} p{0.15\textwidth}}
+\caption{Python to C++ function equivalence.}
+\label{tab:equiv}\\
+\toprule
+\textbf{Python (\code{module.function})} & \textbf{C++ (symbol)} &
+\textbf{C++ file} \\
+\midrule
+\endfirsthead
+\multicolumn{3}{l}{\emph{(continued)}}\\
+\toprule
+\textbf{Python} & \textbf{C++} & \textbf{File} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\multicolumn{3}{l}{\textit{Parameters}}\\
+\code{parameters.default_params} & \code{make_default_params} & \code{parameters.cpp}\\
+\code{parameters._precompute} & \code{precompute} & \code{parameters.cpp}\\
+\code{fields.bare_anis_prefactors} & \code{bare_anis_prefactors} & \code{parameters.cpp}\\
+\code{energy.effective_anisotropy} & \code{effective_anisotropy} & \code{parameters.cpp}\\
+\code{energy.critical_dmi} & \code{critical_dmi} & \code{parameters.cpp}\\
+\code{energy.pma_anisotropy_field} & \code{pma_anisotropy_field} & \code{parameters.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Pulses}}\\
+\code{pulses.ConstantPulse} & \code{ConstantPulse} & \code{pulses.cpp}\\
+\code{pulses.SquarePulse} & \code{SquarePulse} & \code{pulses.cpp}\\
+\code{pulses.GaussianPulse} & \code{GaussianPulse} & \code{pulses.cpp}\\
+\code{pulses.SuperpositionPulse} & \code{SuperpositionPulse} & \code{pulses.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Lattice / initial conditions}}\\
+\code{lattice.lattice_positions} & \code{lattice_positions} & \code{lattice.cpp}\\
+\code{lattice.neighbors} & inlined \code{pbc_index} stencils & \code{lattice.hpp}\\
+\code{initial_conditions.skyrmion_profile} & \code{skyrmion_profile} & \code{initial_conditions.cpp}\\
+\code{initial_conditions.uniform_state} & \code{uniform_state} & \code{initial_conditions.cpp}\\
+\code{initial_conditions.saf_skyrmion} & \code{saf_skyrmion} & \code{initial_conditions.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Effective field}}\\
+\code{fields.exchange_field} & fused into \code{effective_field} & \code{fields.cpp}\\
+\code{fields.dmi_field} & fused into \code{effective_field} & \code{fields.cpp}\\
+\code{fields.anisotropy_field} & fused into \code{effective_field} & \code{fields.cpp}\\
+\code{fields.zeeman_field} & fused into \code{effective_field} & \code{fields.cpp}\\
+\code{fields.rkky_field} & fused into \code{effective_field} & \code{fields.cpp}\\
+\code{fields.effective_field} & \code{effective_field} & \code{fields.cpp}\\
+\code{fields.effective_field_demag_pair} & \code{effective_field_demag} & \code{fields.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Demagnetisation}}\\
+\code{demag.precompute_demag_kernels} & \code{precompute_demag_kernels} & \code{demag.cpp}\\
+\code{demag._precompute_slab} & \code{precompute_demag_slab} & \code{demag_slab.cpp}\\
+\code{demag.demag_field} & \code{DemagState::compute} & \code{demag.cpp}\\
+\code{demag_newell.precompute_demag_kernels_newell} & \code{precompute_demag_newell} & \code{demag_newell.cpp}\\
+\code{demag_newell._aharoni_demag_factor} & \code{aharoni_demag_factor} & \code{demag_newell.cpp}\\
+\code{demag_newell._compute_one_pair_tensor} & \code{compute_one_pair_tensor} & \code{demag_newell.cpp}\\
+\code{demag_newell._build_layer_pair_kernel} & \code{build_layer_pair_kernel} & \code{demag_newell.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Energy}}\\
+\code{energy.total_energy} & \code{total_energy} & \code{energy.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Integrator}}\\
+\code{integrator.normalize} & \code{normalize_inplace} & \code{integrator.cpp}\\
+\code{integrator.llgs_rhs} & \code{llgs_rhs} & \code{integrator.cpp}\\
+\code{integrator.rhs_local_keff} & \code{RHSLocalKeff} & \code{integrator.cpp}\\
+\code{integrator.rhs_demag} & \code{RHSDemag} & \code{integrator.cpp}\\
+\code{integrator.rk4_step} & \code{rk4_step} & \code{integrator.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Observables}}\\
+\code{main.topological_charge} & \code{topological_charge} & \code{observables.cpp}\\
+\code{analysis.skyrmion_center} & \code{skyrmion_center} & \code{observables.cpp}\\
+\code{analysis.skyrmion_diameter} & \code{skyrmion_diameter} & \code{observables.cpp}\\
+\code{analysis.skyrmion_ellipse} & \code{skyrmion_ellipse} & \code{observables.cpp}\\
+\code{analysis.dw_angle} & \code{dw_angle} & \code{observables.cpp}\\
+\code{stochastic_llgs.diagnostics.skyrmion_center_pbc} & \code{skyrmion_center_pbc} & \code{observables.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Driver / I-O}}\\
+\code{main.run} & \code{run} & \code{simulation.cpp}\\
+\code{io_ovito.write_dump} & \code{SnapshotBuffer} (npz, not dump) & \code{io_npz.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Sweep layer}}\\
+\code{phase_diagram.relaxation.relax} & \code{sweep::relax} & \code{sweep/relax.cpp}\\
+\code{sweeps.driver.run_one} & \code{sweep::run_trace} & \code{sweep/driver.cpp}\\
+\code{sweeps.observers.observe_state} & \code{sweep::observe_state} & \code{sweep/observations.cpp}\\
+\code{sweeps.io.save_trace} & \code{sweep::save_trace} & \code{sweep/trace_io.cpp}\\
+\code{sweeps.io.load_trace} & Python (bytes-metadata patch) & \code{src/sweeps/io.py}\\
+\code{sweeps.integrators.step_deterministic} & \code{sweep::RK4LocalKeffStepper} & \code{sweep/stepper.hpp}\\
+\code{sweeps.integrators.step_demag_deterministic} & \code{sweep::RK4DemagStepper} & \code{sweep/stepper.hpp}\\
+\code{sweeps.integrators.step_stochastic} & \code{HeunStochasticStepper} & \code{stochastic/heun.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Stochastic LLG}}\\
+\code{parameters_thermal.attach_thermal} & \code{attach_thermal} & \code{stochastic/thermal.cpp}\\
+\code{joule_heating.T_of_j} & \code{T_of_j} & \code{stochastic/thermal.cpp}\\
+\code{thermal_field.sample_thermal_field} & \code{ThermalRng::sample_thermal_field} & \code{stochastic/rng.hpp}\\
+\code{integrator_sllg.heun_stochastic_step} & \code{HeunStochasticStepper} & \code{stochastic/heun.cpp}\\
+\code{diagnostics.largest_core_mask_pbc} & \code{largest_core_mask_pbc} & \code{stochastic/lcc.cpp}\\
+\code{diagnostics.skyrmion_diameter_lcc} & \code{skyrmion_diameter_lcc} & \code{stochastic/lcc.cpp}\\
+\code{diagnostics.skyrmion_center_lcc_pbc} & \code{skyrmion_center_lcc_pbc} & \code{stochastic/lcc.cpp}\\
+\code{diagnostics.unwrap_trajectory} & \code{unwrap_trajectory} & \code{stochastic/diagnostics.cpp}\\
+\code{diagnostics.detect_annihilation} & \code{detect_annihilation} & \code{stochastic/diagnostics.cpp}\\
+\code{diagnostics.hall_angle} & \code{hall_angle} & \code{stochastic/diagnostics.cpp}\\
+\code{production.run_single.trajectory_worker} & \code{run_trajectory} & \code{stochastic/trajectory.cpp}\\
+\code{stochastic_llgs.io.save_trajectory} & \code{save_trajectory} & \code{stochastic/trajectory_io.cpp}\\
+\code{production.pair_potential.skyrmion_at_position} & \code{skyrmion_at_position} & \code{stochastic/pair_ic.cpp}\\
+\code{production.pair_potential.two_skyrmion_pair_ic} & \code{two_skyrmion_pair_ic} & \code{stochastic/pair_ic.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Validation-gate helpers}}\\
+\code{validation.macrospin.make_macrospin_params} & \code{make_macrospin_params} & \code{validation/macrospin.cpp}\\
+\code{validation.macrospin.run_macrospin_ensemble} & \code{run_macrospin_ensemble} & \code{validation/macrospin.cpp}\\
+\code{validation.test_langevin.langevin_function} & \code{langevin_function} & \code{validation/analytic.cpp}\\
+\code{validation.test_brown_reversal.brown_tau} & \code{brown_tau} & \code{validation/analytic.cpp}\\
+\code{validation.test_equipartition.magnon_stiffness_grid} & \code{magnon_stiffness_grid} & \code{validation/analytic.cpp}\\
+\addlinespace
+\multicolumn{3}{l}{\textit{Not ported (kept in Python)}}\\
+\code{topological_torque.*} (analytic Thiele) & --- & ---\\
+\code{scripts/plot_*.py}, \code{animate_*.py} & --- (plotting stays in Python) & ---\\
+\end{longtable}
+}
+
+Each sweep script maps one-to-one to a C++ binary
+(Table~\ref{tab:sweeps}).
+
+{\small
+\setlength{\tabcolsep}{5pt}\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
+\caption{Sweep analysis script to C++ binary mapping.}
+\label{tab:sweeps}\\
+\toprule
+\textbf{Python script} & \textbf{C++ binary} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{scripts/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
+\code{scripts/sweep_D_S41.py} & \code{sweep_D_S41}\\
+\code{scripts/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
+\code{scripts/sweep_S42_J.py} & \code{sweep_S42_J}\\
+\code{scripts/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
+\code{scripts/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
+\code{scripts/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
+\code{scripts/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
+\code{scripts/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
+\code{scripts/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
+\code{scripts/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
+\code{scripts/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
+\code{scripts/sweep_breathing.py} & \code{sweep_breathing}\\
+\end{longtable}
+}
+
+The stochastic production scans and the physics-validation gates each map
+to a standalone C++ binary (Tables~\ref{tab:stoch} and~\ref{tab:gates}).
+
+{\small
+\setlength{\tabcolsep}{5pt}\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
+\caption{Stochastic production scan to C++ binary mapping.}
+\label{tab:stoch}\\
+\toprule
+\textbf{Python script} & \textbf{C++ binary} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{production.run_single} & \code{run_single}\\
+\code{production.scan_tj} & \code{scan_tj}\\
+\code{production.scan_arrhenius} & \code{scan_arrhenius}\\
+\code{production.scan_radius} & \code{scan_radius}\\
+\code{production.pair_potential} & \code{pair_potential}\\
+\end{longtable}
+}
+
+{\small
+\setlength{\tabcolsep}{5pt}\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
+\caption{Validation gate to C++ binary mapping. Each gate prints
+PASS/FAIL, writes an npz under the validation output directory, and
+returns non-zero on failure.}
+\label{tab:gates}\\
+\toprule
+\textbf{Python gate} & \textbf{C++ binary} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{validation.test_equipartition} & \code{run_equipartition}\\
+\code{validation.test_t0_limit_nodemag} & \code{run_t0_nodemag}\\
+\code{validation.test_t0_limit_demag} & \code{run_t0_demag}\\
+\code{validation.test_langevin} & \code{run_langevin}\\
+\code{validation.test_brown_reversal} & \code{run_brown_reversal}\\
+\end{longtable}
+}
+
+The deterministic gates (\code{run_t0_nodemag}, \code{run_t0_demag})
+verify that the zero-noise Heun stepper reproduces the deterministic RK4
+(relative deviation $<2\%$ on diameter, drift velocity, and topological
+charge; in practice the C++ runs agree to machine precision). The
+statistical gates (\code{run_equipartition}, \code{run_langevin},
+\code{run_brown_reversal}) validate the thermal physics against
+implementation-independent closed-form targets---Rayleigh--Jeans
+equipartition, the Langevin function, and Brown's high-barrier reversal
+time. These cannot bit-match Python because the C++ noise generator
+(\code{std::mt19937_64} with \code{std::normal_distribution}) differs
+from NumPy's PCG64; they instead pass their own physics tolerances
+(measured: equipartition median ratio $0.985$, Langevin RMS relative
+error $0.015$, Brown $|\log_{10}|\le 0.16$). The deterministic analytic
+targets ($L(x)$, $\tau_\mathrm{Brown}$, $H_k$) are parity-checked against
+Python in the \code{test_validation} unit test.
+
+\section{User guide: building and running}
+
+\subsection{Dependencies}
+CMake $\geq 3.20$; a C++17 compiler (AppleClang or GCC $\geq 9$); FFTW3
+(double precision); the vendored \code{libnpy} at \code{src/aux/libnpy};
+OpenMP optional (auto-detected). Installing FFTW3:
+\begin{shell}
+brew install fftw          # macOS
+apt install libfftw3-dev   # Debian / Ubuntu
+\end{shell}
+
+\subsection{Build}
+\begin{shell}
+cd src/simulator_cpp
+cmake -S . -B build
+cmake --build build -j
+\end{shell}
+This produces \code{build/skyrmion_sim}, the thirteen \code{sweep_*}
+binaries, and the test executables.
+
+\subsection{Configuring a run}
+There is no command-line parsing. Every run-time value is a named
+variable at the top of \code{main()} in the relevant source file; edit
+and rebuild. For the standalone simulator this is
+\code{src/main.cpp}:
+\begin{shell}
+p.nx = 256;  p.ny = 256;  p.a = 2.0e-9;
+p.dt = 5.0e-14;  p.n_relax = 10000;  p.n_steps = 5000;
+p.J_current = 4.0e11;
+p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+p.demag_kind = DemagKind::None;   // None | Slab | Newell
+p.dump_snapshots   = true;
+p.dump_every_relax = 200;
+p.dump_every_drive = 100;
+p.max_dump_frames  = 500;
+\end{shell}
+Then \code{cmake --build build -j \&\& ./build/skyrmion_sim}.
+
+\subsection{Demag model}
+\code{DemagKind::None} is the default local-$K_{\text{eff}}$ path
+(slab demag folded into the anisotropy; matches the Python
+\code{rhs_local_keff} production run). \code{DemagKind::Slab} applies
+the analytic thin-film kernel via FFTW; \code{DemagKind::Newell} uses
+the mumax3-style finite-prism kernel (set \code{demag_accuracy} and
+\code{demag_tol_conv}; defaults 8.0 and $2\times10^{-2}$).
+
+\subsection{Running the sweeps}
+Each sweep binary has its grid baked in at the top of \code{main()}.
+Run the whole grid serially, one grid point via a SLURM array index,
+or many points in parallel with \code{xargs}:
+\begin{shell}
+./build/sweep_S42_J                                   # whole grid
+SLURM_ARRAY_TASK_ID=3 ./build/sweep_S42_J             # one point
+seq 0 8 | xargs -P 4 -I {} \
+    env SLURM_ARRAY_TASK_ID={} ./build/sweep_S42_J    # local parallel
+\end{shell}
+Outputs land in \code{output/sweeps_S41_S49/<analysis>/}, the same
+layout as the Python sweeps, so \code{scripts/analyze_*.py} and
+\code{scripts/plot_*.py} read them unchanged (after the one-line
+\code{load_trace} patch that accepts the C++ byte-encoded metadata).
+
+\subsection{Running the stochastic scans and validation gates}
+The stochastic production scans use the same dispatch as the sweeps: the
+grid is baked into \code{main()} and \code{SLURM_ARRAY_TASK_ID} selects a
+single point. Each writes a trajectory npz under the per-scan output
+directory:
+\begin{shell}
+SLURM_ARRAY_TASK_ID=0 ./build/scan_tj          # one (T,j,ens) point
+./build/pair_potential                         # whole r_init x ens grid
+\end{shell}
+The validation gates take no arguments (the configuration is at the top
+of \code{main()}); each prints PASS/FAIL, writes its \code{.npz}, and
+returns non-zero on failure so it can gate a CI step:
+\begin{shell}
+./build/run_equipartition && ./build/run_t0_nodemag && \
+    ./build/run_t0_demag && ./build/run_langevin && \
+    ./build/run_brown_reversal
+\end{shell}
+
+\subsection{Snapshots and animation}
+Each grid point writes a per-frame observable trace
+\code{<id>.npz}; when \code{dump_snapshots = true} it also writes
+\code{<id>_snapshots.npz} containing the field history in the same
+schema as the simulator. Replay either with:
+\begin{shell}
+python scripts/animate_simulation.py   # edit npz_path at top of main()
+\end{shell}
+
+\subsection{Threading}
+When OpenMP is present, per-site loops are parallel:
+\begin{shell}
+OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores ./build/sweep_S42_J
+\end{shell}
+
+\subsection{Tests}
+\begin{shell}
+python src/simulator_cpp/tests/run_tests.py
+\end{shell}
+This regenerates the Python references, builds, runs the 22 ctest
+parity suites (deterministic simulator, sweep layer, stochastic
+Stratonovich--Heun stepper at $T=0$, LCC connected-component
+diagnostics, two-skyrmion pair IC, and the validation analytic targets),
+then the Python error-contract and sweep-parity harnesses. All numeric
+parity is at $\lesssim 10^{-12}$ relative error; the $T=0$ stochastic
+stepper bit-matches the deterministic RK4.
+
+\section{Profiling: C++ vs Python ($64\times64$)}
+
+Both implementations integrate the identical workload --- a SAF
+skyrmion pair on a $64\times64$ lattice, $2000$ RK4 LLGS steps after a
+$50$-step warm-up, integration only (no I/O, no observables). Two
+field models are timed: the local-$K_{\text{eff}}$ path and the slab
+FFT-demag path. Tools: \code{tools/profile_run.cpp} and
+\code{tools/profile_run.py}.
+
+\paragraph{Environment.} Apple M3 Pro; AppleClang 16
+(\code{-O3 -march=native}, single-threaded --- OpenMP not active on
+this build); Python 3.12.5, NumPy 2.4.4, SciPy 1.15.2.
+
+\begin{table}[h]
+\centering
+\caption{Time per RK4 step ($64\times64$, mean of two runs).}
+\label{tab:profile}
+\begin{tabular}{l r r r}
+\toprule
+Field model & C++ ($\mu$s/step) & Python ($\mu$s/step) & Speed-up \\
+\midrule
+local-$K_{\text{eff}}$ & $\approx 316$ & $\approx 2914$ & $9.2\times$ \\
+slab FFT demag         & $\approx 1714$ & $\approx 7374$ & $4.3\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The local-$K_{\text{eff}}$ path --- dominated by per-site stencils and
+cross products --- gains the most ($\sim 9\times$), since the C++ loop
+fuses the field terms and avoids the temporary arrays that NumPy
+allocates per operation. The slab path is FFT-bound; FFTW (C++) and
+SciPy's pocketfft (Python) are comparable, so the speed-up narrows to
+$\sim 4\times$. With OpenMP enabled the local path would scale further
+on the per-site loops; FFT scaling at $64\times64$ is limited.
+
+\paragraph{Caveats.} Single trial pair, single thread, small lattice;
+absolute timings depend on hardware and library builds. The comparison
+is meant to show the order-of-magnitude advantage of the C++
+integrator on the stencil-bound path, not a tuned benchmark.
+
+\end{document}

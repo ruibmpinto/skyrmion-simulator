@@ -87,7 +87,10 @@ def _run_one_point(args):
 # -----------------------------------------------------------------------------
 def main():
     # =========================== User Configuration =========================
-    t_sub_list      = [300.0, 350.0, 400.0, 450.0, 500.0]
+    t_sub_list      = [
+        10.0, 25.0, 50.0, 100.0, 150.0,
+        200.0, 250.0, 300.0, 350.0,
+    ]
     r_th            = 0.0            # j = 0 means no heating
     j_current       = 0.0
     nx              = 256
@@ -96,7 +99,7 @@ def main():
     n_relax         = 4000           # 200 ps thermalization
     n_drive         = 200000         # 10 ns observation window
     sample_every    = 100            # 5 ps cadence
-    n_ens           = 30
+    n_ens           = 200
     seed_base       = 211
     tol_norm        = 5.0e-3
     use_demag       = False

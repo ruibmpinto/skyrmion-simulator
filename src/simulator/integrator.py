@@ -16,6 +16,10 @@ rhs_demag
     Factory returning a RHS that uses explicit FFT demag.
 rk4_step
     Advance both layers by one RK4 step using a supplied RHS.
+rk4_step_single
+    Advance one layer by one RK4 step (single-FM benchmarks).
+zhang_li_torque
+    Zhang-Li adiabatic + non-adiabatic spin-transfer torque.
 """
 #
 #                                                                Modules
@@ -55,6 +59,12 @@ def normalize(m):
     """
     # Enforces |m| = 1 site-wise, correcting RK4 drift off the sphere.
     norm = np.sqrt(m[..., 0] ** 2 + m[..., 1] ** 2 + m[..., 2] ** 2)
+    # Loud rejection of a zero-magnitude spin (undefined unit vector);
+    # silent division would propagate NaN through the integrator.
+    if np.any(norm == 0.0):
+        raise RuntimeError(
+            'normalize: zero-magnitude spin at one or more lattice '
+            'sites.')
     return m / norm[..., np.newaxis]
 
 
@@ -317,3 +327,92 @@ def rk4_step(_rhs_pair, m_top, m_bot, t, dt, p):
     m_bot_new = normalize(m_bot + (k1b + 2.0 * k2b + 2.0 * k3b + k4b) / 6.0)
     # Return
     return m_top_new, m_bot_new
+
+
+# ---------------------------------------------------------------------
+def rk4_step_single(rhs_single, m, t, dt, p):
+    """Advance a SINGLE magnetic layer by one RK4 step.
+
+    Same 4th-order Runge-Kutta scheme as `rk4_step`, but for a
+    lone ferromagnet (no second layer, no interlayer coupling).
+    Single-FM benchmarks (e.g. muMAG SP4 / SP5) use this so
+    they exercise the production integrator instead of an
+    ad-hoc per-test loop; the two-layer `rk4_step` cannot be
+    used directly because its second-layer `normalize` rejects
+    the zero/absent bottom layer.
+
+    Parameters
+    ----------
+    rhs_single : callable
+        `rhs_single(m, p, t) -> dmdt`, the single-layer LLGS
+        right-hand side (encapsulates the field model).
+    m : numpy.ndarray(3d)
+        Spin configuration, shape (ny, nx, 3).
+    t : float
+        Current time (s).
+    dt : float
+        Time step (s).
+    p : SimpleNamespace
+        Simulation parameters.
+
+    Returns
+    -------
+    m_new : numpy.ndarray(3d)
+        Updated spins, shape (ny, nx, 3), renormalised to
+        |m| = 1.
+    """
+    # k1: slope at the interval start.
+    k1 = dt * rhs_single(m, p, t)
+    # k2, k3: midpoint slopes (half-step), normalised to stay
+    # on the unit sphere.
+    k2 = dt * rhs_single(normalize(m + 0.5 * k1), p, t + 0.5 * dt)
+    k3 = dt * rhs_single(normalize(m + 0.5 * k2), p, t + 0.5 * dt)
+    # k4: end-of-interval slope (full step).
+    k4 = dt * rhs_single(normalize(m + k3), p, t + dt)
+    # Simpson-weighted combination; final normalize keeps
+    # |m| = 1 to O(dt^5).
+    return normalize(m + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0)
+
+
+# ---------------------------------------------------------------------
+def zhang_li_torque(m, a, u_T, beta, alpha):
+    """Zhang-Li adiabatic + non-adiabatic spin-transfer torque.
+
+    Contribution to dm/dt from an in-plane spin-polarised
+    current with spin-drift velocity u = u_T x_hat, in the
+    explicit Landau form (Thiaville et al., EPL 69, 990 (2005)):
+
+        dm/dt += 1/(1+a^2) [ -(1 + a b)(u . grad) m
+                             + (b - a) m x ((u . grad) m) ]
+
+    where a = alpha (Gilbert damping), b = beta (non-
+    adiabaticity), and (u . grad) m = u_T d m / dx is evaluated
+    by central differences (np.gradient) along x. The
+    1/(1+a^2) prefactor matches `llgs_rhs`'s `gamma_p`, so the
+    return value is added directly to the `llgs_rhs` output.
+
+    Parameters
+    ----------
+    m : numpy.ndarray(3d)
+        Spin configuration, shape (ny, nx, 3).
+    a : float
+        Lattice constant (m); the finite-difference spacing.
+    u_T : float
+        Spin-drift speed along +x (m/s).
+    beta : float
+        Non-adiabaticity parameter xi.
+    alpha : float
+        Gilbert damping.
+
+    Returns
+    -------
+    dmdt_stt : numpy.ndarray(3d)
+        STT contribution to dm/dt, shape (ny, nx, 3).
+    """
+    # (u . grad) m = u_T d m / dx; central differences (one-
+    # sided at the array edges via np.gradient).
+    dm_dx = np.gradient(m, a, axis=1)
+    conv = u_T * dm_dx
+    inv = 1.0 / (1.0 + alpha * alpha)
+    return inv * (-(1.0 + alpha * beta) * conv
+                  + (beta - alpha) * np.cross(m, conv))

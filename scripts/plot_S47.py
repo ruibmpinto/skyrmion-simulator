@@ -48,14 +48,17 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def _vavg(trace, metadata):
+    # Time stamps and box dimensions from metadata.
     t = trace['t']
     nx = int(metadata['nx'])
     ny = int(metadata['ny'])
     a = float(default_params().a)
+    # PBC unwrap of the top-layer centroid stream.
     cx, cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
     )
+    # Identify the +/- tail_sigmas * sigma window around t_center.
     FWHM = float(metadata['FWHM'])
     tail = (float(metadata['tail_sigmas'])
             * float(metadata['sigma']))
@@ -63,16 +66,19 @@ def _vavg(trace, metadata):
     t_hi = float(metadata['t_center']) + tail
     i_lo = int(np.argmin(np.abs(t - t_lo)))
     i_hi = int(np.argmin(np.abs(t - t_hi)))
+    # delta(x,y) over the window, normalised by FWHM.
     dx = cx[i_hi] - cx[i_lo]
     dy = cy[i_hi] - cy[i_lo]
     return float(np.sqrt(dx * dx + dy * dy) / FWHM)
 
 
 def _load_sweep(in_dir):
+    # All NPZ traces in the sweep directory.
     paths = sorted(glob.glob(os.path.join(in_dir, '*.npz')))
     if not paths:
         raise RuntimeError(
             f'_load_sweep: no NPZ traces found in {in_dir!r}.')
+    # Bucket by configuration index for downstream grouping.
     bucket = defaultdict(list)
     for path in paths:
         trace, metadata = load_trace(path)
@@ -85,6 +91,7 @@ def _load_sweep(in_dir):
 
 
 def _config_label(metadata):
+    # Short label encoding the config's FWHM and H_RKKY.
     return (f'cfg {int(metadata["cfg_idx"])}: '
             f'FWHM={float(metadata["FWHM"])*1e12:.0f} ps, '
             f'$H_{{\\mathrm{{RKKY}}}}$='
@@ -94,16 +101,18 @@ def _config_label(metadata):
 def _plot_v(bucket, out_path):
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
+    # One curve per configuration index.
     for k, cfg_idx in enumerate(sorted(bucket.keys())):
         items = bucket[cfg_idx]
+        # Stack J (A/m^2) and v_avg (m/s) for this cfg.
         J_arr = np.array([float(m['J0']) for m, _ in items])
         v_arr = np.array([_vavg(t, m) for m, t in items])
+        # Colour by config's position in the sorted set.
         c = cmap(k / max(len(bucket) - 1, 1))
         ax.plot(J_arr / 1e11, v_arr, 'o-', color=c,
                 label=_config_label(items[0][0]))
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel(r'$v_{\mathrm{avg}}$ (m/s)')
-    ax.set_title('S47(a): velocity vs J')
     ax.legend(loc='best', frameon=False, fontsize=10)
     ax.set_box_aspect(1)
     fig.tight_layout()
@@ -111,24 +120,39 @@ def _plot_v(bucket, out_path):
     print(f'Saved {out_path}')
 
 
+def _unwrap_to_zero_rest(psi_seq):
+    """Convert a psi(J) series stored under the OLD dw_angle
+    convention into the new signed-deviation convention via
+    np.unwrap + small-J rest-value reduction mod pi."""
+    psi = np.unwrap(np.asarray(psi_seq))
+    rest = ((psi[0] + np.pi / 2.0) % np.pi) - np.pi / 2.0
+    return psi - (psi[0] - rest)
+
+
 def _plot_psi(bucket, out_path):
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
+    # One curve per configuration; psi sampled at d_top peak.
     for k, cfg_idx in enumerate(sorted(bucket.keys())):
         items = bucket[cfg_idx]
         J_arr = np.array([float(m['J0']) for m, _ in items])
+        # psi_bot at the time of peak top-layer diameter.
         psi_arr = []
         for _m, t in items:
             i_peak = int(np.argmax(t['d_top']))
-            psi_arr.append(
-                float(np.degrees(t['psi_bot'][i_peak])))
+            psi_arr.append(float(t['psi_bot'][i_peak]))
+        # Sort by J so np.unwrap operates on a monotone series.
+        order = np.argsort(J_arr)
+        J_sorted = J_arr[order]
+        psi_sorted = np.degrees(_unwrap_to_zero_rest(
+            np.array(psi_arr)[order]))
         c = cmap(k / max(len(bucket) - 1, 1))
-        ax.plot(J_arr / 1e11, psi_arr, 'o-', color=c,
+        ax.plot(J_sorted / 1e11, psi_sorted, 'o-', color=c,
                 label=_config_label(items[0][0]))
-    ax.axhline(180.0, color='0.7', linestyle=':')
+    # Zero reference (natural Neel orientation).
+    ax.axhline(0.0, color='0.7', linestyle=':')
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
-    ax.set_ylabel(r'$\psi_{\mathrm{bot}}$ (deg)')
-    ax.set_title('S47(b): DW angle vs J')
+    ax.set_ylabel(r'$\psi_{\mathrm{bot}}$ (deg, signed deviation)')
     ax.legend(loc='best', frameon=False, fontsize=10)
     ax.set_box_aspect(1)
     fig.tight_layout()
@@ -142,17 +166,19 @@ def _plot_axes(bucket, axis_key, ylabel, title, out_path,
     (reducer=np.min)."""
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
+    # One curve per configuration.
     for k, cfg_idx in enumerate(sorted(bucket.keys())):
         items = bucket[cfg_idx]
         J_arr = np.array([float(m['J0']) for m, _ in items])
+        # Reduce the requested axis trace to a single scalar per J.
         vals = np.array(
             [float(reducer(t[axis_key])) for _, t in items])
         c = cmap(k / max(len(bucket) - 1, 1))
+        # Convert m -> nm for the axis-size plot.
         ax.plot(J_arr / 1e11, vals * 1e9, 'o-', color=c,
                 label=_config_label(items[0][0]))
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel(ylabel)
-    ax.set_title(title)
     ax.legend(loc='best', frameon=False, fontsize=10)
     ax.set_box_aspect(1)
     fig.tight_layout()

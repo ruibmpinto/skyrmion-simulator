@@ -79,6 +79,12 @@ def skyrmion_center(m, a, core_polarity):
     # w has shape (ny, nx)
     w = (1.0 - core_polarity * m[..., 2]) / 2.0
     ws = w.sum()
+    # Empty core mask (annihilated skyrmion) gives an undefined
+    # centroid; raise rather than emit NaN from divide-by-zero.
+    if ws == 0.0:
+        raise RuntimeError(
+            'skyrmion_center: empty core mask (ws == 0); the '
+            'skyrmion may have annihilated.')
     # Weighted centroid in physical (meters) coordinates.
     cx = np.sum(w * jj * a) / ws
     cy = np.sum(w * ii * a) / ws
@@ -263,8 +269,15 @@ def dw_angle(m, a, core_polarity, mz_thresh=0.5):
     Returns
     -------
     psi : float
-        DW magnetization angle in radians, in (-pi, pi], measured
-        anticlockwise from the -x axis.
+        Signed DW magnetization angle in radians, measured as the
+        deviation from the layer's natural Neel orientation. The
+        natural orientation is identified by the sign of the
+        averaged in-plane x-component at the +x DW: layers with
+        m_xy pointing along +x have reference +x_hat, layers with
+        m_xy pointing along -x have reference -x_hat. Both layers
+        therefore return psi ~ 0 at rest, and psi tracks the
+        rotation of the DW magnetization under drive without ever
+        wrapping by +-pi at the branch cut.
     """
     # Skyrmion centroid (in physical metres) used to split DW
     # sites into right (+x) vs left (-x) halves.
@@ -295,9 +308,15 @@ def dw_angle(m, a, core_polarity, mz_thresh=0.5):
     # Population-averaged in-plane y-component across the right DW.
     my_avg = float(np.mean(m[..., 1][mask]))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # atan2(my, -mx) yields the angle relative to the -x axis,
-    # increasing anticlockwise; output range is (-pi, pi].
-    return float(np.arctan2(my_avg, -mx_avg))
+    # The two SAF layers sit on opposite Neel branches at rest:
+    # one has mx_avg > 0 (m_xy along +x_hat), the other has
+    # mx_avg < 0. A bare atan2 then jumps by +-2*pi at the branch
+    # cut under small SOT tilts. Flipping (mx, my) by sign(mx_avg)
+    # maps both branches onto +x_hat, so atan2 returns the signed
+    # deviation in (-pi/2, +pi/2] -- zero at rest, equal to the
+    # actual SOT-induced rotation under drive, no wrap.
+    s = 1.0 if mx_avg >= 0.0 else -1.0
+    return float(np.arctan2(s * my_avg, s * mx_avg))
 
 
 # ---------------------------------------------------------------------

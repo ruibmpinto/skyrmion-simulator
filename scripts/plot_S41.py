@@ -118,13 +118,11 @@ def main():
     # Labels and title.
     ax.set_xlabel(r'$t$ (ps)')
     ax.set_ylabel(r'$|v|$ (m/s)')
-    ax.set_title(
-        f'S41: $J = {metadata["J0"]:.0e}$ A/m$^2$')
     # Tight axis bounds; small y-padding for the v_avg label.
     ax.set_xlim(t_ps[0], t_ps[-1])
     ymax = float(np.max(v_mag)) * 1.1
     ax.set_ylim(0.0, max(ymax, v_avg * 1.4))
-    ax.legend(loc='upper right', frameon=False)
+    ax.legend(loc='upper left', frameon=False)
     ax.set_box_aspect(1)
     fig.tight_layout()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

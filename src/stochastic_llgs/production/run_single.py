@@ -42,7 +42,9 @@ from src.simulator.pulses import ConstantPulse
 from src.stochastic_llgs.diagnostics import (
     detect_annihilation,
     hall_angle,
+    skyrmion_center_lcc_pbc,
     skyrmion_center_pbc,
+    skyrmion_diameter_lcc,
     unwrap_trajectory,
 )
 from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
@@ -174,45 +176,90 @@ def trajectory_worker(config):
         )
     p.pulse = pulse_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Drive phase: record observables every sample_every steps
+    # Drive phase: record observables every sample_every steps.
     n_samples = (n_drive + sample_every - 1) // sample_every
     t_sample = np.empty(n_samples, dtype=float)
+    # Top-layer centers (core m_z = -1, weight (1-m_z)/2).
     cx_w = np.empty(n_samples, dtype=float)
     cy_w = np.empty(n_samples, dtype=float)
+    # Bot-layer centers (core m_z = +1, opposite polarity).
+    cx_w_bot = np.empty(n_samples, dtype=float)
+    cy_w_bot = np.empty(n_samples, dtype=float)
+    # LCC (largest connected component) versions, robust to
+    # thermal-noise blobs in the all-mask center.
+    cx_lcc = np.empty(n_samples, dtype=float)
+    cy_lcc = np.empty(n_samples, dtype=float)
+    cx_lcc_bot = np.empty(n_samples, dtype=float)
+    cy_lcc_bot = np.empty(n_samples, dtype=float)
     Q_arr = np.empty(n_samples, dtype=float)
+    Q_bot_arr = np.empty(n_samples, dtype=float)
     diam = np.empty(n_samples, dtype=float)
+    diam_bot = np.empty(n_samples, dtype=float)
+    # LCC diameters (single-skyrmion-area, excludes blobs).
+    diam_lcc = np.empty(n_samples, dtype=float)
+    diam_lcc_bot = np.empty(n_samples, dtype=float)
     drift_max = np.empty(n_samples, dtype=float)
     s_idx = 0
     for step in range(1, n_drive + 1):
+        # Sample independent thermal noise for both layers.
         h_top = sample_thermal_field(rng, (ny, nx), sigma, dt) \
-            if sigma > 0.0 \
-            else np.zeros((ny, nx, 3), dtype=float)
+            if sigma > 0.0 else np.zeros((ny, nx, 3), dtype=float)
         h_bot = sample_thermal_field(rng, (ny, nx), sigma, dt) \
-            if sigma > 0.0 \
-            else np.zeros((ny, nx, 3), dtype=float)
+            if sigma > 0.0 else np.zeros((ny, nx, 3), dtype=float)
         m_top, m_bot, drift = heun_stochastic_step(
-            m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm,
-        )
+            m_top, m_bot, dt, p, kernels, h_top, h_bot, tol_norm)
         if step % sample_every == 0:
             t_sample[s_idx] = step * dt
-            # Expected condition: when the skyrmion has
-            # collapsed there is no m_z < 0 region, so the
-            # circular-mean center is undefined. Record NaN
-            # for the center but keep stepping (Q is still
-            # measurable and tells us the skyrmion died).
-            w_sum = float((1.0 - m_top[..., 2]).sum())
-            if w_sum > 0.0:
+            # Top center: undefined if the core has collapsed.
+            w_top = float((1.0 - m_top[..., 2]).sum())
+            if w_top > 0.0:
                 cx, cy = skyrmion_center_pbc(
                     m_top, p.a, core_polarity=+1)
             else:
                 cx = float('nan')
                 cy = float('nan')
+            # Bot center: same logic with opposite polarity.
+            w_bot = float((1.0 + m_bot[..., 2]).sum())
+            if w_bot > 0.0:
+                cxb, cyb = skyrmion_center_pbc(
+                    m_bot, p.a, core_polarity=-1)
+            else:
+                cxb = float('nan')
+                cyb = float('nan')
             cx_w[s_idx] = cx
             cy_w[s_idx] = cy
+            cx_w_bot[s_idx] = cxb
+            cy_w_bot[s_idx] = cyb
+            # Topological charge and diameter for each layer.
             Q_arr[s_idx] = float(topological_charge(m_top, p.a))
-            diam[s_idx] = float(
-                skyrmion_diameter(m_top, p.a, core_polarity=+1))
+            Q_bot_arr[s_idx] = float(topological_charge(m_bot, p.a))
+            diam[s_idx] = float(skyrmion_diameter(
+                m_top, p.a, core_polarity=+1))
+            diam_bot[s_idx] = float(skyrmion_diameter(
+                m_bot, p.a, core_polarity=-1))
+            # LCC diameters and centers (the trustworthy
+            # single-skyrmion measurements; the all-mask
+            # versions above are kept for back-compat).
+            diam_lcc[s_idx] = float(skyrmion_diameter_lcc(
+                m_top, p.a, core_polarity=+1))
+            diam_lcc_bot[s_idx] = float(skyrmion_diameter_lcc(
+                m_bot, p.a, core_polarity=-1))
+            if w_top > 0.0:
+                cxl, cyl = skyrmion_center_lcc_pbc(
+                    m_top, p.a, core_polarity=+1)
+            else:
+                cxl = float('nan')
+                cyl = float('nan')
+            if w_bot > 0.0:
+                cxlb, cylb = skyrmion_center_lcc_pbc(
+                    m_bot, p.a, core_polarity=-1)
+            else:
+                cxlb = float('nan')
+                cylb = float('nan')
+            cx_lcc[s_idx] = cxl
+            cy_lcc[s_idx] = cyl
+            cx_lcc_bot[s_idx] = cxlb
+            cy_lcc_bot[s_idx] = cylb
             drift_max[s_idx] = float(drift)
             s_idx += 1
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -235,39 +282,65 @@ def trajectory_worker(config):
     v_y = float('nan')
     theta_deg = float('nan')
     sigma_y = float('nan')
+    # Unwrap top trajectory if alive long enough; drives v, theta_H.
+    L_x = nx * p.a
+    L_y = ny * p.a
     if end >= 4 and np.all(np.isfinite(cx_w[:end])):
-        L_x = nx * p.a
-        L_y = ny * p.a
         cx_u, cy_u = unwrap_trajectory(
-            cx_w[:end], cy_w[:end], L_x, L_y,
-        )
+            cx_w[:end], cy_w[:end], L_x, L_y)
         cx_unwrap[:end] = cx_u
         cy_unwrap[:end] = cy_u
         v_x, v_y, theta_deg = hall_angle(
-            t_sample[:end], cx_u, cy_u, half=0.5,
-        )
+            t_sample[:end], cx_u, cy_u, half=0.5)
         sigma_y = float(np.std(cy_u[end // 2:], ddof=1)) \
             if end >= 8 else float('nan')
+    # Same unwrap for the bot layer (inter-layer Q3 diagnostics).
+    cx_unwrap_bot = np.full(n_samples, np.nan)
+    cy_unwrap_bot = np.full(n_samples, np.nan)
+    v_x_bot = float('nan')
+    v_y_bot = float('nan')
+    theta_deg_bot = float('nan')
+    if end >= 4 and np.all(np.isfinite(cx_w_bot[:end])):
+        cxb_u, cyb_u = unwrap_trajectory(
+            cx_w_bot[:end], cy_w_bot[:end], L_x, L_y)
+        cx_unwrap_bot[:end] = cxb_u
+        cy_unwrap_bot[:end] = cyb_u
+        v_x_bot, v_y_bot, theta_deg_bot = hall_angle(
+            t_sample[:end], cxb_u, cyb_u, half=0.5)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     payload = {
         't_sample': t_sample,
-        'cx_wrapped': cx_w,
-        'cy_wrapped': cy_w,
-        'cx_unwrapped': cx_unwrap,
-        'cy_unwrapped': cy_unwrap,
-        'Q': Q_arr,
-        'diameter': diam,
+        # Top layer
+        'cx_wrapped': cx_w, 'cy_wrapped': cy_w,
+        'cx_unwrapped': cx_unwrap, 'cy_unwrapped': cy_unwrap,
+        'Q': Q_arr, 'diameter': diam,
+        # Bot layer (inter-layer Q3 diagnostics)
+        'cx_wrapped_bot': cx_w_bot, 'cy_wrapped_bot': cy_w_bot,
+        'cx_unwrapped_bot': cx_unwrap_bot,
+        'cy_unwrapped_bot': cy_unwrap_bot,
+        'Q_bot': Q_bot_arr, 'diameter_bot': diam_bot,
+        # LCC variants (Q3a-clean, single-skyrmion)
+        'cx_lcc': cx_lcc, 'cy_lcc': cy_lcc,
+        'cx_lcc_bot': cx_lcc_bot, 'cy_lcc_bot': cy_lcc_bot,
+        'diameter_lcc': diam_lcc,
+        'diameter_lcc_bot': diam_lcc_bot,
+        # Bookkeeping
         'norm_drift_max': drift_max,
         'T_effective': float(T_eff),
         'sigma_noise': sigma,
         'alive_at_end': alive_at_end,
         'flip_index': int(flip_index),
+        # Drift / Hall fit, top
         'v_x': v_x, 'v_y': v_y,
-        'velocity': float(
-            np.sqrt(v_x ** 2 + v_y ** 2)
-        ) if np.isfinite(v_x) else float('nan'),
-        'hall_deg': theta_deg,
-        'sigma_y': sigma_y,
+        'velocity': float(np.sqrt(v_x ** 2 + v_y ** 2)) \
+            if np.isfinite(v_x) else float('nan'),
+        'hall_deg': theta_deg, 'sigma_y': sigma_y,
+        # Drift / Hall fit, bot
+        'v_x_bot': v_x_bot, 'v_y_bot': v_y_bot,
+        'velocity_bot': float(
+            np.sqrt(v_x_bot ** 2 + v_y_bot ** 2)) \
+            if np.isfinite(v_x_bot) else float('nan'),
+        'hall_deg_bot': theta_deg_bot,
     }
     return payload
 

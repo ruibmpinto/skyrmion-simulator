@@ -72,6 +72,11 @@ def skyrmion_profile(nx, ny, a, R, dw=27e-9, polarity=1):
     Neel helicity:
         phi = atan2(dy, dx)
     """
+    # Loud rejection of an unrecognised polarity sign.
+    if polarity not in (1, -1):
+        raise RuntimeError(
+            f'skyrmion_profile: polarity must be +1 or -1, '
+            f'got {polarity!r}.')
     # Lattice center
     # Half-integer offset so center sits between sites for even nx, ny.
     x0 = (nx - 1) * a / 2.0
@@ -128,8 +133,14 @@ def uniform_state(nx, ny, direction=None):
     # Default to the PMA easy axis (+z) when no direction is supplied.
     if direction is None:
         direction = np.array([0.0, 0.0, 1.0])
+    # Loud rejection of a zero-magnitude direction (undefined unit
+    # vector); silent division would broadcast NaN to every site.
+    norm = np.linalg.norm(direction)
+    if norm == 0.0:
+        raise RuntimeError(
+            'uniform_state: zero-magnitude direction vector.')
     # Enforce |direction| = 1 in case the caller passed a non-unit vec.
-    direction = direction / np.linalg.norm(direction)
+    direction = direction / norm
     # Allocate the spin array; the (ny, nx, 3) layout matches the rest
     # of the simulator (axis 0 = y, axis 1 = x, axis 2 = component).
     m = np.zeros((ny, nx, 3))

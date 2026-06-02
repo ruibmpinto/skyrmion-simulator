@@ -1,7 +1,9 @@
-"""Lattice geometry and neighbor indexing with PBC.
+"""Lattice geometry, neighbor indexing, and region masks.
 
 Provides nearest-neighbor arrays on a 2D square lattice
-using periodic boundary conditions via np.roll.
+using periodic boundary conditions via np.roll, plus mask
+builders that mark cells as inside or outside a magnetic
+region for use with the free-BC path in `fields.py`.
 
 Functions
 ---------
@@ -9,6 +11,10 @@ neighbors
     Return four nearest-neighbor shifted arrays.
 lattice_positions
     Return physical coordinates for all lattice sites.
+disk_mask
+    Boolean mask for a circular magnetic region.
+rect_mask
+    Boolean mask for a rectangular magnetic region.
 """
 #
 #                                                                Modules
@@ -132,3 +138,96 @@ def lattice_positions(nx, ny, a):
     # z-coordinate is left at 0; main.py offsets the bottom layer by
     # -t_Co for Ovito visualization only.
     return pos
+
+
+def disk_mask(nx, ny, a, R, center=None):
+    """Build a Boolean (ny, nx) mask for a circular region.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice size in cells.
+    a : float
+        Lattice constant in metres.
+    R : float
+        Disk radius in metres.
+    center : {tuple(float, float), None}, default=None
+        Disk centre in (x, y) metres. None puts the centre
+        at the geometric centre of the lattice.
+
+    Returns
+    -------
+    mask : numpy.ndarray(2d, bool)
+        True inside the disk, False outside.
+
+    Notes
+    -----
+    Loud rejection of non-positive nx, ny, a, R.
+    """
+    if int(nx) <= 0 or int(ny) <= 0:
+        raise RuntimeError(
+            f'disk_mask: nx, ny must be positive integers, '
+            f'got nx={nx!r}, ny={ny!r}.')
+    if not (float(a) > 0.0):
+        raise RuntimeError(
+            f'disk_mask: a must be > 0, got a={a!r}.')
+    if not (float(R) > 0.0):
+        raise RuntimeError(
+            f'disk_mask: R must be > 0, got R={R!r}.')
+    if center is None:
+        cx = 0.5 * (int(nx) - 1) * float(a)
+        cy = 0.5 * (int(ny) - 1) * float(a)
+    else:
+        cx, cy = float(center[0]), float(center[1])
+    jj, ii = np.meshgrid(
+        np.arange(int(nx), dtype=float),
+        np.arange(int(ny), dtype=float),
+    )
+    x = jj * float(a) - cx
+    y = ii * float(a) - cy
+    return (x * x + y * y) <= (float(R) * float(R))
+
+
+def rect_mask(nx, ny, a, Lx, Ly, center=None):
+    """Build a Boolean (ny, nx) mask for a rectangular region.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice size in cells.
+    a : float
+        Lattice constant in metres.
+    Lx, Ly : float
+        Rectangle dimensions in metres.
+    center : {tuple(float, float), None}, default=None
+        Rectangle centre in (x, y) metres. None puts the
+        centre at the geometric centre of the lattice.
+
+    Returns
+    -------
+    mask : numpy.ndarray(2d, bool)
+        True inside the rectangle, False outside.
+    """
+    if int(nx) <= 0 or int(ny) <= 0:
+        raise RuntimeError(
+            f'rect_mask: nx, ny must be positive integers, '
+            f'got nx={nx!r}, ny={ny!r}.')
+    if not (float(a) > 0.0 and float(Lx) > 0.0
+            and float(Ly) > 0.0):
+        raise RuntimeError(
+            f'rect_mask: a, Lx, Ly must be > 0, got a={a!r}, '
+            f'Lx={Lx!r}, Ly={Ly!r}.')
+    if center is None:
+        cx = 0.5 * (int(nx) - 1) * float(a)
+        cy = 0.5 * (int(ny) - 1) * float(a)
+    else:
+        cx, cy = float(center[0]), float(center[1])
+    jj, ii = np.meshgrid(
+        np.arange(int(nx), dtype=float),
+        np.arange(int(ny), dtype=float),
+    )
+    x = jj * float(a) - cx
+    y = ii * float(a) - cy
+    half_Lx = 0.5 * float(Lx)
+    half_Ly = 0.5 * float(Ly)
+    return (np.abs(x) <= half_Lx) & (np.abs(y) <= half_Ly)

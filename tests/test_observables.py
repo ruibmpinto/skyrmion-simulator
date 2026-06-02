@@ -103,20 +103,21 @@ def test_dw_angle_neel_at_rest():
     psi_bot = dw_angle(m_bot, a, core_polarity=-1)
     # Print for the operator.
     print(f'  psi_top = {np.degrees(psi_top):.2f} deg '
-          f'(expected 180)')
+          f'(expected 0)')
     print(f'  psi_bot = {np.degrees(psi_bot):.2f} deg '
-          f'(expected 180)')
-    # Neel-radial outward gives m_x = +1 at the right DW,
-    # so the angle relative to -x is pi (180 degrees).
+          f'(expected 0)')
+    # New convention: psi is the signed deviation from the layer's
+    # natural Neel orientation, so a rest skyrmion (no drive)
+    # gives psi ~ 0 in both layers regardless of chirality.
     tol = np.radians(2.0)
-    if abs(psi_top - np.pi) > tol:
+    if abs(psi_top) > tol:
         raise RuntimeError(
             f'dw_angle top {np.degrees(psi_top):.3f} deg '
-            f'differs from 180 by more than 2 deg.')
-    if abs(psi_bot - np.pi) > tol:
+            f'differs from 0 by more than 2 deg.')
+    if abs(psi_bot) > tol:
         raise RuntimeError(
             f'dw_angle bot {np.degrees(psi_bot):.3f} deg '
-            f'differs from 180 by more than 2 deg.')
+            f'differs from 0 by more than 2 deg.')
 
 
 # -----------------------------------------------------------------------------

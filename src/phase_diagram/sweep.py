@@ -52,6 +52,7 @@ from src.phase_diagram.initial_conditions_ext import (
     hex_lattice_bubbles,
     hex_lattice_skyrmions,
     random_state,
+    square_lattice_skyrmions,
     stripe_state,
 )
 from src.phase_diagram.params_helper import make_params
@@ -88,12 +89,12 @@ grid_size = {
 
 
 def _ic_specs():
-    """Return the canonical 12-member IC ensemble.
+    """Return the canonical 7-member prepared IC ensemble.
 
     Designed to seed every phase region the classifier can
     label:
 
-    * 5 random spheres (statistical exploration).
+    * 5 random spheres for statistical exploration (commented out).
     * `fm_anti`, `fm_par` for the two FM branches across
       the spin-flop.
     * `skyrmion` for a single isolated Neel skyrmion (iSk).
@@ -104,11 +105,11 @@ def _ic_specs():
       same FFT signature as SkX).
     """
     return (
-        ('random', 11),
-        ('random', 22),
-        ('random', 33),
-        ('random', 44),
-        ('random', 55),
+        # ('random', 11),  # commented out (see docstring)
+        # ('random', 22),  # commented out (see docstring)
+        # ('random', 33),  # commented out (see docstring)
+        # ('random', 44),  # commented out (see docstring)
+        # ('random', 55),  # commented out (see docstring)
         ('fm_anti', None),
         ('fm_par', None),
         ('skyrmion', None),
@@ -124,7 +125,8 @@ def build_tasks(axis_x_name, axis_x_values,
                 axis_y_name, axis_y_values,
                 fixed_overrides,
                 nx, ny, max_steps, tol_torque, tol_dE,
-                alpha_relax, a, dt):
+                alpha_relax, a, dt, demag_kind='slab',
+                ic_list=None):
     """Build the flat task list for a generic 2D sweep.
 
     Each (axis_x, axis_y) point is multiplied by the IC
@@ -179,7 +181,12 @@ def build_tasks(axis_x_name, axis_x_values,
         raise RuntimeError(
             'axis_*_values must be 1-D arrays.'
         )
-    ic_list = _ic_specs()
+    # IC ensemble: default 7-member generic set, or a caller-
+    # supplied (ic_name, ic_seed) list (e.g. the 4-IC Gungordu
+    # set). All cells use the same list so the per-cell IC
+    # count is consistent for aggregation.
+    if ic_list is None:
+        ic_list = _ic_specs()
     tasks = []
     for i, x_val in enumerate(axis_x_values):
         x_overrides = overrides_for(axis_x_name, x_val)
@@ -219,6 +226,7 @@ def build_tasks(axis_x_name, axis_x_values,
                     ),
                     'a': float(a),
                     'dt': float(dt),
+                    'demag_kind': str(demag_kind),
                 })
     return tasks, axis_x_values, axis_y_values
 
@@ -263,6 +271,13 @@ def _build_ic(ic_name, ic_seed, p):
         period = _helix_period(p)
         R, dw = _lattice_R_dw(period)
         return hex_lattice_bubbles(p.nx, p.ny, p.a, R=R, period=period, dw=dw,)
+    if ic_name == 'sq_lattice':
+        # Square skyrmion lattice -> seeds the four-fold
+        # square-cell (SC) basin of Gungordu 2016.
+        period = _helix_period(p)
+        R, dw = _lattice_R_dw(period)
+        return square_lattice_skyrmions(
+            p.nx, p.ny, p.a, R=R, period=period, dw=dw,)
     raise RuntimeError(f'Unknown IC {ic_name!r}.')
 
 
@@ -304,8 +319,12 @@ def run_one(task):
     overrides['a'] = float(task['a'])
     overrides['dt'] = float(task['dt'])
     p = make_params(**overrides)
+    # Demag model for this sweep (default 'slab'; 'none' for
+    # local-model benchmarks such as the Gungordu phase
+    # diagram). 'none'/'slab' take no accuracy/tol_conv.
+    demag_kind = task.get('demag_kind', 'slab')
     kernels = precompute_demag_kernels(
-        p, kind='slab', accuracy=None, tol_conv=None)
+        p, kind=demag_kind, accuracy=None, tol_conv=None)
     m_top, m_bot = _build_ic(task['ic_name'], task['ic_seed'], p,)
     relax_kwargs = {
         'max_steps': int(task['max_steps']),
@@ -384,13 +403,16 @@ def sweep(axis_x_name, axis_x_values,
           fixed_overrides,
           nx, ny, max_steps, tol_torque, tol_dE,
           alpha_relax, a, dt,
-          workers=None, out_path=None, verbose=True):
+          workers=None, out_path=None, verbose=True,
+          demag_kind='slab', ic_list=None):
     """Run the configured 2D sweep and write the final NPZ.
 
     The two swept axes are looked up in
     `src.phase_diagram.axis_specs.axes`. Output path
     defaults to
     `output/phase_diagram/{axis_x_name}_{axis_y_name}.npz`.
+    `demag_kind` selects the demag model ('slab' default;
+    'none' for demag-free local-model benchmarks).
     """
     tasks, axis_x_values, axis_y_values = build_tasks(
         axis_x_name=axis_x_name,
@@ -402,7 +424,10 @@ def sweep(axis_x_name, axis_x_values,
         max_steps=max_steps,
         tol_torque=tol_torque, tol_dE=tol_dE,
         alpha_relax=alpha_relax, a=a, dt=dt,
+        demag_kind=demag_kind, ic_list=ic_list,
     )
+    # Resolve the IC list actually used (for the NPZ metadata).
+    ic_list_used = _ic_specs() if ic_list is None else ic_list
     if not tasks:
         raise RuntimeError('Empty task list.')
     n_x = len(axis_x_values)
@@ -485,7 +510,7 @@ def sweep(axis_x_name, axis_x_values,
         axis_y_name=np.array(axis_y_name, dtype=object),
         axis_y_values=axis_y_values,
         ic_names=np.array(
-            [s[0] for s in _ic_specs()],
+            [s[0] for s in ic_list_used],
             dtype=object,
         ),
         labels=np.array(_PHASE_LABELS, dtype=object),
@@ -531,7 +556,8 @@ def sweep_array_partial(axis_x_name, axis_x_values,
                         tol_torque, tol_dE, alpha_relax,
                         a, dt,
                         array_task_id, sims_per_task,
-                        partial_dir):
+                        partial_dir, demag_kind='slab',
+                        ic_list=None):
     """Run one SLURM array element's slice of tasks.
 
     Each array element processes `sims_per_task` consecutive
@@ -570,6 +596,7 @@ def sweep_array_partial(axis_x_name, axis_x_values,
         max_steps=max_steps,
         tol_torque=tol_torque, tol_dE=tol_dE,
         alpha_relax=alpha_relax, a=a, dt=dt,
+        demag_kind=demag_kind, ic_list=ic_list,
     )
     n_total = len(tasks)
     start = array_task_id * sims_per_task
@@ -610,6 +637,7 @@ def sweep_array_partial(axis_x_name, axis_x_values,
         axis_x_name, axis_x_values,
         axis_y_name, axis_y_values,
         p_probe,
+        ic_list=(_ic_specs() if ic_list is None else ic_list),
     )
     elapsed = time.time() - t0
     print(
@@ -623,7 +651,7 @@ def sweep_array_partial(axis_x_name, axis_x_values,
 def _write_partial_npz(path, results,
                        axis_x_name, axis_x_values,
                        axis_y_name, axis_y_values,
-                       p_probe):
+                       p_probe, ic_list=None):
     """Write per-task records to a partial NPZ.
 
     Parameters
@@ -648,7 +676,11 @@ def _write_partial_npz(path, results,
             f'Refusing to write empty partial NPZ at {path}.'
         )
     half_mu0_Ms2 = 0.5 * p_probe.mu0 * p_probe.Ms ** 2
-    ic_full = _ic_specs()
+    # Record the ACTUAL IC ensemble used for this sweep (the
+    # caller's ic_list, or the 7-IC default). Must match the
+    # per-record k indices, or the aggregator over-counts the
+    # expected record total.
+    ic_full = _ic_specs() if ic_list is None else list(ic_list)
     ic_names_full = np.array(
         [name for (name, _seed) in ic_full],
         dtype=object,
@@ -749,11 +781,12 @@ def main():
     # 'A_ex', 't_Co', 'd_Ru', 'alpha'.
     axis_x_name = 'D'
     # Cluster D points around the Bogdanov-Hubert
-    # threshold D_c ~= 2.86 mJ/m^2 at K = 1.60 MJ/m^3.
-    # 5 + 5 + 10 + 5 + 5 = 30 monotonic points; the inner
-    # 10 fall in D_c +- 0.2 mJ/m^2 where the chiral phase
-    # boundaries actually live.
-    _D_c = 2.86e-3
+    # threshold D_c ~= 1.73 mJ/m^2 at K = 1.40 MJ/m^3
+    # (K_eff ~= 0.115 MJ/m^3). 5 + 5 + 10 + 5 + 5 = 30
+    # monotonic points; the inner 10 fall in
+    # D_c +- 0.2 mJ/m^2 where the chiral phase boundaries
+    # actually live.
+    _D_c = 1.73e-3
     axis_x_values = np.concatenate([
         np.linspace(0.0,         _D_c - 0.6e-3, 5,
                     endpoint=False),
@@ -788,8 +821,8 @@ def main():
     # builder (e.g. if axis_y_name == 'K_top', do not set
     # K_top / K_bot here).
     fixed_overrides = {
-        'K_top': 1.60e6,
-        'K_bot': 1.60e6,
+        'K_top': 1.40e6,
+        'K_bot': 1.40e6,
     }
     # Lattice size in cells. At a = 1.0 nm the physical
     # box is L = nx * a = 256 nm.
@@ -814,14 +847,16 @@ def main():
     # SLURM-array mode. Set to None to use os.cpu_count().
     workers = None
     # Number of tasks to run sequentially per SLURM array
-    # element. With 12 ICs and a (30, 30) grid the task
-    # count is 30 * 30 * 12 = 10800; sims_per_task = 4
-    # gives 2700 array elements (--array=[0-2699]%192).
-    sims_per_task = 4
-    # Output paths. Set to None to use the standard layout
-    # output/phase_diagram/{axis_x}_{axis_y}{,_partials}.
-    out_path = None
-    partial_dir = None
+    # element.
+    sims_per_task = 1
+    # Output paths. Suffixed with the material's K so the
+    # K = 1.40 MJ/m^3 results live alongside the existing
+    # K = 1.60 MJ/m^3 sweep at output/phase_diagram/D_H_z.npz
+    # rather than overwriting it.
+    out_path = 'output/phase_diagram/D_H_z_K1p4e6Jm3.npz'
+    partial_dir = (
+        'output/phase_diagram/D_H_z_K1p4e6Jm3_partials'
+    )
     # ============ End User Configuration =================
     array_id_env = os.environ.get('SLURM_ARRAY_TASK_ID')
     if array_id_env is None:

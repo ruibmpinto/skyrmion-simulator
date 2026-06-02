@@ -233,7 +233,7 @@ def main():
     n_relax         = 4000           # 200 ps shape-relax
     n_drive         = 20000          # 1 ns drift
     sample_every    = 100            # 5 ps cadence
-    n_ens           = 5
+    n_ens           = 30
     seed_base       = 411
     tol_norm        = 5.0e-3
     use_demag       = True

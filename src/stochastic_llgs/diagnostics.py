@@ -15,6 +15,16 @@ Functions
 skyrmion_center_pbc
     Phase-of-circular-mean skyrmion center on a single
     snapshot.
+largest_core_mask_pbc
+    Boolean mask of the largest connected core component on a
+    snapshot, with periodic boundaries.
+skyrmion_diameter_lcc
+    Equivalent-disk diameter of the largest connected core
+    component. Robust to thermal-noise blobs that contaminate
+    the full-mask `skyrmion_diameter`.
+skyrmion_center_lcc_pbc
+    Circular-mean center restricted to the largest connected
+    core component.
 unwrap_trajectory
     Remove `L`-jumps from a piecewise center trajectory to
     yield a continuous position history.
@@ -30,6 +40,7 @@ hall_angle
 # =============================================================================
 # Third-party
 import numpy as np
+from scipy.ndimage import label
 
 #
 #                                                          Authorship & Credits
@@ -113,6 +124,176 @@ def skyrmion_center_pbc(m, a, core_polarity):
     Cy = float(np.sum(w * np.cos(theta_y)))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # atan2 returns in (-pi, pi]; shift to [0, 2*pi)
+    ang_x = np.arctan2(Sx, Cx)
+    if ang_x < 0.0:
+        ang_x += 2.0 * np.pi
+    ang_y = np.arctan2(Sy, Cy)
+    if ang_y < 0.0:
+        ang_y += 2.0 * np.pi
+    cx = ang_x * nx * a / (2.0 * np.pi)
+    cy = ang_y * ny * a / (2.0 * np.pi)
+    return cx, cy
+
+
+# -----------------------------------------------------------------------------
+def largest_core_mask_pbc(m, core_polarity):
+    """Boolean mask of the largest connected core component
+    under periodic boundary conditions.
+
+    Parameters
+    ----------
+    m : numpy.ndarray(3d)
+        Spin configuration, shape (ny, nx, 3). Periodic.
+    core_polarity : {+1, -1}
+        Same convention as `skyrmion_diameter`:
+            +1 -> core is m_z < 0 (top-layer);
+            -1 -> core is m_z > 0 (bot-layer).
+
+    Returns
+    -------
+    mask : numpy.ndarray(2d, bool)
+        Shape (ny, nx). True at cells that belong to the
+        single largest connected component of the core mask;
+        False elsewhere. If the core mask is empty, all
+        False.
+
+    Notes
+    -----
+    Connectivity is 4-neighbour (the default for
+    `scipy.ndimage.label`). PBC are accounted for by glueing
+    components that straddle a boundary using a roll-and-
+    relabel pass.
+    """
+    if core_polarity not in (+1, -1):
+        raise RuntimeError(
+            f'largest_core_mask_pbc: core_polarity must be '
+            f'+1 or -1, got {core_polarity!r}.')
+    core = (core_polarity * m[..., 2]) < 0
+    if not core.any():
+        return np.zeros_like(core, dtype=bool)
+    # Initial labelling without PBC.
+    lab, n_lab = label(core)
+    if n_lab == 0:
+        return np.zeros_like(core, dtype=bool)
+    # PBC fusion: walk each boundary pair and merge labels
+    # that touch across the wrap. Two passes suffice for a
+    # square lattice (one per axis).
+    parent = np.arange(n_lab + 1, dtype=np.int64)
+    def _find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    def _union(i, j):
+        ri = _find(i)
+        rj = _find(j)
+        if ri != rj:
+            parent[max(ri, rj)] = min(ri, rj)
+    # Top-bottom wrap (axis 0).
+    for x in range(lab.shape[1]):
+        a = int(lab[0, x])
+        b = int(lab[-1, x])
+        if a and b:
+            _union(a, b)
+    # Left-right wrap (axis 1).
+    for y in range(lab.shape[0]):
+        a = int(lab[y, 0])
+        b = int(lab[y, -1])
+        if a and b:
+            _union(a, b)
+    # Collapse to root labels and count component sizes.
+    flat = lab.ravel()
+    roots = np.array([_find(int(i)) for i in flat],
+                     dtype=np.int64).reshape(lab.shape)
+    # Component size by root label; skip background root 0.
+    unique, counts = np.unique(roots, return_counts=True)
+    nz = unique != 0
+    if not nz.any():
+        return np.zeros_like(core, dtype=bool)
+    big_root = int(unique[nz][np.argmax(counts[nz])])
+    return roots == big_root
+
+
+# -----------------------------------------------------------------------------
+def skyrmion_diameter_lcc(m, a, core_polarity):
+    """Equivalent-disk diameter of the largest connected core
+    component.
+
+    Removes thermal-noise contamination from
+    `src.simulator.analysis.skyrmion_diameter`, which counts
+    every cell with `core_polarity * m_z < 0` regardless of
+    whether it sits in the main skyrmion or in a scattered
+    fluctuation blob.
+
+    Parameters
+    ----------
+    m : numpy.ndarray(3d)
+        Spin configuration.
+    a : float
+        Lattice constant in meters.
+    core_polarity : {+1, -1}
+        Same convention as `skyrmion_diameter`.
+
+    Returns
+    -------
+    d : float
+        Diameter in meters, or 0.0 if no core cells.
+    """
+    if not (np.isfinite(a) and a > 0.0):
+        raise RuntimeError(
+            f'skyrmion_diameter_lcc: a must be positive, '
+            f'got {a!r}.')
+    mask = largest_core_mask_pbc(m, core_polarity)
+    n_inside = int(mask.sum())
+    if n_inside == 0:
+        return 0.0
+    area = n_inside * a * a
+    return 2.0 * np.sqrt(area / np.pi)
+
+
+# -----------------------------------------------------------------------------
+def skyrmion_center_lcc_pbc(m, a, core_polarity):
+    """Phase-of-circular-mean center restricted to the
+    largest connected core component.
+
+    Same PBC-aware angular estimator as `skyrmion_center_pbc`
+    but with the weight set to the LCC indicator (0 outside,
+    1 inside) rather than the full `(1 - m_z) / 2` profile.
+    Robust to thermal-noise blobs in the full mask.
+
+    Returns
+    -------
+    cx, cy : float
+        Centre x and y in meters, modulo L_x = nx * a and
+        L_y = ny * a respectively. Raises if the core mask is
+        empty (the caller decides what to do — typically
+        record NaN).
+    """
+    if not (np.isfinite(a) and a > 0.0):
+        raise RuntimeError(
+            f'skyrmion_center_lcc_pbc: a must be positive, '
+            f'got {a!r}.')
+    if m.ndim != 3 or m.shape[-1] != 3:
+        raise RuntimeError(
+            f'skyrmion_center_lcc_pbc: m must have shape '
+            f'(ny, nx, 3), got {m.shape}.')
+    mask = largest_core_mask_pbc(m, core_polarity)
+    ws = float(mask.sum())
+    if ws <= 0.0:
+        raise RuntimeError(
+            'skyrmion_center_lcc_pbc: empty core mask '
+            '(skyrmion may have annihilated).')
+    ny, nx = m.shape[:2]
+    jj, ii = np.meshgrid(
+        np.arange(nx, dtype=float),
+        np.arange(ny, dtype=float))
+    theta_x = 2.0 * np.pi * jj / nx
+    theta_y = 2.0 * np.pi * ii / ny
+    w = mask.astype(float)
+    Sx = float(np.sum(w * np.sin(theta_x)))
+    Cx = float(np.sum(w * np.cos(theta_x)))
+    Sy = float(np.sum(w * np.sin(theta_y)))
+    Cy = float(np.sum(w * np.cos(theta_y)))
     ang_x = np.arctan2(Sx, Cx)
     if ang_x < 0.0:
         ang_x += 2.0 * np.pi

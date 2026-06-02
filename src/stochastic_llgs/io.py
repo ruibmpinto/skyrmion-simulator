@@ -50,30 +50,25 @@ def save_trajectory(out_path, payload, config):
     if not isinstance(out_path, str) or not out_path:
         raise RuntimeError(
             f'save_trajectory: out_path must be a non-empty '
-            f'string, got {out_path!r}.'
-        )
+            f'string, got {out_path!r}.')
     if not isinstance(payload, dict):
         raise RuntimeError(
             f'save_trajectory: payload must be a dict, got '
-            f'{type(payload).__name__}.'
-        )
+            f'{type(payload).__name__}.')
     if not isinstance(config, dict):
         raise RuntimeError(
             f'save_trajectory: config must be a dict, got '
-            f'{type(config).__name__}.'
-        )
+            f'{type(config).__name__}.')
     for k in payload:
         if k.startswith('meta_'):
             raise RuntimeError(
                 f'save_trajectory: payload key {k!r} uses '
-                f'reserved prefix `meta_`.'
-            )
+                f'reserved prefix `meta_`.')
     parent = os.path.dirname(out_path)
     if parent and not os.path.isdir(parent):
         raise RuntimeError(
-            f'save_trajectory: parent directory '
-            f'{parent!r} does not exist.'
-        )
+            f'save_trajectory: parent directory {parent!r} does not exist.')
+    
     record = dict(payload)
     record['meta_schema_version'] = _SCHEMA_VERSION
     record['meta_timestamp'] = float(time.time())

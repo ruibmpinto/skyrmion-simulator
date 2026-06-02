@@ -64,12 +64,15 @@ def main():
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Analytic curves.
-    analytic_path = os.path.join(in_dir, 'analytic.npz')
-    if not os.path.exists(analytic_path):
+    # Analytic curves. Accepts both legacy `analytic.npz` and
+    # the new D-tagged `analytic_D{X}e-3.npz`; picks the last
+    # match alphabetically (D-tagged sorts after the bare name).
+    analytic_paths = sorted(glob.glob(
+        os.path.join(in_dir, 'analytic*.npz')))
+    if not analytic_paths:
         raise RuntimeError(
-            f'plot_S49: missing analytic curves at {analytic_path}.')
-    analytic, ana_meta = load_trace(analytic_path)
+            f'plot_S49: no analytic*.npz in {in_dir}.')
+    analytic, ana_meta = load_trace(analytic_paths[-1])
     R_over_Delta = analytic['R_over_Delta']
     v_sot_ana = analytic['v_SOT']
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,9 +129,6 @@ def main():
     ax.set_xlabel(r'$R / \Delta$')
     ax.set_ylabel(r'$|v|$ (m/s)')
     ax.set_yscale('log')
-    ax.set_title(
-        f'S49: SOT vs TSH speed, '
-        rf'$\Delta = {float(ana_meta["Delta"])*1e9:.1f}$ nm')
     ax.legend(loc='best', frameon=False, fontsize=10)
     ax.set_box_aspect(1)
     fig.tight_layout()

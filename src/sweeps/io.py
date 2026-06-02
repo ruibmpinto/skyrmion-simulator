@@ -127,7 +127,18 @@ def load_trace(path):
             f'metadata key {_METADATA_KEY!r}; was it written by '
             f'save_trace?')
     # Decode metadata first so trace decoding can run unaffected.
-    metadata = json.loads(str(npz[_METADATA_KEY]))
+    # Two writers exist: the Python save_trace stores a 0-d unicode
+    # array; the C++ sweep binaries store a 1-d uint8 array of UTF-8
+    # JSON bytes (libnpy cannot emit 0-d unicode). Handle both.
+    meta_arr = npz[_METADATA_KEY]
+    if meta_arr.dtype.kind in ('U', 'S'):
+        metadata = json.loads(str(meta_arr))
+    elif meta_arr.dtype.kind in ('u', 'i'):
+        metadata = json.loads(bytes(meta_arr.tolist()).decode('utf-8'))
+    else:
+        raise RuntimeError(
+            f'load_trace: unsupported {_METADATA_KEY!r} dtype '
+            f'{meta_arr.dtype!r}.')
     # Walk every other key, restoring the None sentinel.
     trace = {}
     for key in npz.files:
@@ -147,4 +158,10 @@ def load_trace(path):
             trace[key] = text
             continue
         trace[key] = value
+    # C++ save_trace omits snapshot keys when no snapshot was recorded
+    # (the Python writer stores a sentinel instead). Default any missing
+    # snapshot key to None so downstream `is None` checks stay valid.
+    for snap_key in ('snapshot_m_top', 'snapshot_m_bot', 'snapshot_t'):
+        if snap_key not in trace:
+            trace[snap_key] = None
     return trace, metadata

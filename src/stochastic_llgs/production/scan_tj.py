@@ -104,7 +104,10 @@ def _run_one_point(args):
 # -----------------------------------------------------------------------------
 def main():
     # =========================== User Configuration =========================
-    t_sub_list      = [200.0, 250.0, 300.0, 350.0, 400.0]
+    t_sub_list      = [
+        10.0, 25.0, 50.0, 100.0, 150.0,
+        200.0, 250.0, 300.0, 350.0,
+    ]
     j_list          = [
         1.0e11, 2.0e11, 4.0e11, 8.0e11, 1.6e12,
     ]
@@ -115,7 +118,7 @@ def main():
     n_relax         = 10000          # 500 ps
     n_drive         = 40000          # 2 ns
     sample_every    = 200            # 10 ps between samples
-    n_ens           = 10
+    n_ens           = 30
     seed_base       = 101
     tol_norm        = 5.0e-3
     use_demag       = False

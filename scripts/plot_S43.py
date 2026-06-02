@@ -96,28 +96,36 @@ def _plot_panel_a(in_dir, out_path):
     """v_avg vs FWHM, one line per J."""
     # Bucket by J0; within each bucket sort by FWHM.
     bucket = _load_sweep(in_dir, key='J0')
+    # New figure with a secondary-axis-free layout.
     fig, ax = plt.subplots()
+    # Sequential colormap for the J levels.
     cmap = plt.get_cmap('viridis')
+    # Sweep over each fixed J value in ascending order.
     J_keys = sorted(bucket.keys())
     for J0 in J_keys:
+        # Sort the FWHM samples within this J bucket.
         items = sorted(bucket[J0],
                        key=lambda mt: float(mt[0]['FWHM']))
+        # Stack the FWHM (s) and v_avg (m/s) arrays for the plot.
         FWHM_arr = np.array(
             [float(m['FWHM']) for m, _ in items])
         v_arr = np.array(
             [_vavg_from_trace(t, m) for m, t in items])
         # Colour by J relative to its position in the J sweep.
         c = cmap(J_keys.index(J0) / max(len(J_keys) - 1, 1))
+        # FWHM is converted to ps for the x-axis.
         ax.plot(FWHM_arr * 1e12, v_arr, 'o-', color=c,
                 label=fr'$J = {J0:.1e}$ A/m$^2$')
+    # Axis decoration.
     ax.set_xlabel(r'FWHM (ps)')
     ax.set_ylabel(r'$v_{\mathrm{avg}}$ (m/s)')
-    ax.set_title('S43(a): velocity vs pulse width')
     ax.legend(loc='best', frameon=False)
     ax.set_box_aspect(1)
     fig.tight_layout()
+    # Persist.
     fig.savefig(out_path)
     print(f'Saved {out_path}')
+    # Console summary, one block per J.
     for J0 in J_keys:
         items = sorted(bucket[J0],
                        key=lambda mt: float(mt[0]['FWHM']))
@@ -130,29 +138,38 @@ def _plot_panel_a(in_dir, out_path):
 
 def _plot_panel_b(in_dir, out_path):
     """v_avg vs J, one line per D."""
+    # Bucket by DMI strength; each D bucket holds the J sweep.
     bucket = _load_sweep(in_dir, key='D')
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
-    D_keys = sorted(bucket.keys())
+    # Drop D = 0.60 mJ/m^2: sweep is incomplete (J >= 6e11
+    # traces missing on disk).
+    D_keys = sorted(d for d in bucket.keys()
+                    if not np.isclose(d, 0.60e-3))
     for D in D_keys:
+        # Sort the J samples within this D bucket.
         items = sorted(bucket[D],
                        key=lambda mt: float(mt[0]['J0']))
+        # Stack the J (A/m^2) and v_avg (m/s) arrays.
         J_arr = np.array(
             [float(m['J0']) for m, _ in items])
         v_arr = np.array(
             [_vavg_from_trace(t, m) for m, t in items])
+        # Colour by D's position in the plotted list.
         c = cmap(D_keys.index(D) / max(len(D_keys) - 1, 1))
+        # Plot J in units of 10^11 A/m^2.
         ax.plot(J_arr / 1e11, v_arr, 'o-', color=c,
                 label=fr'$D = {D*1e3:.2f}$ mJ/m$^2$')
+    # Axis decoration.
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel(r'$v_{\mathrm{avg}}$ (m/s)')
-    ax.set_title('S43(b): velocity vs current density')
     ax.legend(loc='best', frameon=False)
     ax.set_box_aspect(1)
     fig.tight_layout()
     fig.savefig(out_path)
     print(f'Saved {out_path}')
-    for D in D_keys:
+    # Console summary, one block per D (including dropped D).
+    for D in sorted(bucket.keys()):
         items = sorted(bucket[D],
                        key=lambda mt: float(mt[0]['J0']))
         print(f'  D = {D*1e3:.2f} mJ/m^2:')

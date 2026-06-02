@@ -240,6 +240,99 @@ def plot_phase_map(data, ax=None, units='reduced'):
 
 
 # ---------------------------------------------------------------------
+def plot_metastability(data, ic_name, ax=None, q_thr=0.5,
+                       units='reduced', title=None):
+    """Per-cell |Q| of the prepared IC `ic_name`.
+
+    Reports whether a chosen prepared initial condition has a
+    metastable basin at each (axis_x, axis_y) point,
+    independent of whether it wins the energy competition.
+    Cells where the IC failed to converge are left white;
+    cells where it converged but `|Q| < q_thr` (e.g. a single
+    skyrmion that collapsed to a uniform FM) are shown in
+    light grey via the colormap's `under` colour.
+
+    Parameters
+    ----------
+    data : dict
+        Output of `load`.
+    ic_name : str
+        IC name to query. Must appear in `data['ic_names']`.
+    ax : matplotlib.axes.Axes or None, default=None
+        Axes to draw on; created if None.
+    q_thr : float, default=0.5
+        Lower bound on |Q| for the cell to count as
+        metastable. Below this the cmap's `under` colour
+        flags a collapsed outcome.
+    units : {'reduced', 'absolute'}, default='reduced'
+        Axis units, forwarded to `_axes_units`.
+    title : str or None, default=None
+        Panel title; defaults to '<ic_name> metastability'.
+
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        The drawn axes.
+    """
+    ic_names = list(data['ic_names'])
+    if ic_name not in ic_names:
+        raise RuntimeError(
+            f'plot_metastability: IC {ic_name!r} not in NPZ '
+            f'ic_names {ic_names}.'
+        )
+    if 'Q' not in data or 'converged' not in data:
+        raise RuntimeError(
+            "NPZ must carry per-IC 'Q' and 'converged' arrays."
+        )
+    k = ic_names.index(ic_name)
+    absQ = np.abs(np.asarray(data['Q'])[:, :, k])
+    conv = np.asarray(data['converged'])[:, :, k]
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6.5, 5.0))
+    x, y, xlabel, ylabel, tag = _axes_units(data, units)
+    vmax = max(float(np.nanmax(absQ)), q_thr * 1.001) \
+        if absQ.size > 0 else max(q_thr * 1.001, 1.0)
+    cmap = plt.get_cmap('magma').copy()
+    cmap.set_under('#d9d9d9')  # below q_thr: collapsed
+    im = ax.pcolormesh(
+        x, y, absQ.T, cmap=cmap, vmin=q_thr, vmax=vmax,
+        shading='auto',
+    )
+    # Hatch unconverged cells: |Q| still reflects whatever the
+    # last RK4 step left, so the value is shown -- the hatch
+    # is a visual "treat with caution" mark, not a mask.
+    nx_pts = len(x)
+    ny_pts = len(y)
+    if not bool(np.all(conv)):
+        not_conv = ~conv  # (n_x, n_y)
+        # Build edge arrays for a hatched overlay using
+        # contourf of a binary mask.
+        ax.contourf(
+            x, y, not_conv.T.astype(float),
+            levels=[0.5, 1.5], colors='none', hatches=['//'],
+            extend='neither',
+        )
+    if units == 'reduced':
+        ax.axvline(1.0, color='k', lw=0.8, ls='--', alpha=0.6)
+    cbar = plt.colorbar(im, ax=ax, extend='min')
+    cbar.set_label(
+        r'$|Q|$ of final ' + ic_name.replace('_', r'\_')
+        + ' state'
+    )
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if title is None:
+        title = (
+            f'{ic_name} metastability '
+            r'($|Q| \geq ' + f'{q_thr:g}' + r'$)'
+        )
+    if tag:
+        title = f'{title}\n{tag}'
+    ax.set_title(title)
+    return ax
+
+
+# ---------------------------------------------------------------------
 def _ground_state_field(data, name):
     """Return the (n_D, n_H) ground-state value of `name`."""
     full = data[name]  # (n_D, n_H, n_IC)
@@ -364,8 +457,24 @@ def render_all(npz_path, out_dir=None, units='reduced'):
     os.makedirs(out_dir, exist_ok=True)
     suffix = f'_{units}'
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    fig_map, ax_map = plt.subplots(figsize=(7.0, 5.5))
-    plot_phase_map(data, ax_map, units=units)
+    # GS phase map plus iSk / SkX metastability side-by-side.
+    # The metastability panels share axes with the GS panel so
+    # the chiral-window comparison is direct: GS shows where
+    # each phase wins the energy competition; metastability
+    # shows where the prepared skyrmion / sk_lattice ICs at
+    # least survive as local minima with retained |Q|.
+    fig_map, axes_map = plt.subplots(1, 3, figsize=(22.0, 5.5))
+    plot_phase_map(data, axes_map[0], units=units)
+    plot_metastability(
+        data, 'skyrmion', axes_map[1],
+        q_thr=0.7, units=units,
+        title=r'iSk metastability (skyrmion IC)',
+    )
+    plot_metastability(
+        data, 'sk_lattice', axes_map[2],
+        q_thr=2.0, units=units,
+        title=r'SkX metastability (sk\_lattice IC)',
+    )
     fig_map.tight_layout()
     map_path = os.path.join(
         out_dir, f'{base}_phase_map{suffix}.png',

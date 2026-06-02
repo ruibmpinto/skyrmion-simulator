@@ -16,6 +16,7 @@ each by its `J0` metadata key, and writes two PNGs into
 # =============================================================================
 # Standard
 import glob
+import math
 import os
 # Third-party
 import numpy as np
@@ -140,8 +141,12 @@ def main():
             label=fr'$J = {float(metadata["J0"]):.1e}$ A/m$^2$',)
     ax_a.set_xlabel(r'$t$ (ps)')
     ax_a.set_ylabel(r'$|v_{\mathrm{inst}}|$ (m/s)')
-    ax_a.set_title('S42(a): velocity vs time')
-    ax_a.set_xlim(t_ps[0], t_ps[-1])
+    # Extend xlim past the trace's end so the upper-right
+    # legend has space to the right of the velocity peaks
+    # instead of overlapping them.
+    _span = t_ps[-1] - t_ps[0]
+    ax_a.set_xlim(t_ps[0], t_ps[-1] + 0.55 * _span)
+    ax_a2.set_xlim(t_ps[0], t_ps[-1] + 0.55 * _span)
     ax_a.legend(loc='upper right', frameon=False, fontsize=10)
     ax_a.set_box_aspect(1)
     fig_a.tight_layout()
@@ -171,17 +176,47 @@ def main():
         dx = cx[i_hi] - cx[i_lo]
         dy = cy[i_hi] - cy[i_lo]
         v_avg.append(float(np.sqrt(dx * dx + dy * dy) / FWHM))
+    # Analytical Thiele model under a Gaussian pulse, rigid
+    # skyrmion (no deformation). Instantaneous response gives
+    #   v(t) = coef * J(t),
+    #   coef = pi * DL_SOT * R * gamma /
+    #          (2 * alpha * (R/Delta + Delta/R)).
+    # Hence
+    #   v_max^an  = coef * J0,
+    #   v_avg^an  = (1/FWHM) * integral_{-tail*sigma}^{tail*sigma}
+    #               coef * J0 * exp(-z^2/2) sigma dz
+    #             = coef * J0 * sigma * sqrt(2 pi)
+    #               * erf(tail / sqrt(2)) / FWHM.
+    p = default_params()
+    R = float(p.skyrmion_R)
+    Delta = float(p.skyrmion_dw)
+    coef = (np.pi * p.DL_SOT * R * p.gamma
+            / (2.0 * p.alpha * (R / Delta + Delta / R)))
+    # Pulse shape parameters are identical across the sweep, so
+    # read them from the first metadata block.
+    FWHM_a = float(metadata0['FWHM'])
+    sigma_a = float(metadata0['sigma'])
+    tail_a = float(metadata0['tail_sigmas'])
+    avg_ratio = (sigma_a * np.sqrt(2.0 * np.pi)
+                 * math.erf(tail_a / np.sqrt(2.0)) / FWHM_a)
+    J_grid = np.linspace(0.0, float(J_array.max()), 200)
+    v_max_analytic = coef * J_grid
+    v_avg_analytic = coef * J_grid * avg_ratio
     # Plot.
     fig_b, ax_b = plt.subplots()
     ax_b.plot(J_array / 1e11, v_max, 'o-',
-              label=r'$v_{\mathrm{max}}$', color='C0')
+              label=r'$v_{\mathrm{max}}$ (sim.)', color='C0')
     ax_b.plot(J_array / 1e11, v_avg, 's-',
-              label=r'$v_{\mathrm{avg}} = \Delta x / \mathrm{FWHM}$',
-              color='C3')
+              label=r'$v_{\mathrm{avg}}$ (sim.)', color='C3')
+    ax_b.plot(J_grid / 1e11, v_max_analytic, '--',
+              color='C0',
+              label=r'$v_{\mathrm{max}}$ (Thiele)')
+    ax_b.plot(J_grid / 1e11, v_avg_analytic, '--',
+              color='C3',
+              label=r'$v_{\mathrm{avg}}$ (Thiele)')
     ax_b.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax_b.set_ylabel(r'$v$ (m/s)')
-    ax_b.set_title('S42(b): velocity vs current density')
-    ax_b.legend(loc='lower right', frameon=False)
+    ax_b.legend(loc='lower right', frameon=False, fontsize=11)
     ax_b.set_box_aspect(1)
     fig_b.tight_layout()
     fig_b.savefig(out_summary)

@@ -82,22 +82,29 @@ def _load_sweep(in_dir, key):
 def _plot_panel(items, x_key, x_label, x_scale,
                 title, out_path):
     """Generic two-axis plotter: v_avg on left, d_max on right."""
+    # X axis values (with caller-supplied unit scaling).
     x_arr = np.array([float(m[x_key]) for m, _ in items]) * x_scale
+    # v_avg per trace (m/s).
     v_arr = np.array([_vavg(t, m) for m, t in items])
+    # Peak top-layer diameter per trace (m).
     d_arr = np.array(
         [float(np.max(t['d_top'])) for _, t in items])
+    # Twin axes: velocity on the left, diameter on the right.
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
+    # Velocity points + line.
     ax.plot(x_arr, v_arr, 'o-', color='C0',
             label=r'$v_{\mathrm{avg}}$')
+    # Diameter points + line in nm.
     ax2.plot(x_arr, d_arr * 1e9, '^-', color='C3',
              label=r'max $d_{\mathrm{top}}$')
+    # Axis decoration; left/right axes colour-coded.
     ax.set_xlabel(x_label)
     ax.set_ylabel(r'$v_{\mathrm{avg}}$ (m/s)', color='C0')
     ax2.set_ylabel(r'max diameter (nm)', color='C3')
     ax.tick_params(axis='y', labelcolor='C0')
     ax2.tick_params(axis='y', labelcolor='C3')
-    ax.set_title(title)
+    # Merge handles from both axes into one legend.
     lines, labels = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax.legend(lines + lines2, labels + labels2,
@@ -106,6 +113,7 @@ def _plot_panel(items, x_key, x_label, x_scale,
     fig.tight_layout()
     fig.savefig(out_path)
     print(f'Saved {out_path}')
+    # Console summary, one line per swept point.
     for m, t in items:
         v = _vavg(t, m)
         d = float(np.max(t['d_top']))

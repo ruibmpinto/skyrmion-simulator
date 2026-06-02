@@ -74,10 +74,24 @@ address the following physics questions:
     transverse position variance $\sigma_y(t)$ behave as $T$ and
     $\jcur$ grow?
     \item[\textbf{Q3}] Does the skyrmion size affect velocity and
-    inter-skyrmion interactions? The skyrmion radius $R$ is set by
-    the balance of $\Aex$, $D$, $\Keff$ and (in our parameterization)
-    the applied field $H_z$. The radius enters the pair potential
-    through the domain-wall width $\Delta = \sqrt{\Aex/\Keff}$.
+    interactions? Two complementary "pair" scenarios are in scope,
+    both measured:
+    \begin{itemize}[leftmargin=1.5em, nosep]
+        \item[(Q3a)] \emph{Inter-layer pair}: the top-Co + bot-Co
+        AF-coupled pair within a \emph{single} SAF skyrmion. Vary
+        $D, H_z$ to span $R$; record top-bot lateral offset
+        $|\mb{r}_{c,\text{top}} - \mb{r}_{c,\text{bot}}|$,
+        compensation residual $Q_{\text{top}} + Q_{\text{bot}}$, and
+        $d_{\text{top}}$ vs $d_{\text{bot}}$ under SOT drive as a
+        function of $R$.
+        \item[(Q3b)] \emph{Inter-skyrmion pair}: two SAF skyrmions on
+        one lattice at separation $r_{\text{init}}$. Reconstruct
+        $V(r)$ from ensemble-averaged $r(t)$ at $\jcur = 0$.
+    \end{itemize}
+    The skyrmion radius $R$ is set by the balance of $\Aex$, $D$,
+    $\Keff$ and the applied field $H_z$; the domain-wall width
+    $\Delta = \sqrt{\Aex/\Keff}$ sets the natural length scale for
+    both the inter-layer coupling and the inter-skyrmion potential.
     \item[\textbf{Q4}] Is there an optimal temperature that maximizes
     drift speed while preserving the skyrmion against thermal
     annihilation?
@@ -153,6 +167,18 @@ relative to the noise-induced dynamics.
 
 \subsection{Brown's stochastic LLG equation}
 
+\paragraph{Fluctuation--dissipation theorem (FDT).}
+A general statement (Callen \& Welton 1951; for magnetism specifically
+Brown 1963, \emph{Phys.\ Rev.}\ \textbf{130}, 1677) that connects the
+spectral density of thermal fluctuations of a variable to the
+dissipation in the system's response. For the stochastic LLG it pins
+the noise amplitude to the Gilbert damping $\alpha$: the same friction
+that dissipates magnetic energy must also drive the thermal kicks at
+temperature $T$, so that the equilibrium distribution is Boltzmann. If
+$\sigma$ is set independently of $\alpha$, the system does \emph{not}
+thermalise to the Boltzmann distribution; the macrospin Langevin
+validation gate (Sec.~\ref{sec:val}) checks precisely this.
+
 Magnetic fluctuations at finite temperature are modeled by augmenting
 the deterministic effective field with a Gaussian white-noise field
 $\hth(\mb{r}, t)$ that satisfies the fluctuation--dissipation theorem:
@@ -205,16 +231,24 @@ constraint to machine precision.
 \subsection{Drive: SOT plus Joule heating}
 
 The drive is the existing Slonczewski damping-like plus field-like
-spin--orbit torque already encoded in \texttt{src/simulator/integrator.py}:
+spin--orbit torque encoded in \texttt{src/simulator/integrator.py}:
 %
 \begin{equation}
-\bm{\tau}_{\text{SOT}} =
-\gamma'\, \big[ (H_{DL} + \alpha H_{FL})\, \mb{m} \times \mb{s}
-+ (H_{FL} - \alpha H_{DL})\, \mb{s} \big],
+\bm{\tau}_{\text{SOT}}(t) =
+\gamma'\, \big[ (H_{DL}(t) + \alpha H_{FL}(t))\, \mb{m} \times \mb{s}
++ (H_{FL}(t) - \alpha H_{DL}(t))\, \mb{s} \big],
 \end{equation}
 %
 with $\mb{s} = (\hat{\mb{p}} \times \mb{m})/|\hat{\mb{p}} \times \mb{m}|$,
-$H_{DL} = c_{DL}\, \jcur$, $H_{FL} = c_{FL}\, \jcur$.
+$H_{DL}(t) = c_{DL}\, \jcur(t)$, $H_{FL}(t) = c_{FL}\, \jcur(t)$.
+The time-varying current $\jcur(t)$ is supplied by
+\texttt{p.pulse(t)} (any object implementing \texttt{\_\_call\_\_(t)};
+defaults to \texttt{ConstantPulse(p.J\_current)}). The stochastic
+stepper threads the substage time \texttt{t} through to
+\texttt{llgs\_rhs(m, H, p, t)} so the SOT amplitude tracks the pulse
+at every Heun stage. Setting \texttt{p.pulse = ConstantPulse(0.0)}
+during the relaxation block forces $\jcur = 0$ without changing
+$H_{DL}/H_{FL}$ by hand.
 
 Joule self-heating raises the lattice temperature above the substrate
 temperature:
@@ -232,20 +266,36 @@ non-trivial.
 
 \subsection{Observables}
 
+The trajectory worker records both layers; downstream analyzers
+consume either the top-layer subset (Q1/Q2/Q4) or the cross-layer
+diagnostics (Q3a).
+
 \begin{itemize}[leftmargin=2em]
-    \item \textbf{Drift velocity}
-    $\mb{v} = \langle d\mb{r}_c / dt \rangle$ from
-    \texttt{skyrmion\_center} unwrapped against periodic boundaries.
-    \item \textbf{Hall angle}
-    $\theta_H = \arctan(\langle v_y \rangle / \langle v_x \rangle)$
-    measured on the second half of the trajectory.
+    \item \textbf{Drift velocity} (top \emph{and} bot)
+    $\mb{v}_\ell = \langle d\mb{r}_{c,\ell} / dt \rangle$ from
+    \texttt{skyrmion\_center\_pbc} unwrapped against periodic
+    boundaries (\texttt{unwrap\_trajectory}).
+    \item \textbf{Hall angle} (top and bot)
+    $\theta_{H,\ell} = \arctan(\langle v_{y,\ell}\rangle / \langle v_{x,\ell}\rangle)$
+    fit on the second half of the trajectory.
     \item \textbf{Transverse variance}
     $\sigma_y^2(t) = \langle (y_c(t) - \langle y_c(t)\rangle)^2 \rangle$.
     \item \textbf{Survival probability}
-    $P_{\text{surv}}(T, \jcur) = \Pr(|Q(t_{\max})| > 0.5)$ across the
-    ensemble.
+    $P_{\text{surv}}(T, \jcur) = \Pr(|Q(t_{\max})| > q_{\text{th}}
+    \text{ for } k_{\text{c}} \text{ consecutive samples})$
+    across the ensemble; the K-consecutive guard suppresses false
+    positives from finite-$T$ $Q$ noise.
+    \item \textbf{Topological charge per layer} $Q_{\text{top}}$,
+    $Q_{\text{bot}}$ and the compensation residual
+    $Q_{\text{top}} + Q_{\text{bot}}$ (Q3a).
+    \item \textbf{Per-layer diameter} $d_{\text{top}}$,
+    $d_{\text{bot}}$ from \texttt{skyrmion\_diameter} with the
+    appropriate \texttt{core\_polarity} (Q3a).
+    \item \textbf{Top-bot lateral offset}
+    $\langle |\mb{r}_{c,\text{top}} - \mb{r}_{c,\text{bot}}| \rangle$
+    in steady state (Q3a, inter-layer drag).
     \item \textbf{Pair potential} $V(r)$ from short-time forced-pair
-    runs at $\jcur = 0$, $T = 300$~K (Q3).
+    runs at $\jcur = 0$, $T = 300$~K (Q3b).
 \end{itemize}
 
 %======================================================================
@@ -358,8 +408,9 @@ src/stochastic_llgs/
   integrator_sllg.py        # heun_stochastic_step for the SAF
                             # pair, with optional demag kernels
   joule_heating.py          # T_of_j(j, T_sub, R_th)
-  diagnostics.py            # PBC-unwrapped trajectory, Q track,
-                            # annihilation flag, Hall angle fit
+  diagnostics.py            # skyrmion_center_pbc,
+                            # unwrap_trajectory,
+                            # detect_annihilation, hall_angle
   ensemble.py               # ProcessPoolExecutor ensemble driver
   io.py                     # NPZ writers
   validation/
@@ -368,16 +419,31 @@ src/stochastic_llgs/
     test_langevin.py
     test_brown_reversal.py
     test_equipartition.py
-    test_t0_limit.py
+    test_t0_limit_nodemag.py
+    test_t0_limit_demag.py
   production/
     __init__.py
-    run_single.py
-    scan_tj.py
-    scan_radius.py
-    pair_potential.py
-  jax_backend/              # Phase 6 only; absent until needed
+    run_single.py            # trajectory_worker(config)
+    scan_tj.py               # Q1, Q2, Q4-driven
+    scan_arrhenius.py        # Q4-intrinsic (j=0, tau(T))
+    scan_radius.py           # Q3a (inter-layer + size)
+    pair_potential.py        # Q3b (V(r), two SAFs)
+  jax_backend/               # Phase 6 only; absent until needed
     fields_jax.py
     integrator_diffrax.py
+
+scripts/
+  submit_sllg_scan_tj.sh        # SLURM array, 1 cpu/task,
+  submit_sllg_scan_arrhenius.sh #     %1000 throttle
+  submit_sllg_scan_radius.sh    # 8 cpus/task (scipy.fft demag)
+  submit_sllg_pair_potential.sh # 8 cpus/task
+  submit_sllg_all.sh            # dispatches all four
+  aggregate_sllg.py             # walks per-traj NPZs ->
+                                # aggregate.npz per scan
+  analyze_sllg_scan_tj.py       # reads aggregate.npz ->
+  analyze_sllg_scan_arrhenius.py#   plot + fit + per-scan
+  analyze_sllg_scan_radius.py   #   answer NPZ
+  analyze_sllg_pair_potential.py
 \end{lstlisting}
 
 \subsection{Phase 1 --- Noise generator and macrospin solver}
@@ -393,9 +459,16 @@ src/stochastic_llgs/
     \texttt{rng} is supplied by the caller; constructing one
     silently is forbidden.
     \item \texttt{integrator\_sllg.heun\_stochastic\_step(m\_top,
-    m\_bot, dt, p, rng, demag\_kernels)} implements the predictor and
-    corrector with the same noise sample for both layers and both
-    stages.
+    m\_bot, dt, p, kernels, h\_top, h\_bot, tol\_norm, *, t=0.0)}.
+    The thermal field is \emph{pre-sampled} by the caller (via
+    \texttt{sample\_thermal\_field}) and threaded in as
+    \texttt{h\_top}, \texttt{h\_bot}; the stepper never draws noise
+    internally. \texttt{kernels} is \texttt{None} (no demag) or a
+    populated dict from \texttt{precompute\_demag\_kernels(p)}.
+    \texttt{tol\_norm} is the end-of-step norm-drift cap (raises
+    \texttt{RuntimeError} if exceeded). \texttt{t} is the
+    keyword-only substage time used by \texttt{llgs\_rhs} to evaluate
+    \texttt{p.pulse(t)}; defaults to 0 for constant drives.
 \end{enumerate}
 
 Phase 1 gates on the macrospin Langevin check
@@ -434,17 +507,27 @@ existing code is modified. \textbf{Pass:} 2\% on each observable.
 \subsection{Phase 4 --- Diagnostics and Joule heating}
 
 \begin{itemize}[leftmargin=2em]
-    \item \texttt{diagnostics.track\_skyrmion} unwraps the center
-    against periodic boundaries via the phase of the circular mean
-    $\langle e^{i 2\pi x_c / L}\rangle$ before differencing.
+    \item \texttt{diagnostics.skyrmion\_center\_pbc(m, a,
+    core\_polarity)} computes the per-snapshot PBC-aware center by
+    the phase of the weighted circular mean
+    $\langle e^{i 2\pi x_c / L}\rangle$ over the $m_z$-selected core
+    region. \texttt{core\_polarity = +1} for the top layer (core
+    $m_z = -1$), $-1$ for the bot layer (core $m_z = +1$).
+    \item \texttt{diagnostics.unwrap\_trajectory(cx, cy, L\_x, L\_y)}
+    removes $L$-jumps from a wrapped trajectory by detecting
+    inter-sample displacements $> L/2$ and adding $\pm L$. Requires
+    inter-sample displacement $< L/2$ to be unambiguous.
     \item \texttt{diagnostics.detect\_annihilation(Q\_history,
     q\_threshold, k\_consecutive)} requires both
     \texttt{q\_threshold} and \texttt{k\_consecutive} from the
-    caller. It returns the first step index $n$ such that
+    caller. Returns the first step index $n$ such that
     $|Q[m]| < $\,\texttt{q\_threshold} holds for all $m \in
     [n - k_c + 1, n]$, or $-1$ if the skyrmion survives. The
     consecutive-step guard suppresses false positives from
     finite-$T$ topological-charge fluctuations.
+    \item \texttt{diagnostics.hall\_angle(t, cx, cy, half)} fits a
+    linear drift on the last \texttt{half} fraction of the unwrapped
+    trajectory and returns $(v_x, v_y, \theta_H)$.
     \item \texttt{joule\_heating.T\_of\_j(j, T\_sub, R\_th)}
     implements~\eqref{eq:joule} as a uniform global temperature
     (one scalar $T$ per run); spatially resolved heating is not
@@ -454,39 +537,60 @@ existing code is modified. \textbf{Pass:} 2\% on each observable.
 \subsection{Phase 5 --- Production runs (NumPy)}
 
 Shared configuration: lattice $256 \times 256$,
-$N_{\text{ens}} = 10$ per cell, $\Delta t = 5\times 10^{-14}$~s,
-$t_{\max} = 2$~ns. Joule heating is uniform and global,
-$T = T_{\text{sub}} + R_{\text{th}} \jcur^2$.
+$\Delta t = 5\times 10^{-14}$~s. Joule heating is uniform and
+global, $T = T_{\text{sub}} + R_{\text{th}} \jcur^2$. Material
+defaults set in \texttt{src/simulator/parameters.py}: $D = 0.85
+\times 10^{-3}$~J/m$^2$ (updated from the Pham 2024 Set A value
+of $0.62 \times 10^{-3}$), $R_{\text{sk}} = 93.25$~nm, $dw = 27$~nm.
+All $T$ values held to $T \le 350$~K in the user-config blocks (see
+Sec.~\ref{sec:risks}). $R_{\text{th}} = 0$ by default so
+$T_{\text{eff}} = T_{\text{sub}}$; set explicitly if a calibrated
+value is available.
 
 \begin{itemize}[leftmargin=2em]
     \item \texttt{run\_single.py}: one $(T_{\text{sub}}, \jcur)$
     trajectory. Demag is a user-set boolean in the User
-    Configuration block.
+    Configuration block. Exports
+    \texttt{trajectory\_worker(config)} for the scan drivers.
 
-    \item \texttt{scan\_tj.py} (Q1, Q2, Q4): \textbf{demag OFF}.
-    Grid $T_{\text{sub}} \in \{200, 250, 300, 350, 400\}$~K $\times$
-    $\jcur \in \{1, 2, 4, 8, 16\} \times 10^{11}$~A/m$^2$. Per cell:
-    $\langle v\rangle, \sigma_v, \theta_H, \sigma_{\theta_H}$, and
-    $P_{\text{surv}} = (\#\text{alive at }t_{\max})/N_{\text{ens}}$
-    using the \texttt{detect\_annihilation} guard.
+    \item \texttt{scan\_tj.py} (Q1, Q2, Q4-driven): \textbf{demag
+    OFF}, $N_{\text{ens}} = 30$.
+    Grid $T_{\text{sub}} \in \{10, 25, 50, 100, 150, 200, 250, 300,
+    350\}$~K $\times$
+    $\jcur \in \{1, 2, 4, 8, 16\} \times 10^{11}$~A/m$^2$.
+    Per cell: $\langle v\rangle, \sigma_v, \theta_H,
+    \sigma_{\theta_H}, \sigma_y$, and
+    $P_{\text{surv}}$ using the \texttt{detect\_annihilation}
+    guard. Total $= 9 \times 5 \times 30 = 1350$ trajectories,
+    $t_{\max} = 2$~ns each.
 
-    \item \texttt{scan\_arrhenius.py} (stability, dedicated): demag
-    OFF, $\jcur = 0$, $N_{\text{ens}} = 30$. Sweep $T \in \{300,
-    350, 400, 450, 500\}$~K (high $T$ chosen so annihilation events
-    occur within $t_{\max}$). Each trajectory runs to $t_{\max}$ or
-    annihilation, whichever comes first. Fit $\log \tau$ vs $1/T$
-    and report $\Delta E_{\text{barrier}}$ and the Brown prefactor
-    $\tau_0$. This is the canonical SAF skyrmion thermal-stability
-    figure.
+    \item \texttt{scan\_arrhenius.py} (Q4-intrinsic, dedicated):
+    demag OFF, $\jcur = 0$, $N_{\text{ens}} = 200$. Sweep
+    $T \in \{10, 25, 50, 100, 150, 200, 250, 300, 350\}$~K with
+    $t_{\max} = 10$~ns. Fit $\log \tau$ vs $1/T$ via the censored
+    exponential MLE and report $\Delta E_{\text{barrier}}$ and the
+    Brown prefactor $\tau_0$. Total $= 9 \times 200 = 1800$
+    trajectories. With the $T \le 350$~K cap, observed annihilation
+    rates may be too low to produce a defensible fit; the script
+    reports \texttt{nan} for $\Delta E$ in that case.
 
-    \item \texttt{scan\_radius.py} (Q3): \textbf{demag ON}. At
-    $T = 300$~K, sweep $(D, H_z)$ to span
-    $R \in \{40, 60, 80, 120\}$~nm. Report $v(R), \theta_H(R),
-    P_{\text{surv}}(R)$.
+    \item \texttt{scan\_radius.py} (Q3a, inter-layer + size):
+    \textbf{demag ON}, $N_{\text{ens}} = 30$. At $T = 300$~K and
+    $\jcur = 4 \times 10^{11}$~A/m$^2$, sweep $(D, H_z)$ over the
+    \texttt{dh\_cells} list (defaults inherited from the D=0.62 era;
+    retune for D=0.85 if needed). For each cell, alongside top-layer
+    $\langle d\rangle, \langle v\rangle, \langle \theta_H\rangle,
+    P_{\text{surv}}$, also report the inter-layer Q3a diagnostics
+    $\langle |\mb{r}_{c,\text{top}} - \mb{r}_{c,\text{bot}}|\rangle$
+    and $\langle Q_{\text{top}} + Q_{\text{bot}}\rangle$ (the
+    compensation residual). Total $= 4 \times 30 = 120$ trajectories.
 
-    \item \texttt{pair\_potential.py} (Q3): \textbf{demag ON}.
-    Forced-pair runs at $T = 300$~K, $\jcur = 0$. Reconstruct
-    $V(r)$ from short-time radial force measurements.
+    \item \texttt{pair\_potential.py} (Q3b, V(r)): \textbf{demag
+    ON}, $N_{\text{ens}} = 30$. Forced-pair runs at $T = 300$~K,
+    $\jcur = 0$, sweeping initial separations
+    $r_{\text{init}} \in \{180, 240, 320, 400\}$~nm. Reconstruct
+    $V(r)$ from short-time radial force measurements. Total
+    $= 4 \times 30 = 120$ trajectories.
 \end{itemize}
 
 \paragraph{Why demag-off for the stability scans, demag-on for
@@ -520,8 +624,8 @@ quantitative criterion before the next phase begins.
 \subsection{Langevin macrospin (Phase 1)}
 
 Single spin in a Zeeman field $B \hat{z}$, no anisotropy, $\alpha=1$.
-For each $T \in \{50, 100, 200, 300, 500\}$~K and several $B$ values,
-run $\geq 200$ trajectories of length
+For each $T \in \{10, 25, 50, 100, 150, 200, 250, 300, 350\}$~K
+and several $B$ values, run $\geq 200$ trajectories of length
 $\gtrsim 100 / (\alpha \gamma B)$. Compare the time- and
 ensemble-averaged $\langle m_z \rangle$ to the Langevin function
 $L(\mu B / \kB T)$ with $\mu = \Ms \Vcell$.
@@ -560,11 +664,22 @@ $Q$ each agree with the deterministic RK4 to within 2\%.
 
 \subsection{$T=0$ deterministic limit (Phase 3b, with demag)}
 
-Same setup but with \texttt{precompute\_demag\_kernels(p)} passed
-in. The reference is generated by driving the existing
-\texttt{rk4\_step} with \texttt{effective\_field\_demag\_pair} for
-the same duration; no edits to existing code. \textbf{Pass:} 2\% on
-each observable.
+With demag on, the canonical \texttt{saf\_skyrmion} IC at default
+$(D, H_z = 0)$ is unstable: during the relaxation block it decays
+into a multi-soliton $Q \approx +3$ texture. To probe \emph{stepper
+consistency} cleanly (separate from physical stability of the IC)
+we apply a small stabilising perpendicular field $H_z = +0.2$~T,
+shrink the IC to $R = 40$~nm with $dw = 15$~nm, and shorten the
+trajectory to $100$~ps relax $+\,100$~ps drive. The reference is
+generated on the fly by driving the existing \texttt{rk4\_step}
+with \texttt{effective\_field\_demag\_pair} for the same duration;
+no edits to existing code. Both integrators converge to the same
+equilibrium morphology in this short window. \textbf{Pass:}
+diameter and $Q$ each within 2\%. The per-cell m-field RMS and max
+deviation are recorded as diagnostics but not gated: in the
+chaotic regime that the IC enters, small $O(\Delta t^2)$
+discretisation differences amplify into large local m-field
+deviations even though the morphology matches.
 
 %======================================================================
 \section{Run-script conventions (no argparse)}
@@ -572,31 +687,68 @@ each observable.
 
 Every runnable module's \texttt{main()} opens with a labeled User
 Configuration block of snake\_case Python variables. The user edits
-the file to reconfigure a run. SLURM array indices, when needed, are
-read from environment variables with explicit \texttt{os.environ[key]}
-so a missing variable raises \texttt{KeyError} rather than silently
-defaulting.
+the file to reconfigure a run. SLURM array indices and the in-process
+parallelism are read from environment variables
+(\texttt{SLURM\_ARRAY\_TASK\_ID}, \texttt{SWEEP\_NPROC}); a missing
+variable raises \texttt{KeyError} rather than silently defaulting.
 
 \begin{lstlisting}[language=python]
 def main():
-    # ================ User Configuration ================
-    t_kelvin    = 300.0
-    j_current   = 4.0e11        # A/m^2
-    r_th        = 1.0e-15       # K m^4 / A^2
-    t_max       = 2.0e-9        # s
-    dt          = 5.0e-14       # s
-    seed_base   = 17
-    n_ens       = 10
-    n_workers   = 8
+    # =========== User Configuration ===========
+    t_sub_list  = [10., 25., 50., 100., 150.,
+                   200., 250., 300., 350.]  # K
+    j_list      = [1e11, 2e11, 4e11, 8e11, 1.6e12]
+    r_th        = 0.0
+    t_max       = 2.0e-9
+    dt          = 5.0e-14
+    seed_base   = 101
+    n_ens       = 30
+    use_demag   = False
     nx, ny      = 256, 256
-    # ============ End User Configuration =================
+    # ========= End User Configuration =========
     ...
 \end{lstlisting}
 
-A sibling \texttt{.sh} SLURM wrapper loads modules and invokes
-\texttt{python -m src.stochastic\_llgs.production.scan\_tj}; per-run
-knobs (grids, ensemble size, lattice size) live inside the Python
-file itself.
+\paragraph{SLURM array dispatch.} Each production script builds a
+flat trajectory grid (one entry per (cell, ens\_idx)). At run time
+it reads \texttt{SLURM\_ARRAY\_TASK\_ID}; if set, the script
+restricts the grid to that single index and runs exactly one
+trajectory. Out-of-range indices raise \texttt{RuntimeError}. This
+matches the pattern of \texttt{scripts/sweep\_S41\_v\_time.py} and
+the other figure-reproduction sweeps. Each task writes its own
+NPZ to \texttt{output/stochastic\_llgs/<scan>/}, named by the cell
+coordinates and the ensemble index.
+
+\paragraph{Submit scripts.} One \texttt{scripts/submit\_sllg\_<scan>.sh}
+per scan, plus a master \texttt{submit\_sllg\_all.sh} that dispatches
+all four. Per-task resource layout:
+\begin{itemize}[leftmargin=2em, nosep]
+    \item \texttt{scan\_tj}, \texttt{scan\_arrhenius}: demag OFF, no
+    FFT to thread, \texttt{--cpus-per-task=1} with
+    \texttt{--array=0-N\%1000} concurrency cap (N = 1349, 1799).
+    \item \texttt{scan\_radius}, \texttt{pair\_potential}: demag ON,
+    \texttt{scipy.fft.fft2(workers=-1)} threading in
+    \texttt{src/simulator/demag.py}, so
+    \texttt{--cpus-per-task=8} and no throttle (N = 119).
+\end{itemize}
+All four set \texttt{SWEEP\_NPROC=1} (one trajectory per task; the
+internal \texttt{mp.Pool} branch is only used for local non-array
+runs).
+
+\paragraph{Aggregator and analyzers.} Post-cluster pipeline:
+\begin{enumerate}[leftmargin=2em, nosep]
+    \item Pull per-trajectory NPZs from the cluster
+    (\texttt{rsync ... <cluster>:<scratch>/skyrmion/output/}
+    \texttt{stochastic\_llgs/}).
+    \item \texttt{python -m scripts.aggregate\_sllg <scan>} walks
+    the per-task files and writes
+    \texttt{aggregate.npz} (one script, one positional argument
+    selecting the scan; no argparse).
+    \item \texttt{python -m scripts.analyze\_sllg\_<scan>} reads
+    the aggregate, produces the per-question figure and the
+    answer NPZ (Pareto front, Arrhenius fit, $v(R)$ +
+    inter-layer offset, $V(r)$).
+\end{enumerate}
 
 %======================================================================
 \section{Verification plan (end-to-end)}
@@ -622,38 +774,163 @@ file itself.
     \item \textbf{Cost calibration.} From the single-cell wall time,
     estimate total cost of the production grid. If above budget,
     trigger Phase 6.
-    \item \textbf{Production scans.}
-    \texttt{production/scan\_tj.py},
-    \texttt{production/scan\_arrhenius.py},
-    \texttt{production/scan\_radius.py},
-    \texttt{production/pair\_potential.py}.
-    \item \textbf{Answers.} A generated notebook
-    \texttt{output/stochastic\_llgs/answers.md} reads the NPZ files
-    and answers Q1--Q4 in the same order as the introduction.
-    Q4 is answered jointly from \texttt{scan\_tj} (driven survival)
-    and \texttt{scan\_arrhenius} (zero-drive barrier).
+    \item \textbf{Production scans.} Submit
+    \texttt{scripts/submit\_sllg\_all.sh} on the cluster.
+    \item \textbf{Aggregate + analyze.}
+    \texttt{python -m scripts.aggregate\_sllg <scan>} then
+    \texttt{python -m scripts.analyze\_sllg\_<scan>} for each scan.
+    Per-figure outputs land in \texttt{output/figures\_sllg/}.
+    Q4 is answered jointly from \texttt{scan\_tj} (driven survival
+    and Pareto front) and \texttt{scan\_arrhenius} (zero-drive
+    barrier $\Delta E$).
 \end{enumerate}
 
 %======================================================================
-\section{Risks and open items}
+\section{Results so far}\label{sec:results}
+%======================================================================
+
+A first cluster sweep has been completed; the numbers below are the
+direct readouts from
+\texttt{output/stochastic\_llgs/scan\_tj/aggregate.npz} (1350
+trajectories, $N_\mathrm{ens}=30$ per cell). Q3 and Q4 are reported in
+later sections once the LCC pipeline (Sec.~\ref{sec:risks}) and the
+high-T Arrhenius extension are run.
+
+%----------------------------------------------------------------------
+\subsection{Q1: same drive at room T sustains the $T=0$ velocity}
+%----------------------------------------------------------------------
+
+\textbf{Answer: yes — the same drive works, and slightly better at room~T.}
+
+From \texttt{scan\_tj}, the Pareto-optimal cell at every $T_\mathrm{sub}$
+(max $\langle v \rangle$ subject to $P_\mathrm{surv} \ge 0.8$) is
+$j = 4 \times 10^{11}$~A/m$^2$ at every $T$ from 10~K to 350~K, with
+$\langle v \rangle$ rising monotonically:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+$T_\mathrm{sub}$ [K] & 10 & 50 & 150 & 250 & 300 & 350 \\
+\midrule
+$\langle v \rangle$ [m/s] at $j = 4 \times 10^{11}$
+   & 372 & 371 & 387 & 404 & 421 & 491 \\
+SE [m/s]
+   & 0.9 & 1.9 & 12.7 & 15.4 & 21.6 & 27.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At room temperature ($\approx 300$~K) the same $j$ gives
+$\langle v \rangle \approx 421$~m/s versus $\approx 372$~m/s at 10~K — a
+\textbf{$\sim 13\%$ increase}, not a decrease. The trend is real (well
+above the standard error) and is most plausibly a modest
+thermal-Hopkinson-like effect: anisotropy softens with $T$, the
+skyrmion grows slightly and de-pins from the lattice discretisation,
+and the SOT-driven mobility rises. The drive does \emph{not} have to
+be reduced to sustain $j = 4 \times 10^{11}$ operation at room~T.
+The speed cap is set by survival, not by temperature: at
+$j = 8 \times 10^{11}$ and $j = 1.6 \times 10^{12}$ the survival
+probability collapses below 20\,\% at every $T$.
+
+%----------------------------------------------------------------------
+\subsection{Q2: directional control at high drive}
+%----------------------------------------------------------------------
+
+\textbf{Partial answer.} One observable is reliable; the other is
+contaminated by the short fit window.
+
+\paragraph{$\sigma_y$ (transverse jitter): reliable.} Steady-state
+$\sigma_y$ from \texttt{scan\_tj} at $j = 4 \times 10^{11}$:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+$T_\mathrm{sub}$ [K] & 10 & 50 & 150 & 250 & 300 & 350 \\
+\midrule
+$\sigma_y$ [nm] & 4.0 & 7.4 & 21.8 & 27.3 & 50.0 & 77.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The transverse jitter grows from $\sim 4$~nm at 10~K to $\sim 78$~nm
+at 350~K — substantial, but still well below the 256-nm box
+half-width and well below the inter-skyrmion separations of interest
+($\sim 200$~nm), so the lateral track is not lost.
+\textbf{Directional control is preserved} at $j = 4 \times 10^{11}$
+up to 350~K. Above that drive ($j = 8 \times 10^{11}$), $\sigma_y$
+blows up to 100--300~nm \emph{and} $P_\mathrm{surv}$ collapses
+simultaneously: both indicators agree that the drive has crossed
+the stability boundary.
+
+\paragraph{Hall angle: not reliable from this dataset.}
+$\langle \theta_H \rangle$ bounces from $-87^\circ$ to $+95^\circ$
+across cells (e.g.\ at $T = 300$~K it sits at $-11^\circ$,
+$+47^\circ$, $-163^\circ$ across the three lowest $j$ values). A
+compensated SAF should have $\theta_H \approx 0^\circ$; the noise
+in our measurement dwarfs the physical signal. The root cause is
+the Hall-angle fit window: 2~ns of drive sampled at 10-ps cadence
+gives only $\sim 10$ post-relax samples, short enough that a
+single transverse thermal fluctuation can dominate the linear fit.
+\textbf{Q2-Hall-angle is INCOMPLETE.} To close it: extend
+\texttt{n\_drive} for a longer fit, compute per-trajectory
+$\theta_H$ and report the ensemble median rather than the
+$\langle v_x \rangle / \langle v_y \rangle$ mean, or switch to a
+circular-statistics estimator that handles the $\pm 180^\circ$
+wrap correctly.
+
+%======================================================================
+\section{Risks and open items}\label{sec:risks}
 %======================================================================
 
 \begin{itemize}[leftmargin=2em]
+    \item \textbf{$T \le 350$~K cap.} The stochastic-LLGS framework
+    assumes constant $M_s$ within a trajectory, valid only for
+    $T \ll T_C$ (Sec.~\ref{sec:notation_fixed_T}). No direct $T_C$
+    measurement exists for the Pham 2024 stack in any reference in
+    \texttt{refs/}: Pham 2024~\cite{pham2024} does not report it;
+    Bandiera 2012~\cite{bandiera2012} measures only PMA at room
+    temperature with anneals up to 350~$^\circ$C; Cai
+    2012~\cite{cai2012} measures Co$_{44}$Pt$_{56}$ \emph{alloy}
+    films, not multilayers, and gets $T_C \approx 446{-}733$~K
+    depending on thickness; Watanabe 1994~\cite{watanabe1994}
+    measures bulk Co-50at\%Pt alloy ($T_C \approx 1100$~K), again
+    not the multilayer; Koyama 2015~\cite{koyama2015} is the only
+    Pt/Co/Pt \emph{multilayer} study but limited to
+    $t_{\text{Co}} = 0.25{-}0.32$~nm with $T_C \approx 100{-}400$~K
+    in that sub-monolayer regime. Linear extrapolation of Koyama's
+    2000~K/nm slope breaks down well below the Pham
+    $t_{\text{Co}} = 1.58$~nm; $T_C$ at that thickness must
+    asymptote toward bulk Co (1388~K). A conservative floor
+    $T_C \gtrsim 700$~K and the constant-$M_s$ requirement
+    $T < 0.5\,T_C$ together motivate the user-config cap
+    $T \le 350$~K applied across every production and validation
+    script. The cap is not policed inside \texttt{attach\_thermal};
+    the user is responsible for choosing $T$ values in the
+    user-config blocks.
     \item $\Rth$ has no literature-anchored value for this Pt/Co/Ru
-    SAF stack. We carry it as a user-supplied parameter and report
-    sensitivity to it in the final scan.
-    \item $N_{\text{ens}} = 10$ may be insufficient for cells with
-    $P_{\text{surv}}$ near 0.5; the script raises a warning and we
-    increase $N_{\text{ens}}$ to 30 for tail cells.
+    SAF stack. Default is $\Rth = 0$ (heating disabled); the user
+    sets it explicitly when a calibrated value is available.
+    \item $N_{\text{ens}} = 30$ for \texttt{scan\_tj},
+    \texttt{scan\_radius}, \texttt{pair\_potential};
+    $N_{\text{ens}} = 200$ for \texttt{scan\_arrhenius} where the
+    censored exponential MLE benefits most from more events. These
+    sit at the lower bound of published practice for direct sLLG
+    sampling: Litzius 2017 and Woo 2017 use $N = 1{-}10$ for SOT
+    velocity, while Hagemeister 2015~\cite{hagemeister2015} and
+    Cort\'es-Ortu\~{n}o 2017~\cite{cortes2017} use $N = 100{-}1000$
+    for Arrhenius lifetimes.
     \item $\Delta t = 5\times 10^{-14}$~s is borrowed from the
     deterministic simulator; the Langevin gate provides the
-    quantitative check that this $\Delta t$ is small enough at high
-    temperature. If it fails at $T = 500$~K, halve $\Delta t$ for the
-    full pipeline.
-    \item Production cost on $256 \times 256$ with demag, $N_{\text{ens}}
-    = 10$, $25$ $(T, \jcur)$ cells dominates the budget; the
-    single-cell calibration in step 5 of the verification plan
-    decides whether to trigger Phase 6.
+    quantitative check that this $\Delta t$ is small enough at the
+    capped temperature. The norm-drift guard
+    \texttt{tol\_norm}~$=5\times 10^{-3}$ raises loudly if exceeded.
+    \item Production cost on $256 \times 256$: the cluster pipeline
+    runs all four scans concurrently as SLURM arrays; the
+    long-pole is \texttt{scan\_arrhenius} (1800 tasks, 10-ns
+    observation window each). The JAX/diffrax port (Phase 6) is
+    only triggered if cluster budget proves insufficient.
 \end{itemize}
 
 %======================================================================
@@ -712,6 +989,40 @@ S.~Rohart, J.~Miltat, A.~Thiaville,
 \bibitem{kidger2021}
 P.~Kidger, ``On Neural Differential Equations,'' PhD thesis,
 University of Oxford, 2021 (\emph{diffrax} library).
+
+\bibitem{pysllg}
+K.~Sung, \texttt{kswng/PysLLG} (GitHub, accessed 2026): reference
+Python+Cython implementation of stochastic LLG. The Heun pattern
+adopted in Sec.~3.1 mirrors \texttt{LLG\_runge\_kutta.pyx}.
+
+\bibitem{bandiera2012}
+S.~Bandiera et al., ``Enhancement of perpendicular magnetic
+anisotropy thanks to Pt insertions in synthetic antiferromagnets,''
+\emph{Appl.\ Phys.\ Lett.}\ \textbf{101}, 072410 (2012).
+
+\bibitem{koyama2015}
+T.~Koyama et al., ``Dependence of Curie temperature on Pt layer
+thickness in Co/Pt system,'' \emph{Appl.\ Phys.\ Lett.}\ \textbf{106},
+132409 (2015).
+
+\bibitem{cai2012}
+W.~Cai et al., ``Curie temperatures of CoPt ultrathin continuous
+films,'' \emph{Appl.\ Phys.\ A} \textbf{107}, 519 (2012).
+
+\bibitem{watanabe1994}
+K.~Watanabe, T.~Kaneko, S.~Ohnuma, ``Temperature dependence of
+magnetic properties in Co--Pt, Fe--Pt and Cr--Pt permanent magnet
+alloys,'' \emph{Mater.\ Trans.\ JIM} \textbf{35}, 136 (1994).
+
+\bibitem{hagemeister2015}
+J.~Hagemeister, N.~Romming, K.~von Bergmann, E.~Y.~Vedmedenko,
+R.~Wiesendanger, ``Stability of single skyrmionic bits,''
+\emph{Nat.\ Comm.}\ \textbf{6}, 8455 (2015).
+
+\bibitem{cortes2017}
+D.~Cort\'es-Ortu\~{n}o et al., ``Thermal stability and topological
+protection of skyrmions in nanotracks,'' \emph{Sci.\ Rep.}\
+\textbf{7}, 4060 (2017).
 
 \end{thebibliography}
 

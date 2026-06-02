@@ -303,3 +303,89 @@ def hex_lattice_bubbles(nx, ny, a, R, period, dw):
     m_top[..., 2] = cos_t
     m_bot = -m_top
     return m_top, m_bot
+
+
+# ---------------------------------------------------------------------
+def _square_centers(nx, ny, a, period):
+    """Return all square-lattice site coordinates inside the box.
+
+    Square Bravais lattice (a1 = (period, 0), a2 = (0, period))
+    with two layers of margin so boundary grid points see the
+    correct nearest center under PBC. Used to seed the
+    square-cell (SC) phase basin of Güngördü 2016.
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice cell counts.
+    a : float
+        Lattice constant (m).
+    period : float
+        Square lattice constant (nearest-neighbour distance, m).
+
+    Returns
+    -------
+    centers : numpy.ndarray(2d)
+        Shape (n_centers, 2), site (x, y) coordinates (m).
+    """
+    if period <= 0.0:
+        raise RuntimeError(
+            f'period must be positive, got {period}.')
+    L_x = nx * a
+    L_y = ny * a
+    n1_max = int(np.ceil(L_x / period)) + 2
+    n2_max = int(np.ceil(L_y / period)) + 2
+    centers = []
+    for n1 in range(-2, n1_max + 1):
+        for n2 in range(-2, n2_max + 1):
+            r = np.array([n1 * period, n2 * period])
+            if (-period <= r[0] <= L_x + period
+                    and -period <= r[1] <= L_y + period):
+                centers.append(r)
+    return np.array(centers)
+
+
+# ---------------------------------------------------------------------
+def square_lattice_skyrmions(nx, ny, a, R, period, dw):
+    """Square lattice of Neel skyrmions (each carries Q = -1).
+
+    Square-lattice analogue of `hex_lattice_skyrmions`: each
+    grid point picks up the profile of the nearest square-site
+    skyrmion, with radial Neel in-plane winding. Seeds the
+    four-fold-ordered square-cell (SC) basin of the Güngördü
+    2016 phase diagram (the hex `sk_lattice` IC seeds the
+    six-fold SkX basin instead).
+
+    Parameters
+    ----------
+    nx, ny : int
+        Lattice cell counts.
+    a : float
+        Lattice constant (m).
+    R : float
+        Skyrmion radius (m_z = 0 contour) in metres.
+    period : float
+        Square lattice constant in metres (typical: the helix
+        wavelength lambda = 4 pi A / D).
+    dw : float
+        Domain-wall width (m), ~ sqrt(A_ex / K_eff).
+
+    Returns
+    -------
+    m_top, m_bot : numpy.ndarray(3d)
+        Shape (ny, nx, 3). Antiparallel SAF pair.
+    """
+    if R <= 0.0 or dw <= 0.0:
+        raise RuntimeError(
+            f'R and dw must be positive; got R={R}, dw={dw}.')
+    centers = _square_centers(nx, ny, a, period)
+    r, phi = _nearest_center_field(nx, ny, a, centers)
+    theta = 2.0 * np.arctan(np.exp(-(r - R) / dw))
+    sin_t = np.sin(theta)
+    cos_t = np.cos(theta)
+    m_top = np.zeros((ny, nx, 3))
+    m_top[..., 0] = sin_t * np.cos(phi)   # Neel winding
+    m_top[..., 1] = sin_t * np.sin(phi)
+    m_top[..., 2] = cos_t
+    m_bot = -m_top
+    return m_top, m_bot

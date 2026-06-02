@@ -44,8 +44,7 @@ def sample_thermal_field(rng, shape, sigma, dt):
         trailing axis for the (h_x, h_y, h_z) components.
     sigma : float
         Noise amplitude in Tesla * sqrt(s) (typically
-        `p.sigma_noise` from
-        `parameters_thermal.attach_thermal`). Strictly
+        `p.sigma_noise` from `parameters_thermal.attach_thermal`). Strictly
         positive.
     dt : float
         Integration time step in seconds. Strictly positive.

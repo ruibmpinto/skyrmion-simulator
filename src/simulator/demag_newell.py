@@ -30,12 +30,18 @@ precompute_demag_kernels_newell
     Build self- and inter-layer demag kernels in k-space using
     the Gauss-Legendre numerical Newell formulation with the
     mumax3 adaptive integration density.
+precompute_demag_kernels_newell_freebc
+    Zero-padded (2*ny, 2*nx) variant for free (open) boundary
+    conditions. Used by single-disc / single-rect benchmarks
+    (CO SP1, muMAG SP4) where the magnet is finite and the
+    PBC images would corrupt the demag field.
 """
 #
 #                                                                       Modules
 # =============================================================================
 # Standard
 import math
+from types import SimpleNamespace
 # Third-party
 import numpy as np
 import scipy.fft as sfft
@@ -57,6 +63,23 @@ __status__ = 'Development'
 # dest-volume grids avoids resonant alignment that degrades
 # accuracy at touching cells.
 SURFACE_STAGGER = 2
+
+# Demag tensor construction method. Two options:
+#  'closed'     -- OOMMF Newell-Williams-Dunlop 1993 closed
+#                  form (transcribed from
+#                  oommf/app/oxs/ext/demagcoef.cc). Exact to
+#                  double precision, fast, default.
+#  'quadrature' -- mumax3-style adaptive Gauss-Legendre
+#                  integration of the surface-charge formula
+#                  (transcribed from mumax3/mag/demagkernel.go).
+#                  Used by mumax3 itself; agrees with the
+#                  closed form to ~1e-3 at accuracy=4 and
+#                  ~1e-5 at accuracy=8. Slower but useful for
+#                  side-by-side validation.
+# Override at the module level (e.g. `demag_newell._METHOD =
+# 'quadrature'` before calling `precompute_demag_kernels`) to
+# select the alternative path.
+_METHOD = 'closed'
 
 
 # -----------------------------------------------------------------------------
@@ -132,6 +155,262 @@ def _gl_unit_interval_nodes(n):
                            f'>= 1, got {n}.')
     nodes, weights = roots_legendre(n)
     return nodes, weights / 2.0
+
+
+# -----------------------------------------------------------------------------
+def _newell_f(x, y, z):
+    """Newell-Williams-Dunlop 1993 antiderivative for the
+    diagonal demag-tensor element N_xx, transcribed directly
+    from `OOMMF/app/oxs/ext/demagcoef.cc::Oxs_Newell_f`.
+
+    f is even in each argument (i.e. f(|x|, |y|, |z|)). The
+    27-corner finite-difference of f gives 4 pi dx dy dz N_xx
+    between two prisms of dims (dx, dy, dz) at center-to-
+    center offset (X, Y, Z).
+
+    Parameters
+    ----------
+    x, y, z : float
+        Cartesian arguments (m).
+
+    Returns
+    -------
+    f : float
+        Antiderivative value at (|x|, |y|, |z|), divided by
+        12 (OOMMF normalization).
+
+    Notes
+    -----
+    Reference: Newell, Williams & Dunlop, J. Geophys. Res. 98,
+    9551 (1993), Eq. (32). The OOMMF form writes asinh as a
+    log of the squared argument, which is more stable than the
+    series expansion near zero:
+        2 asinh(y / sqrt(x^2 + z^2))
+            = log((y + R)^2 / (x^2 + z^2)).
+    """
+    x = abs(x)
+    y = abs(y)
+    z = abs(z)
+    xsq = x * x
+    ysq = y * y
+    zsq = z * z
+    R2 = xsq + ysq + zsq
+    if R2 <= 0.0:
+        return 0.0
+    R = math.sqrt(R2)
+    sum_ = 0.0
+    if z > 0.0:
+        sum_ += 2.0 * (2.0 * xsq - ysq - zsq) * R
+        temp1 = x * y * z
+        if temp1 > 0.0:
+            sum_ += -12.0 * temp1 * math.atan2(y * z, x * R)
+        temp2 = xsq + zsq
+        if y > 0.0 and temp2 > 0.0:
+            sum_ += 3.0 * y * (zsq - xsq) * \
+                math.log(((y + R) * (y + R)) / temp2)
+        temp3 = xsq + ysq
+        if temp3 > 0.0:
+            sum_ += 3.0 * z * (ysq - xsq) * \
+                math.log(((z + R) * (z + R)) / temp3)
+    else:
+        # z == 0 special case (2D-grid optimisation).
+        if x == y:
+            K = 2.0 * math.sqrt(2.0) - 6.0 * math.log(
+                1.0 + math.sqrt(2.0))
+            sum_ += K * xsq * x
+        else:
+            sum_ += 2.0 * (2.0 * xsq - ysq) * R
+            if y > 0.0 and x > 0.0:
+                sum_ += -6.0 * y * xsq * math.log((y + R) / x)
+    return sum_ / 12.0
+
+
+# -----------------------------------------------------------------------------
+def _newell_g(x, y, z):
+    """Newell-Williams-Dunlop 1993 antiderivative for the
+    off-diagonal demag-tensor element N_xy, transcribed
+    directly from
+    `OOMMF/app/oxs/ext/demagcoef.cc::Oxs_Newell_g`.
+
+    g is odd in x, odd in y, even in z. The OOMMF code tracks
+    the sign explicitly before taking absolute values.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Cartesian arguments (m).
+
+    Returns
+    -------
+    g : float
+        Antiderivative value, sign-adjusted for the odd-x,
+        odd-y, even-z symmetry; divided by 6 (OOMMF
+        normalization).
+
+    Notes
+    -----
+    Reference: Newell, Williams & Dunlop, J. Geophys. Res. 98,
+    9551 (1993), Eq. (33).
+    """
+    result_sign = 1.0
+    if x < 0.0:
+        result_sign *= -1.0
+    if y < 0.0:
+        result_sign *= -1.0
+    x = abs(x)
+    y = abs(y)
+    z = abs(z)
+    xsq = x * x
+    ysq = y * y
+    zsq = z * z
+    R2 = xsq + ysq + zsq
+    if R2 <= 0.0:
+        return 0.0
+    R = math.sqrt(R2)
+    sum_ = -2.0 * x * y * R
+    if z > 0.0:
+        sum_ += -z * zsq * math.atan2(x * y, z * R)
+        sum_ += -3.0 * z * ysq * math.atan2(x * z, y * R)
+        sum_ += -3.0 * z * xsq * math.atan2(y * z, x * R)
+        temp1 = xsq + ysq
+        if temp1 > 0.0:
+            sum_ += 3.0 * x * y * z * \
+                math.log(((z + R) * (z + R)) / temp1)
+        temp2 = ysq + zsq
+        if temp2 > 0.0:
+            sum_ += 0.5 * y * (3.0 * zsq - ysq) * \
+                math.log(((x + R) * (x + R)) / temp2)
+        temp3 = xsq + zsq
+        if temp3 > 0.0:
+            sum_ += 0.5 * x * (3.0 * zsq - xsq) * \
+                math.log(((y + R) * (y + R)) / temp3)
+    else:
+        # z == 0 special case.
+        if y > 0.0:
+            sum_ += -y * ysq * math.log((x + R) / y)
+        if x > 0.0:
+            sum_ += -x * xsq * math.log((y + R) / x)
+    return result_sign * sum_ / 6.0
+
+
+# -----------------------------------------------------------------------------
+def _newell_27_corner(X, Y, Z, dx, dy, dz, f_func):
+    """27-corner Newell-1993 finite-difference of an
+    antiderivative.
+
+    The two-cell six-volume integral of 1/r is the
+    6-antiderivative F evaluated through three 1st-order
+    differences on the source and three on the dest. After
+    substituting r = r_dest - r_src and combining same-
+    position corners, the 64-corner sum collapses to a
+    27-corner sum on the (-1, 0, +1)^3 lattice with separable
+    2nd-order finite-difference weights W per axis. The 1D
+    convolution of (+1, -1) (source) with (+1, -1) (dest) is
+    (-1, +2, -1) at offsets (-1, 0, +1), so:
+
+        W(0) = +2,  W(+-1) = -1.
+
+    Applying an additional analytic 2nd-derivative w.r.t. X
+    to F gives the function f used below; the same 27-corner
+    sum on f gives the demag tensor element N_xx (and N_yy,
+    N_zz by argument permutation; N_xy, N_xz, N_yz when
+    `f_func` is the off-diagonal antiderivative g).
+
+    Parameters
+    ----------
+    X, Y, Z : float
+        Center-to-center cell offset (m).
+    dx, dy, dz : float
+        Cell dimensions along (x, y, z) (m).
+    f_func : callable
+        Antiderivative `f(x, y, z)` (diagonal) or `g(x, y, z)`
+        (off-diagonal). Argument permutations select which
+        tensor element is computed:
+          N_xx(X,Y,Z; dx,dy,dz) <- f(X, Y, Z; dx, dy, dz)
+          N_yy(X,Y,Z; dx,dy,dz) <- f(Y, X, Z; dy, dx, dz)
+          N_zz(X,Y,Z; dx,dy,dz) <- f(Z, Y, X; dz, dy, dx)
+          N_xy(X,Y,Z; dx,dy,dz) <- g(X, Y, Z; dx, dy, dz)
+          N_xz(X,Y,Z; dx,dy,dz) <- g(X, Z, Y; dx, dz, dy)
+          N_yz(X,Y,Z; dx,dy,dz) <- g(Y, Z, X; dy, dz, dx)
+
+    Returns
+    -------
+    N : float
+        The demag tensor element, depolarizing-positive sign
+        convention so that `H = -mu_0 M_s * N * m`.
+    """
+    w = (-1.0, 2.0, -1.0)
+    val = 0.0
+    for i_idx, ix in enumerate((-1, 0, 1)):
+        for j_idx, jy in enumerate((-1, 0, 1)):
+            for k_idx, kz in enumerate((-1, 0, 1)):
+                weight = w[i_idx] * w[j_idx] * w[k_idx]
+                val += weight * f_func(
+                    X + ix * dx,
+                    Y + jy * dy,
+                    Z + kz * dz)
+    return val / (4.0 * math.pi * dx * dy * dz)
+
+
+# -----------------------------------------------------------------------------
+def _newell_tensor_closed(X, Y, Z, dx, dy, dz):
+    """Closed-form demag tensor between two prisms of dims
+    (dx, dy, dz) at center-to-center offset (X, Y, Z).
+
+    Replaces the Gauss-Legendre `_compute_one_pair_tensor`
+    quadrature with the Newell-Williams-Dunlop 1993 closed-
+    form integrals.
+
+    Parameters
+    ----------
+    X, Y, Z : float
+        Center-to-center separation (m).
+    dx, dy, dz : float
+        Source and dest cell dimensions (m); the formula
+        assumes both prisms share these dims.
+
+    Returns
+    -------
+    N : numpy.ndarray(2d)
+        3x3 demag tensor, depolarizing sign convention so that
+        H = -mu_0 M_s * N * m. By Maxwell reciprocity N is
+        symmetric.
+
+    Notes
+    -----
+    Diagonal components (N_xx, N_yy, N_zz) are obtained from
+    `_newell_f` with cyclic argument permutation:
+        N_xx(X,Y,Z) = newell_8corner(X,Y,Z, dx,dy,dz; f(x,y,z))
+        N_yy(X,Y,Z) = newell_8corner(Y,X,Z, dy,dx,dz; f(x,y,z))
+        N_zz(X,Y,Z) = newell_8corner(Z,Y,X, dz,dy,dx; f(x,y,z))
+    Off-diagonals use `_newell_g`:
+        N_xy(X,Y,Z) = newell_8corner(X,Y,Z, dx,dy,dz; g(x,y,z))
+        N_xz(X,Y,Z) = newell_8corner(X,Z,Y, dx,dz,dy; g(x,y,z))
+        N_yz(X,Y,Z) = newell_8corner(Y,Z,X, dy,dz,dx; g(x,y,z))
+    """
+    out = np.zeros((3, 3))
+    out[0, 0] = _newell_27_corner(
+        X, Y, Z, dx, dy, dz,
+        lambda xx, yy, zz: _newell_f(xx, yy, zz))
+    out[1, 1] = _newell_27_corner(
+        Y, X, Z, dy, dx, dz,
+        lambda xx, yy, zz: _newell_f(xx, yy, zz))
+    out[2, 2] = _newell_27_corner(
+        Z, Y, X, dz, dy, dx,
+        lambda xx, yy, zz: _newell_f(xx, yy, zz))
+    out[0, 1] = _newell_27_corner(
+        X, Y, Z, dx, dy, dz,
+        lambda xx, yy, zz: _newell_g(xx, yy, zz))
+    out[1, 0] = out[0, 1]
+    out[0, 2] = _newell_27_corner(
+        X, Z, Y, dx, dz, dy,
+        lambda xx, yy, zz: _newell_g(xx, yy, zz))
+    out[2, 0] = out[0, 2]
+    out[1, 2] = _newell_27_corner(
+        Y, Z, X, dy, dz, dx,
+        lambda xx, yy, zz: _newell_g(xx, yy, zz))
+    out[2, 1] = out[1, 2]
+    return out
 
 
 # -----------------------------------------------------------------------------
@@ -401,7 +680,6 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     obtained from the quadrature.
     """
     cellsize = (dx, dy, t_layer)
-    L = min(cellsize)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # PBC-aware signed lattice positions: indices > nx//2
     # wrap to negative side, matching the FFT convention.
@@ -410,7 +688,9 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     X1d_signed = np.where(ix_arr <= nx // 2, ix_arr, ix_arr - nx)
     Y1d_signed = np.where(iy_arr <= ny // 2, iy_arr, iy_arr - ny)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Output kernels
+    # Output kernels (depolarizing-positive sign convention so
+    # `H = -mu0 Ms * N * m`; Newell closed-form fills directly
+    # in this convention -- no end-of-loop sign flip needed).
     Nxx = np.zeros((ny, nx))
     Nyy = np.zeros((ny, nx))
     Nzz = np.zeros((ny, nx))
@@ -418,84 +698,86 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     Nxz = np.zeros((ny, nx))
     Nyz = np.zeros((ny, nx))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Per-cell loop. Each (i_idx, j_idx) entry corresponds to the
-    # tensor between a source cell at the lattice origin and a
-    # dest cell at lattice offset (ix_s, iy_s). The number of
-    # GL quadrature nodes per cell is adapted to the separation:
-    # nearby cells need denser sampling (singular 1/r^3 kernel),
-    # far cells need only a single node per axis. This mumax3
-    # recipe makes the precompute scalable up to large lattices.
-    for j_idx in range(ny):
-        # Signed y-lattice offset of the dest cell (negative for
-        # the upper half of the FFT-wrapped grid).
-        iy_s = int(Y1d_signed[j_idx])
-        for i_idx in range(nx):
-            # Signed x-lattice offset of the dest cell.
-            ix_s = int(X1d_signed[i_idx])
-            # Center-to-center separation between source (origin)
-            # and dest cell in physical units.
-            X = ix_s * dx
-            Y = iy_s * dy
-            Z = Z_separation
-            # Edge-to-edge distance per axis. _delta_lat(0) = 0
-            # for self-cell, |k|-1 for k != 0 (cell faces touch
-            # when adjacent, so the minimum gap is one less cell).
-            dxe = _delta_lat(ix_s) * dx
-            dye = _delta_lat(iy_s) * dy
-            if Z_separation == 0.0:
-                # Same-layer pair: source and dest live in the
-                # same plane, so there is no z-gap between them.
-                dze = 0.0
-            else:
-                # Cross-layer pair: gap = |Z_sep| - t_layer when
-                # the layers are non-overlapping in z, else 0
-                # (overlapping layers would imply touching faces).
-                dze = max(abs(Z_separation) - t_layer, 0.0)
-            # Euclidean edge-to-edge distance between the two
-            # cells (zero if they share a face or are coincident).
-            d = math.sqrt(dxe*dxe + dye*dye + dze*dze)
-            if d == 0.0:
-                # Touching/coincident cells: use the minimum cell
-                # dimension L as the length scale so we still get
-                # a finite (and dense) quadrature density.
-                d = L
-            # Target node spacing: smaller distance -> finer mesh.
-            # 'accuracy' is a user knob (4-5 typically suffices).
-            maxSize = d / accuracy
-            # GL node counts per axis, at least 1. The +0.5 makes
-            # the int() act as nearest-integer rounding rather
-            # than truncation, which would under-sample.
-            n_x = max(int(dx / maxSize + 0.5), 1)
-            n_y = max(int(dy / maxSize + 0.5), 1)
-            n_z = max(int(t_layer / maxSize + 0.5), 1)
-            # Compute the 3x3 demag tensor for this single source-
-            # dest cell pair via the surface-charge integral.
-            tensor = _compute_one_pair_tensor(
-                X=X, Y=Y, Z=Z, cellsize=cellsize,
-                n_density=(n_x, n_y, n_z))
-            # Scatter the six unique entries into the per-component
-            # output kernels. By Maxwell reciprocity N is symmetric,
-            # so only the upper triangle is stored.
-            Nxx[j_idx, i_idx] = tensor[0, 0]
-            Nyy[j_idx, i_idx] = tensor[1, 1]
-            Nzz[j_idx, i_idx] = tensor[2, 2]
-            Nxy[j_idx, i_idx] = tensor[0, 1]
-            Nxz[j_idx, i_idx] = tensor[0, 2]
-            Nyz[j_idx, i_idx] = tensor[1, 2]
+    # Per-cell loop. Each (i_idx, j_idx) entry corresponds to
+    # the tensor between a source cell at the lattice origin
+    # and a dest cell at lattice offset (ix_s, iy_s). Two
+    # equivalent constructions are supported (see _METHOD):
+    #
+    # 'closed'    -- OOMMF Newell-Williams-Dunlop 1993 closed
+    #                form (transcribed from
+    #                oommf/app/oxs/ext/demagcoef.cc). Exact to
+    #                double precision; `accuracy` is ignored.
+    # 'quadrature' -- mumax3-style adaptive Gauss-Legendre
+    #                surface-volume integration with
+    #                stagger-2 mumax3 default. `accuracy`
+    #                controls the quadrature density.
+    #
+    # The two paths agree to ~1e-3 at accuracy=4 and ~1e-5 at
+    # accuracy=8 (cell-by-cell), verified in
+    # tests/test_demag_method_equivalence.py. Default is
+    # 'closed' (faster, no accuracy knob, matches OOMMF and
+    # Aharoni self-cell exactly).
+    if _METHOD == 'closed':
+        for j_idx in range(ny):
+            iy_s = int(Y1d_signed[j_idx])
+            for i_idx in range(nx):
+                ix_s = int(X1d_signed[i_idx])
+                X = ix_s * dx
+                Y = iy_s * dy
+                Z = Z_separation
+                tensor = _newell_tensor_closed(
+                    X=X, Y=Y, Z=Z, dx=dx, dy=dy, dz=t_layer)
+                Nxx[j_idx, i_idx] = tensor[0, 0]
+                Nyy[j_idx, i_idx] = tensor[1, 1]
+                Nzz[j_idx, i_idx] = tensor[2, 2]
+                Nxy[j_idx, i_idx] = tensor[0, 1]
+                Nxz[j_idx, i_idx] = tensor[0, 2]
+                Nyz[j_idx, i_idx] = tensor[1, 2]
+    elif _METHOD == 'quadrature':
+        cellsize = (dx, dy, t_layer)
+        L = min(cellsize)
+        for j_idx in range(ny):
+            iy_s = int(Y1d_signed[j_idx])
+            for i_idx in range(nx):
+                ix_s = int(X1d_signed[i_idx])
+                X = ix_s * dx
+                Y = iy_s * dy
+                Z = Z_separation
+                dxe = _delta_lat(ix_s) * dx
+                dye = _delta_lat(iy_s) * dy
+                if Z_separation == 0.0:
+                    dze = 0.0
+                else:
+                    dze = max(abs(Z_separation) - t_layer, 0.0)
+                d = math.sqrt(dxe*dxe + dye*dye + dze*dze)
+                if d == 0.0:
+                    d = L
+                maxSize = d / accuracy
+                n_x = max(int(dx / maxSize + 0.5), 1)
+                n_y = max(int(dy / maxSize + 0.5), 1)
+                n_z = max(int(t_layer / maxSize + 0.5), 1)
+                tensor = _compute_one_pair_tensor(
+                    X=X, Y=Y, Z=Z, cellsize=cellsize,
+                    n_density=(n_x, n_y, n_z))
+                # Quadrature returns mumax3 +H/M sign; flip to
+                # depolarizing-positive convention to match
+                # the closed-form path and the slab kernel.
+                Nxx[j_idx, i_idx] = -tensor[0, 0]
+                Nyy[j_idx, i_idx] = -tensor[1, 1]
+                Nzz[j_idx, i_idx] = -tensor[2, 2]
+                Nxy[j_idx, i_idx] = -tensor[0, 1]
+                Nxz[j_idx, i_idx] = -tensor[0, 2]
+                Nyz[j_idx, i_idx] = -tensor[1, 2]
+    else:
+        raise RuntimeError(
+            f'_build_layer_pair_kernel: unknown _METHOD '
+            f'{_METHOD!r}; expected "closed" or "quadrature".')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Sign convention flip: mumax3 stores +H/M, slab uses
-    # H = -mu0*Ms*N*m. Negate to match the existing slab
-    # kernel schema.
-    Nxx = -Nxx
-    Nyy = -Nyy
-    Nzz = -Nzz
-    Nxy = -Nxy
-    Nxz = -Nxz
-    Nyz = -Nyz
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Self-cell override at (0, 0) for the self-layer kernel.
-    # Aharoni gives the diagonals exactly; off-diagonals
-    # vanish by the cell mirror symmetries.
+    # Aharoni override at (0, 0) for the self-layer kernel.
+    # Closed form reproduces Aharoni to ~1e-15, but the direct
+    # Aharoni formula sidesteps the 27-corner cancellation
+    # noise; quadrature only converges to Aharoni at high
+    # accuracy, so the override is essential there.
     if Z_separation == 0.0:
         Nxx[0, 0] = _aharoni_demag_factor(dy, t_layer, dx)
         Nyy[0, 0] = _aharoni_demag_factor(dx, t_layer, dy)
@@ -503,7 +785,6 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
         Nxy[0, 0] = 0.0
         Nxz[0, 0] = 0.0
         Nyz[0, 0] = 0.0
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     return {
         'Nxx': Nxx, 'Nyy': Nyy, 'Nzz': Nzz,
         'Nxy': Nxy, 'Nxz': Nxz, 'Nyz': Nyz,
@@ -538,6 +819,99 @@ def _assemble_kernel_dict(p, accuracy):
         'd_Ru': p.d_Ru,
         'shape': (p.ny, p.nx),
     }
+
+
+# -----------------------------------------------------------------------------
+def precompute_demag_kernels_newell_freebc(p, accuracy, tol_conv):
+    """Zero-padded Newell demag kernel for free (open) boundaries.
+
+    Builds the same per-component Newell kernel as
+    `precompute_demag_kernels_newell`, but on a doubled
+    (2*ny x 2*nx) FFT lattice so that the cyclic convolution
+    on the padded grid evaluates the linear (non-periodic)
+    convolution restricted to the physical (ny x nx) region.
+    Caller-side use: pad the physical m to (2*ny, 2*nx) with
+    zeros outside the magnetic region, FFT, multiply by these
+    kernels, IFFT, then extract the central (ny x nx) tile.
+    Implemented dispatch is handled inside `demag_field` via
+    the `kind == 'newell_freebc'` flag in the kernels dict.
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Same attributes as `precompute_demag_kernels_newell`.
+    accuracy : float
+        Mumax3 accuracy parameter.
+    tol_conv : float
+        Maximum relative kernel error between `accuracy` and
+        `2 * accuracy` for the convergence check.
+
+    Returns
+    -------
+    kernels : dict
+        Same schema as the PBC Newell kernel plus
+        'kind' = 'newell_freebc' and 'shape_phys' = (ny, nx)
+        recording the physical (un-padded) shape.
+
+    Notes
+    -----
+    Per-call cost: 6 forward + 6 inverse FFTs on real arrays
+    of shape (2 ny, 2 nx); 4x the work of the PBC variant.
+    The kernels themselves are also 4x larger in memory.
+    """
+    if accuracy <= 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_newell_freebc: '
+            f'accuracy must be positive, got {accuracy}.')
+    if tol_conv <= 0.0 or tol_conv >= 1.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_newell_freebc: '
+            f'tol_conv must lie in (0, 1), got {tol_conv}.')
+    if p.t_Co <= 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_newell_freebc: '
+            f'p.t_Co must be positive, got {p.t_Co}.')
+    if p.d_Ru < 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_newell_freebc: '
+            f'p.d_Ru must be non-negative, got {p.d_Ru}.')
+    if p.nx < 2 or p.ny < 2:
+        raise RuntimeError(
+            f'precompute_demag_kernels_newell_freebc: '
+            f'nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Doubled-grid namespace: nx, ny are 2x; all other material
+    # and geometry attributes are inherited. The Newell builder
+    # only reads `nx, ny, a, t_Co, d_Ru, Ms, mu0`.
+    p_pad = SimpleNamespace(
+        nx=int(2 * p.nx), ny=int(2 * p.ny),
+        a=float(p.a), t_Co=float(p.t_Co), d_Ru=float(p.d_Ru),
+        Ms=float(p.Ms), mu0=float(p.mu0))
+    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy)
+    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy)
+    # Component-by-component convergence check.
+    comp_keys = [
+        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
+        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
+        'Nxz_inter', 'Nyz_inter',
+    ]
+    for key in comp_keys:
+        diff = np.abs(K_hi[key] - K_lo[key])
+        denom = np.abs(K_hi[key]).max()
+        if denom < 1e-30:
+            continue
+        rel_err = diff.max() / denom
+        if rel_err > tol_conv:
+            raise RuntimeError(
+                f'precompute_demag_kernels_newell_freebc: '
+                f'kernel did not converge for component '
+                f'{key!r} between accuracy={accuracy} and '
+                f'accuracy={2.0*accuracy} (max relative '
+                f'difference {rel_err:.4e} exceeds '
+                f'tol_conv={tol_conv:.4e}).')
+    K_hi['kind'] = 'newell_freebc'
+    K_hi['shape_phys'] = (int(p.ny), int(p.nx))
+    return K_hi
 
 
 # -----------------------------------------------------------------------------

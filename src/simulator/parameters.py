@@ -130,9 +130,11 @@ def default_params():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Skyrmion initial condition
     # Domain-wall profile centered in box; mz=0 contour radius R.
-    p.skyrmion_R = 80e-9   # m, skyrmion radius (mz=0)
-    # dw = sqrt(A_ex / K_eff) from 1D Euler-Lagrange solution (paper).
-    p.skyrmion_dw = 27e-9  # m, domain wall width (paper)
+    # R derived from a measured post-relax diameter at D=0.85e-3:
+    p.skyrmion_R = 93.25e-9   # m, measured for D=0.85e-3
+    # dw = sqrt(A_ex / K_eff) depends only on A_ex and K_eff
+    # (independent of D); paper value retained.
+    p.skyrmion_dw = 27e-9     # m, domain wall width (paper)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Output
     p.output_dir = 'output'

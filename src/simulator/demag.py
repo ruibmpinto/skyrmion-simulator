@@ -44,8 +44,10 @@ demag_field
 import numpy as np
 import scipy.fft as sfft
 # Local
-from src.simulator.demag_newell import \
-    precompute_demag_kernels_newell
+from src.simulator.demag_newell import (
+    precompute_demag_kernels_newell,
+    precompute_demag_kernels_newell_freebc,
+)
 
 #
 #                                                   Authorship & Credits
@@ -102,6 +104,16 @@ def precompute_demag_kernels(p, kind, accuracy, tol_conv):
     dimensionless; the prefactor mu0*Ms is applied inside
     `demag_field`.
     """
+    if kind == 'none':
+        if accuracy is not None or tol_conv is not None:
+            raise RuntimeError(
+                f"precompute_demag_kernels: kind='none' does "
+                f"not accept accuracy/tol_conv; got "
+                f"accuracy={accuracy!r}, tol_conv={tol_conv!r}.")
+        # Sentinel kernel: demag_field returns zero for this
+        # kind. Carries shape + mu0_Ms only for diagnostics.
+        return {'kind': 'none', 'shape': (int(p.ny), int(p.nx)),
+                'mu0_Ms': p.mu0 * p.Ms}
     if kind == 'slab':
         if accuracy is not None or tol_conv is not None:
             raise RuntimeError(
@@ -117,9 +129,18 @@ def precompute_demag_kernels(p, kind, accuracy, tol_conv):
                 f"accuracy={accuracy!r}, tol_conv={tol_conv!r}.")
         return precompute_demag_kernels_newell(
             p, accuracy=accuracy, tol_conv=tol_conv)
+    if kind == 'newell_freebc':
+        if accuracy is None or tol_conv is None:
+            raise RuntimeError(
+                f"precompute_demag_kernels: "
+                f"kind='newell_freebc' requires accuracy and "
+                f"tol_conv; got accuracy={accuracy!r}, "
+                f"tol_conv={tol_conv!r}.")
+        return precompute_demag_kernels_newell_freebc(
+            p, accuracy=accuracy, tol_conv=tol_conv)
     raise RuntimeError(
-        f"precompute_demag_kernels: kind must be 'slab' or "
-        f"'newell', got {kind!r}.")
+        f"precompute_demag_kernels: kind must be 'none', "
+        f"'slab', 'newell', or 'newell_freebc', got {kind!r}.")
 
 
 # ---------------------------------------------------------------------
@@ -238,6 +259,10 @@ def _precompute_slab(p):
 def demag_field(m_top, m_bot, kernels):
     """Evaluate the demag field on both layers (Tesla).
 
+    Dispatches between the PBC convolution (slab, newell) and
+    the zero-padded free-BC convolution (newell_freebc) using
+    the `kind` flag stored in the kernels dict.
+
     Parameters
     ----------
     m_top : numpy.ndarray(3d)
@@ -256,11 +281,18 @@ def demag_field(m_top, m_bot, kernels):
 
     Notes
     -----
-    Per-step cost: 6 forward FFTs + 6 inverse FFTs on
-    real arrays of shape (ny, nx). Memory cost is
-    dominated by the eight cached kernels of the same
-    shape.
+    PBC per-step cost: 6 forward FFTs + 6 inverse FFTs on
+    real arrays of shape (ny, nx). free-BC cost: same FFTs
+    but on (2 ny, 2 nx) padded arrays, so ~4x slower.
     """
+    if kernels.get('kind') == 'none':
+        # Demag-disabled path: zero field on both layers. Used
+        # by benchmarks (e.g. the Gungordu local-model phase
+        # diagram) that must run the production field/integrator
+        # code with no magnetostatic contribution.
+        return (np.zeros_like(m_top), np.zeros_like(m_bot))
+    if kernels.get('kind') == 'newell_freebc':
+        return _demag_field_freebc(m_top, m_bot, kernels)
     mu0_Ms = kernels['mu0_Ms']
     # Forward FFT each component (top and bot)
     # 6 forward FFTs per call; dominant per-step cost of demag.
@@ -338,4 +370,109 @@ def demag_field(m_top, m_bot, kernels):
     H_bot[..., 1] = np.real(sfft.ifft2(Hy_b_k, workers=-1))
     H_bot[..., 2] = np.real(sfft.ifft2(Hz_b_k, workers=-1))
     # Return
+    return H_top, H_bot
+
+
+# ---------------------------------------------------------------------
+def _demag_field_freebc(m_top, m_bot, kernels):
+    """Free-BC demag field via zero-padded cyclic convolution.
+
+    The physical m arrays (ny, nx, 3) are zero-padded to
+    (2 ny, 2 nx, 3), FFT'd, multiplied by the pre-built
+    (2 ny, 2 nx) k-space Newell kernel, IFFT'd, and the
+    central (ny, nx) tile is returned. The padded periodic
+    convolution evaluates the linear (non-periodic) convolution
+    on the physical region, which is the standard FFT
+    free-BC recipe used by mumax3 / OOMMF.
+
+    Parameters
+    ----------
+    m_top, m_bot : numpy.ndarray(3d)
+        Physical magnetisations, shape (ny, nx, 3). Caller is
+        responsible for any spatial mask (m = 0 outside the
+        magnetic region) consistent with `effective_field`.
+    kernels : dict
+        Output of `precompute_demag_kernels` with
+        `kind = 'newell_freebc'`.
+
+    Returns
+    -------
+    H_top, H_bot : numpy.ndarray(3d)
+        Demag field, shape (ny, nx, 3).
+    """
+    ny_phys, nx_phys = kernels['shape_phys']
+    if m_top.shape[:2] != (ny_phys, nx_phys):
+        raise RuntimeError(
+            f'_demag_field_freebc: m_top shape '
+            f'{m_top.shape[:2]} does not match kernels '
+            f'shape_phys {(ny_phys, nx_phys)}.')
+    if m_bot.shape[:2] != (ny_phys, nx_phys):
+        raise RuntimeError(
+            f'_demag_field_freebc: m_bot shape '
+            f'{m_bot.shape[:2]} does not match kernels '
+            f'shape_phys {(ny_phys, nx_phys)}.')
+    mu0_Ms = kernels['mu0_Ms']
+    ny_pad = 2 * ny_phys
+    nx_pad = 2 * nx_phys
+    # Allocate padded arrays and copy the physical data into
+    # the top-left (ny_phys, nx_phys) tile; the remaining
+    # cells stay at zero, which encodes the magnetic vacuum
+    # for the linear convolution.
+    pad = np.zeros((ny_pad, nx_pad), dtype=float)
+    def _pad(field2d):
+        out = pad.copy()
+        out[:ny_phys, :nx_phys] = field2d
+        return out
+    Mxt = sfft.fft2(_pad(m_top[..., 0]), workers=-1)
+    Myt = sfft.fft2(_pad(m_top[..., 1]), workers=-1)
+    Mzt = sfft.fft2(_pad(m_top[..., 2]), workers=-1)
+    Mxb = sfft.fft2(_pad(m_bot[..., 0]), workers=-1)
+    Myb = sfft.fft2(_pad(m_bot[..., 1]), workers=-1)
+    Mzb = sfft.fft2(_pad(m_bot[..., 2]), workers=-1)
+    Nxx_s = kernels['Nxx_self']
+    Nyy_s = kernels['Nyy_self']
+    Nxy_s = kernels['Nxy_self']
+    Nzz_s = kernels['Nzz_self']
+    Nxx_i = kernels['Nxx_inter']
+    Nyy_i = kernels['Nyy_inter']
+    Nxy_i = kernels['Nxy_inter']
+    Nzz_i = kernels['Nzz_inter']
+    Nxz_i = kernels['Nxz_inter']
+    Nyz_i = kernels['Nyz_inter']
+    # Same H = -mu0*Ms * (N_self * m_self + N_inter * m_other)
+    # composition as the PBC branch; only the convolution
+    # support has changed.
+    Hx_t_k = -mu0_Ms * (
+        Nxx_s * Mxt + Nxy_s * Myt
+        + Nxx_i * Mxb + Nxy_i * Myb + Nxz_i * Mzb)
+    Hy_t_k = -mu0_Ms * (
+        Nxy_s * Mxt + Nyy_s * Myt
+        + Nxy_i * Mxb + Nyy_i * Myb + Nyz_i * Mzb)
+    Hz_t_k = -mu0_Ms * (
+        Nzz_s * Mzt
+        + Nzz_i * Mzb + Nxz_i * Mxb + Nyz_i * Myb)
+    Hx_b_k = -mu0_Ms * (
+        Nxx_s * Mxb + Nxy_s * Myb
+        + Nxx_i * Mxt + Nxy_i * Myt - Nxz_i * Mzt)
+    Hy_b_k = -mu0_Ms * (
+        Nxy_s * Mxb + Nyy_s * Myb
+        + Nxy_i * Mxt + Nyy_i * Myt - Nyz_i * Mzt)
+    Hz_b_k = -mu0_Ms * (
+        Nzz_s * Mzb
+        + Nzz_i * Mzt - Nxz_i * Mxt - Nyz_i * Myt)
+    Hx_t = np.real(sfft.ifft2(Hx_t_k, workers=-1))
+    Hy_t = np.real(sfft.ifft2(Hy_t_k, workers=-1))
+    Hz_t = np.real(sfft.ifft2(Hz_t_k, workers=-1))
+    Hx_b = np.real(sfft.ifft2(Hx_b_k, workers=-1))
+    Hy_b = np.real(sfft.ifft2(Hy_b_k, workers=-1))
+    Hz_b = np.real(sfft.ifft2(Hz_b_k, workers=-1))
+    # Extract the central physical tile from each component.
+    H_top = np.empty_like(m_top)
+    H_top[..., 0] = Hx_t[:ny_phys, :nx_phys]
+    H_top[..., 1] = Hy_t[:ny_phys, :nx_phys]
+    H_top[..., 2] = Hz_t[:ny_phys, :nx_phys]
+    H_bot = np.empty_like(m_bot)
+    H_bot[..., 0] = Hx_b[:ny_phys, :nx_phys]
+    H_bot[..., 1] = Hy_b[:ny_phys, :nx_phys]
+    H_bot[..., 2] = Hz_b[:ny_phys, :nx_phys]
     return H_top, H_bot

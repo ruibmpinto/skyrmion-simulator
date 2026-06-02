@@ -71,12 +71,14 @@ def _vavg(trace, metadata):
 
 
 def _load_panel_A(in_dir):
-    """Load `panelA.npz`. Raises if missing."""
-    path = os.path.join(in_dir, 'panelA.npz')
-    if not os.path.exists(path):
+    """Load panel A trace. Accepts both legacy `panelA.npz`
+    and the new D-tagged `panelA_D{X}e-3.npz`; picks the last
+    match alphabetically (D-tagged sorts after the bare name)."""
+    paths = sorted(glob.glob(os.path.join(in_dir, 'panelA*.npz')))
+    if not paths:
         raise RuntimeError(
-            f'plot_S44: panel A trace not found at {path}.')
-    return load_trace(path)
+            f'plot_S44: no panelA*.npz trace found in {in_dir}.')
+    return load_trace(paths[-1])
 
 
 def _load_panel_BC(in_dir):
@@ -95,27 +97,31 @@ def _load_panel_BC(in_dir):
 
 def _plot_A(trace, metadata, out_path):
     """Diameter vs time + pulse envelope on right axis."""
+    # Time axis (s) and top-layer diameter (m) per sample.
     t = trace['t']
     d_top = trace['d_top']
+    # Reconstruct the Gaussian pulse from its metadata.
     sigma = float(metadata['sigma'])
     t_center = float(metadata['t_center'])
     J0 = float(metadata['J0'])
     z = (t - t_center) / sigma
     J_t = J0 * np.exp(-0.5 * z * z)
+    # Twin-axis figure: diameter (left) + J(t) (right).
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
+    # Diameter trace, plotted in nm vs ps.
     ax.plot(t * 1e12, d_top * 1e9, color='C0',
             label='$d_{\\mathrm{top}}$')
+    # Drive pulse profile in units of 10^11 A/m^2.
     ax2.plot(t * 1e12, J_t / 1e11, color='violet',
              linestyle='--',
              label='$J / 10^{11}$')
+    # Axis decoration; pulse axis labelled in violet.
     ax.set_xlabel(r'$t$ (ps)')
     ax.set_ylabel(r'diameter (nm)')
     ax2.set_ylabel(r'$J$ ($10^{11}$ A/m$^2$)', color='violet')
     ax2.tick_params(axis='y', labelcolor='violet')
     fwhm_ps = float(metadata['FWHM']) * 1e12
-    ax.set_title(
-        f'S44(a): d(t) at J={J0:.1e}, FWHM={fwhm_ps:.0f} ps')
     ax.set_box_aspect(1)
     ax.legend(loc='upper left', frameon=False)
     fig.tight_layout()
@@ -125,25 +131,30 @@ def _plot_A(trace, metadata, out_path):
 
 def _plot_B(items, out_path):
     """v_avg, max(D1_top), min(D2_top) vs J."""
+    # Reduce each (metadata, trace) into one scalar per quantity.
     J_arr = np.array([float(m['J0']) for m, _ in items])
     v_arr = np.array([_vavg(t, m) for m, t in items])
+    # Peak major-axis size (D1) and trough minor-axis size (D2).
     D1_max = np.array(
         [float(np.max(t['D1_top'])) for _, t in items])
     D2_min = np.array(
         [float(np.min(t['D2_top'])) for _, t in items])
+    # Twin axes: velocity (left) + axis sizes (right).
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
+    # Velocity in m/s vs J in 10^11 A/m^2.
     ax.plot(J_arr / 1e11, v_arr, 'o-', color='C0',
             label=r'$v_{\mathrm{avg}}$')
+    # Major and minor axes in nm on the right axis.
     ax2.plot(J_arr / 1e11, D1_max * 1e9, '^-', color='C3',
              label=r'max $D_1$ (nm)')
     ax2.plot(J_arr / 1e11, D2_min * 1e9, 's-', color='C2',
              label=r'min $D_2$ (nm)')
+    # Axis decoration; left axis colour-tied to the velocity.
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel(r'$v_{\mathrm{avg}}$ (m/s)', color='C0')
     ax2.set_ylabel(r'axis size (nm)')
     ax.tick_params(axis='y', labelcolor='C0')
-    ax.set_title('S44(b): velocity and ellipse axes vs J')
     # Combined legend.
     lines, labels = ax.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
@@ -155,24 +166,50 @@ def _plot_B(items, out_path):
     print(f'Saved {out_path}')
 
 
+def _unwrap_to_zero_rest(psi_seq):
+    """Unwrap a psi(J) sequence stored under the OLD dw_angle
+    convention (atan2(my, -mx)) into a signed deviation from the
+    layer's natural Neel orientation, matching the new convention.
+
+    Strategy: np.unwrap removes spurious +-pi jumps, then we
+    subtract the small-J rest value modulo pi so the series
+    starts at 0 in either layer."""
+    psi = np.unwrap(np.asarray(psi_seq))
+    # Rest value is the smallest-J point; reduce mod pi so we
+    # measure deviation from the layer's natural +-x_hat branch.
+    rest = ((psi[0] + np.pi / 2.0) % np.pi) - np.pi / 2.0
+    return psi - (psi[0] - rest)
+
+
 def _plot_C(items, out_path):
     """psi at maximum-diameter time, top vs bottom layers."""
+    # Per-trace J0 (drive level).
     J_arr = np.array([float(m['J0']) for m, _ in items])
-    psi_top = []
-    psi_bot = []
+    # Sample psi at the time of peak top-layer diameter.
+    psi_top_raw = []
+    psi_bot_raw = []
     for m, t in items:
         i_peak = int(np.argmax(t['d_top']))
-        psi_top.append(float(np.degrees(t['psi_top'][i_peak])))
-        psi_bot.append(float(np.degrees(t['psi_bot'][i_peak])))
+        psi_top_raw.append(float(t['psi_top'][i_peak]))
+        psi_bot_raw.append(float(t['psi_bot'][i_peak]))
+    # Sort by J before unwrapping so np.unwrap follows monotone J.
+    order = np.argsort(J_arr)
+    J_arr = J_arr[order]
+    # Convention conversion + radians -> degrees.
+    psi_top = np.degrees(_unwrap_to_zero_rest(
+        np.array(psi_top_raw)[order]))
+    psi_bot = np.degrees(_unwrap_to_zero_rest(
+        np.array(psi_bot_raw)[order]))
+    # Top and bottom DW angles on a shared axis.
     fig, ax = plt.subplots()
     ax.plot(J_arr / 1e11, psi_top, 's-', color='C3',
             label=r'top, $\psi$')
     ax.plot(J_arr / 1e11, psi_bot, 'o-', color='k',
             label=r'bot, $\psi$')
-    ax.axhline(180.0, color='0.7', linestyle=':')
+    # Zero reference line (natural Neel orientation).
+    ax.axhline(0.0, color='0.7', linestyle=':')
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
-    ax.set_ylabel(r'$\psi$ (deg)')
-    ax.set_title('S44(c): DW magnetization angle vs J')
+    ax.set_ylabel(r'$\psi$ (deg, signed deviation)')
     ax.legend(loc='best', frameon=False)
     ax.set_box_aspect(1)
     fig.tight_layout()

@@ -1,0 +1,175 @@
+# Changelog
+
+## [2026-03-13 - Version 2.1.2](https://github.com/matajoh/libnpy/releases/tag/v2.1.2)
+
+Patch release updating the vcpkg port to match the upstream registry.
+
+Improvements:
+- Renamed vcpkg port from `libnpy` to `matajoh-libnpy` to match the existing vcpkg registry port
+- Added `LIBNPY_USE_SYSTEM_MINIZ` CMake option to allow linking system-installed miniz instead of the vendored copy
+- Updated `npyConfig.cmake.in` to propagate `find_dependency(miniz)` to downstream consumers when system miniz is used
+
+Bugfixes:
+- Fixed clang-format glob pattern referencing non-existent `include/libnpy/` directory
+- Fixed typo in `npyConfig.cmake.in` (`GOCPPset` → `set`)
+
+## [2026-03-12 - Version 2.1.1](https://github.com/matajoh/libnpy/releases/tag/v2.1.1)
+
+Patch release adding vcpkg packaging support.
+
+Improvements:
+- Added vcpkg port files and removed remnants of the old NuGet packaging approach
+
+## [2026-02-11 - Version 2.1.0](https://github.com/matajoh/libnpy/releases/tag/v2.1.0)
+
+Minor version adding support for boolean tensors.
+
+Improvements
+- New `boolean` type which acts like a `bool` but is stored in vectors as a byte
+  (instead of a bitmask, see https://cppreference.net/cpp/container/vector_bool.html)
+- Support for numpy boolean tensors (using the above `boolean` type)
+- Updating the CI to deal with intermittent failures on Github
+
+Thanks!!
+- https://github.com/olokobayusuf for this feature suggestion and the PR
+
+## [2026-01-14 - Version 2.0.0](https://github.com/matajoh/libnpy/releases/tag/v2.0.0)
+
+Major version with breaking changes.
+
+**Breaking Changes**:
+- `onpzstream` has been split into `npzfilewriter` and `npzstringwriter`
+- `inpzstream` has been split into `npzfilereader` and `npzstringreader`
+- The library interface has been merged into a single `npy.h` header
+- The C# wrapper has been removed. A more up-to-date wrapper will be added in a
+  future release.
+
+Improvements:
+- Support for complex numbers has been added
+- The library design has been greatly simplified
+- The example projects have been broken out into self-contained projects (which fetch
+  the main project using `FetchContent`) and a `custom_tensors` example has been added
+  showing a non-trivial custom tensor implementation
+- Custom tensor support is greatly improved, and is now fully featured
+
+Bugfixes:
+- Fixed an issue with broken CRC checks on Windows
+
+## [2024-11-01 - Version 1.5.3](https://github.com/matajoh/libnpy/releases/tag/v1.5.3)
+
+Improvements:
+- Increased CHUNK size as per miniz instructions
+- Added tests for very large arrays in NPZ files
+- Added some CI tests to catch issues across platforms
+- Removed the internal IO streams in favor of just using stringstream
+- NPZs can now be read from and written to memory
+
+Bugfixes:
+- Fixed an issue where very large arrays in NPZ files would throw an error
+- Fixed a bug with mac builds due to deprecated APIs
+
+## [2021-10-05 - Version 1.5.2](https://github.com/matajoh/libnpy/releases/tag/v1.5.2)
+
+Removing `using namespace std` to simplify library use
+
+## [2021-08-26 - Version 1.5.1](https://github.com/matajoh/libnpy/releases/tag/v1.5.1)
+
+Improvements:
+- CMake build now uses the highest compiler warning/error setting
+
+Bugfixes:
+- Fixed some bugs exposed by heightened compiler warnings
+
+## [2021-06-09 - Version 1.5.0](https://github.com/matajoh/libnpy/releases/tag/v1.5.0)
+
+Improvements:
+- Added a `keys` member to `inpzstream` so it is possible to query the keys of the tensors
+
+## [2021-05-28 - Version 1.4.1](https://github.com/matajoh/libnpy/releases/tag/v1.4.1)
+
+Bug fixes:
+- Fixed a bug with integer shifting
+
+## [2021-05-28 - Version 1.4.0](https://github.com/matajoh/libnpy/releases/tag/v1.4.0)
+
+Improvements:
+- Further minor CMake changes to improve ease of use
+- NPZ streams now have `is_open` methods to check for successful file opening
+- Minor code style changes
+
+Bug fixes:
+- NPZ files will now correctly handle PKZIP versions after 2.0, both for reading and writing
+
+## [2021-05-21 - Version 1.3.1](https://github.com/matajoh/libnpy/releases/tag/v1.3.1)
+
+Improvements:
+- Updated CMake integration to make the library easier to use via `FetchContent`
+
+## [2021-02-10 - Version 1.3.0](https://github.com/matajoh/libnpy/releases/tag/v1.3.0)
+
+New Features:
+- Support for Unicode string tensors (npy type 'U')
+
+Breaking change:
+- `CopyFrom` interface for C# Tensors has been changed to use *Buffer objects
+
+## [2021-02-09 - Version 1.2.2](https://github.com/matajoh/libnpy/releases/tag/v1.2.2)
+
+Improvements:
+- Bug fix for a missing comma on 1d shape
+
+## [2021-02-08 - Version 1.2.1](https://github.com/matajoh/libnpy/releases/tag/v1.2.1)
+
+Improvements:
+- Bug fix for scalar tensor reading
+- Bug fix with memstream buffer size at initialization
+- ".npy" will be added to tensor names in NPZ writing if not already present
+
+## [2021-01-19 - Version 1.2.0](https://github.com/matajoh/libnpy/releases/tag/v1.2.0)
+
+New Features:
+- Easier indexing (variable argument index method + negative indexes)
+- Easier access to shape
+
+Improvements:
+- Cmake upgraded to "modern" usage, i.e. you use the library by adding `npy::npy` as a link library
+
+## [2021-01-16 - Version 1.1.1](https://github.com/matajoh/libnpy/releases/tag/v1.1.1)
+
+Improvements:
+- Minor cmake change
+
+## [2021-01-16 - Version 1.1.0](https://github.com/matajoh/libnpy/releases/tag/v1.1.0)
+
+New Features:
+- Zip64 compatibility
+
+Improvements:
+- Can use `numpy` style lookup for tensors (i.e. dropping the `.npy` from the name)
+- Added a crc32 test
+
+## [2021-01-15 - Version 1.0.0](https://github.com/matajoh/libnpy/releases/tag/v1.0.0)
+
+New Features:
+- There is no longer a dependency on `zlib`
+
+Improvements:
+- Better packaging (NuGet packages are now produced for C++ and C#)
+
+## [2019-04-01 - Version 0.2.0](https://github.com/matajoh/libnpy/releases/tag/v0.2.0)
+
+Breaking changes:
+- Renamed `endian` => `endian_t`
+- Renamed `data_type` => `data_type_t`
+- Renamed `compression_method` => `compression_method_t`
+
+New Features:
+- Cleaned up exception handling. There are now tests for exceptions being correctly thrown, and the exceptions are properly wrapped for .NET- 
+- Added peeking for NPY files to get the header information, and contains/peek functionality for `inpzstream`.
+
+Improvements:
+- Removed the unnecessary copies in the compression/decompression process
+
+## [2019-03-24 - Version 0.1.0](https://github.com/matajoh/libnpy/releases/tag/v0.1.0)
+
+Initial Release

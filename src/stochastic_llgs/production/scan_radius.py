@@ -112,7 +112,7 @@ def main():
     n_relax         = 10000          # 500 ps
     n_drive         = 40000          # 2 ns
     sample_every    = 200
-    n_ens           = 10
+    n_ens           = 30
     seed_base       = 311
     tol_norm        = 5.0e-3
     use_demag       = True
