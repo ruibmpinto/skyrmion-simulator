@@ -123,6 +123,7 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
                     std::printf(
                         "    relax step %d/%d (%.0f ps), tau_max=%.2e T\n",
                         step, max_steps, step * p.dt * 1e12, res.tau_max);
+                    std::fflush(stdout);
                 }
                 if (step % check_every == 0) {
                     res.tau_max =
@@ -149,6 +150,7 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
                     std::printf(
                         "    relax step %d/%d (%.0f ps), tau_max=%.2e T\n",
                         step, max_steps, step * p.dt * 1e12, res.tau_max);
+                    std::fflush(stdout);
                 }
                 if (step % check_every == 0) {
                     res.tau_max = max_tangential_torque(

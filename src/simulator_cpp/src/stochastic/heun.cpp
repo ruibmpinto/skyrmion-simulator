@@ -52,8 +52,14 @@ void HeunStochasticStepper::field_plus_noise(const Field3& m_top,
     // inside field assembly, so the exchange/DMI difference operators
     // act on m only).
     const std::size_t n = H_top_.data.size();
+#ifdef SKYRMION_OPENMP
+    #pragma omp parallel for schedule(static)
+#endif
     for (std::size_t k = 0; k < n; ++k) H_top_.data[k] += h_top_.data[k];
     if (!single) {
+#ifdef SKYRMION_OPENMP
+        #pragma omp parallel for schedule(static)
+#endif
         for (std::size_t k = 0; k < n; ++k) H_bot_.data[k] += h_bot_.data[k];
     }
 }
@@ -82,6 +88,9 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
     // random-walk (free-boundary geometries).
     if (mask_) {
         const int ny = m_top.ny, nx = m_top.nx;
+#ifdef SKYRMION_OPENMP
+        #pragma omp parallel for schedule(static)
+#endif
         for (int i = 0; i < ny; ++i) {
             for (int j = 0; j < nx; ++j) {
                 if (mask_[static_cast<std::size_t>(i) * nx + j]) continue;
@@ -99,10 +108,16 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
     llgs_rhs(m_top, H_top_, p, t, f1_top_);
     if (!single) llgs_rhs(m_bot, H_bot_, p, t, f1_bot_);
     const std::size_t n = m_top.data.size();
+#ifdef SKYRMION_OPENMP
+    #pragma omp parallel for schedule(static)
+#endif
     for (std::size_t k = 0; k < n; ++k) {
         mp_top_.data[k] = m_top.data[k] + dt * f1_top_.data[k];
     }
     if (!single) {
+#ifdef SKYRMION_OPENMP
+        #pragma omp parallel for schedule(static)
+#endif
         for (std::size_t k = 0; k < n; ++k) {
             mp_bot_.data[k] = m_bot.data[k] + dt * f1_bot_.data[k];
         }
@@ -117,6 +132,10 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
     const int ny = m_top.ny, nx = m_top.nx;
     Real drift = 0.0;
     auto combine = [&](Field3& m, const Field3& f1, const Field3& f2) {
+        Real d_max = 0.0;
+#ifdef SKYRMION_OPENMP
+        #pragma omp parallel for schedule(static) reduction(max:d_max)
+#endif
         for (int i = 0; i < ny; ++i) {
             for (int j = 0; j < nx; ++j) {
                 const Real x = m(i, j, 0) + 0.5 * dt * (f1(i, j, 0) + f2(i, j, 0));
@@ -124,10 +143,11 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
                 const Real z = m(i, j, 2) + 0.5 * dt * (f1(i, j, 2) + f2(i, j, 2));
                 const Real nm = std::sqrt(x * x + y * y + z * z);
                 const Real d = std::abs(nm - 1.0);
-                if (d > drift) drift = d;
+                if (d > d_max) d_max = d;
                 m(i, j, 0) = x; m(i, j, 1) = y; m(i, j, 2) = z;
             }
         }
+        if (d_max > drift) drift = d_max;
     };
     // Write the un-normalised Heun update in place, tracking drift.
     combine(m_top, f1_top_, f2_top_);

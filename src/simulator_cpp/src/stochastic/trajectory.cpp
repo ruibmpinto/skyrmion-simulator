@@ -6,15 +6,21 @@
 #include "skyrmion/parameters.hpp"
 #include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/diagnostics.hpp"
+#include "skyrmion/stochastic/equilibrate.hpp"
 #include "skyrmion/stochastic/heun.hpp"
 #include "skyrmion/stochastic/lcc.hpp"
 #include "skyrmion/stochastic/rng.hpp"
 #include "skyrmion/stochastic/thermal.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <exception>
 #include <limits>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace skyrmion {
 namespace stochastic {
@@ -67,17 +73,30 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     if (cfg.skyrmion_dw > 0.0) p.skyrmion_dw = cfg.skyrmion_dw;
     if (cfg.D > 0.0)           p.D = cfg.D;
     p.H_ext = {0.0, 0.0, cfg.H_z};
-    if (cfg.use_demag) p.demag_kind = DemagKind::Slab;
+    if (cfg.use_demag) {
+        p.demag_kind = cfg.demag_kind;
+        p.demag_accuracy = cfg.demag_accuracy;
+        p.demag_tol_conv = cfg.demag_tol_conv;
+    }
     p.pulse = std::make_shared<ConstantPulse>(cfg.j_current);
     precompute(p);
     attach_thermal(p, T_eff, cfg.R_th, cfg.seed);
 
     std::unique_ptr<DemagState> demag;
-    if (cfg.use_demag) demag.reset(new DemagState(p, 0));
+    if (cfg.use_demag) demag.reset(new DemagState(p, cfg.fft_threads));
 
-    SAFPair ic = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw);
-    Field3 m_top = std::move(ic.m_top);
-    Field3 m_bot = std::move(ic.m_bot);
+    // Initial condition: a caller-provided (pre-relaxed) field if given,
+    // else a fresh SAF skyrmion seed.
+    Field3 m_top, m_bot;
+    if (cfg.m_init_top && cfg.m_init_bot) {
+        m_top = *cfg.m_init_top;
+        m_bot = *cfg.m_init_bot;
+    } else {
+        SAFPair ic = saf_skyrmion(p.nx, p.ny, p.a,
+                                  p.skyrmion_R, p.skyrmion_dw);
+        m_top = std::move(ic.m_top);
+        m_bot = std::move(ic.m_bot);
+    }
 
     ThermalRng rng(static_cast<std::uint64_t>(cfg.seed));
     const Real sigma = p.sigma_noise;
@@ -96,23 +115,45 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     };
 
     // -------- Phase 0: relaxation (J = 0, noise on) --------------------------
+    // Equilibrate to a thermal size plateau (cfg.equilibrate) or run a
+    // fixed cfg.n_relax steps. The relaxed LCC ellipse is recorded as
+    // the pre-drive finite-T equilibrium size. Only the initial and
+    // relaxed frames are snapshotted in this phase.
     auto pulse_save = p.pulse;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     p.H_DL = 0.0; p.H_FL = 0.0;
     if (snaps) dump(m_top, m_bot, 0, 0.0, 0);
+    int n_relax_used = 0;
+    bool equil_converged = true;
+    double d1_relaxed = kNaN, d2_relaxed = kNaN;
     {
-        Real t = 0.0;
-        for (int s = 1; s <= cfg.n_relax; ++s) {
-            stepper.step(m_top, m_bot, t, p.dt, p);
-            t += p.dt;
-            if (snaps && cfg.snapshot_every > 0
-                && s % cfg.snapshot_every == 0 && s != cfg.n_relax) {
-                dump(m_top, m_bot, s, t, 0);
+        if (cfg.equilibrate) {
+            const EquilResult er = equilibrate_to_plateau(
+                m_top, m_bot, stepper, p, cfg.equil_check_every,
+                cfg.equil_window, cfg.equil_tol, cfg.equil_k_consec,
+                cfg.equil_max_steps, /*progress_every=*/0);
+            n_relax_used = er.n_used;
+            equil_converged = er.converged;
+            d1_relaxed = er.d1_relaxed;
+            d2_relaxed = er.d2_relaxed;
+        } else {
+            Real t = 0.0;
+            for (int s = 1; s <= cfg.n_relax; ++s) {
+                stepper.step(m_top, m_bot, t, p.dt, p);
+                t += p.dt;
             }
+            n_relax_used = cfg.n_relax;
+            // Relaxed size = LCC ellipse of the (possibly pre-thermalized)
+            // starting field; for stage-3 drives n_relax=0, so this
+            // measures the loaded thermal state.
+            try {
+                const Ellipse e = skyrmion_ellipse_lcc(m_top, a, +1);
+                d1_relaxed = e.D1; d2_relaxed = e.D2;
+            } catch (const std::exception&) {}
         }
     }
-    if (snaps && cfg.n_relax > 0) dump(m_top, m_bot, cfg.n_relax,
-                                       cfg.n_relax * p.dt, 0);
+    if (snaps) dump(m_top, m_bot, n_relax_used,
+                    n_relax_used * p.dt, 0);
     p.pulse = pulse_save;
     p.H_DL = p.DL_SOT * cfg.j_current;
     p.H_FL = p.FL_SOT * cfg.j_current;
@@ -129,14 +170,31 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     P.Q.resize(n_samples); P.Q_bot.resize(n_samples);
     P.diameter.resize(n_samples); P.diameter_bot.resize(n_samples);
     P.diameter_lcc.resize(n_samples); P.diameter_lcc_bot.resize(n_samples);
+    P.D1_top.resize(n_samples); P.D2_top.resize(n_samples);
+    P.theta_top.resize(n_samples);
+    P.D1_bot.resize(n_samples); P.D2_bot.resize(n_samples);
+    P.theta_bot.resize(n_samples);
     P.norm_drift_max.resize(n_samples);
 
     if (snaps) dump(m_top, m_bot, 0, 0.0, 1);
     int s_idx = 0;
     Real t = 0.0;
+    const auto t_drive_start = std::chrono::steady_clock::now();
     for (int step = 1; step <= cfg.n_drive; ++step) {
         stepper.step(m_top, m_bot, t, p.dt, p);
         t += p.dt;
+        // Timestamped drive progress (gated by cfg.progress_every).
+        if (cfg.progress_every > 0 && step % cfg.progress_every == 0) {
+            const double wall = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - t_drive_start).count();
+            std::printf(
+                "    drive step %d/%d (%.0f ps), wall %.0fs, "
+                "d=%.1f nm, Q=%.2f\n",
+                step, cfg.n_drive, step * p.dt * 1e12, wall,
+                skyrmion_diameter_lcc(m_top, a, +1) * 1e9,
+                topological_charge(m_top, a));
+            std::fflush(stdout);
+        }
         if (step % cfg.sample_every == 0 && s_idx < n_samples) {
             P.t_sample[s_idx] = step * p.dt;
             const Center2D ct = guarded_center(m_top, a, +1);
@@ -149,6 +207,24 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
             P.diameter_bot[s_idx] = skyrmion_diameter(m_bot, a, -1);
             P.diameter_lcc[s_idx] = skyrmion_diameter_lcc(m_top, a, +1);
             P.diameter_lcc_bot[s_idx] = skyrmion_diameter_lcc(m_bot, a, -1);
+            // Elliptical axes of the LCC; NaN if the core has collapsed
+            // (skyrmion_ellipse_lcc throws on < 3 sites).
+            try {
+                const Ellipse et = skyrmion_ellipse_lcc(m_top, a, +1);
+                P.D1_top[s_idx] = et.D1; P.D2_top[s_idx] = et.D2;
+                P.theta_top[s_idx] = et.theta;
+            } catch (const std::exception&) {
+                P.D1_top[s_idx] = kNaN; P.D2_top[s_idx] = kNaN;
+                P.theta_top[s_idx] = kNaN;
+            }
+            try {
+                const Ellipse eb = skyrmion_ellipse_lcc(m_bot, a, -1);
+                P.D1_bot[s_idx] = eb.D1; P.D2_bot[s_idx] = eb.D2;
+                P.theta_bot[s_idx] = eb.theta;
+            } catch (const std::exception&) {
+                P.D1_bot[s_idx] = kNaN; P.D2_bot[s_idx] = kNaN;
+                P.theta_bot[s_idx] = kNaN;
+            }
             const Center2D cl = guarded_center_lcc(m_top, a, +1);
             const Center2D clb = guarded_center_lcc(m_bot, a, -1);
             P.cx_lcc[s_idx] = cl.cx; P.cy_lcc[s_idx] = cl.cy;
@@ -164,6 +240,12 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     if (snaps) dump(m_top, m_bot, cfg.n_drive, cfg.n_drive * p.dt, 1);
 
     // -------- Derived quantities ---------------------------------------------
+    P.T_sub = cfg.T_sub;
+    P.j_current = cfg.j_current;
+    P.D1_relaxed_top = d1_relaxed;
+    P.D2_relaxed_top = d2_relaxed;
+    P.n_relax_used = n_relax_used;
+    P.equil_converged = equil_converged;
     P.T_effective = T_eff;
     P.sigma_noise = sigma;
     P.flip_index = detect_annihilation(P.Q, cfg.q_threshold, cfg.k_consecutive);
@@ -172,6 +254,8 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
         ? n_samples : std::max(P.flip_index, 4);
     const Real L_x = cfg.nx * a;
     const Real L_y = cfg.ny * a;
+    P.L_x = L_x;
+    P.L_y = L_y;
 
     P.cx_unwrapped.assign(n_samples, kNaN);
     P.cy_unwrapped.assign(n_samples, kNaN);

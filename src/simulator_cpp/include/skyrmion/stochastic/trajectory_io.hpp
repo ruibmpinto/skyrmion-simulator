@@ -3,6 +3,7 @@
 // plus a `meta_` header (schema version, timestamp, config echo).
 #pragma once
 
+#include "skyrmion/initial_conditions.hpp"   // SAFPair
 #include "skyrmion/stochastic/trajectory.hpp"
 
 #include <string>
@@ -11,6 +12,11 @@
 
 namespace skyrmion {
 namespace stochastic {
+
+// Load a SAF field pair (keys "m_top"/"m_bot") from an .npz written by
+// SnapshotBuffer (shape (1, ny, nx, 3)) or a plain (ny, nx, 3) array.
+// Used to pick up the relaxed m_eq / equilibrated m_thermal fields.
+SAFPair load_saf_npz(const std::string& path);
 
 // Write the full payload + metadata to a single .npz. `config_json` is
 // the run configuration echoed under meta_config_repr (UTF-8 bytes).

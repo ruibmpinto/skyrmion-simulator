@@ -141,5 +141,81 @@ Center2D skyrmion_center_lcc_pbc(const Field3& m, Real a, int core_polarity) {
     return {ang_x * nx * a / (2.0 * kPi), ang_y * ny * a / (2.0 * kPi)};
 }
 
+Ellipse skyrmion_ellipse_lcc(const Field3& m, Real a, int core_polarity) {
+    if (!(a > 0.0)) {
+        throw std::runtime_error("skyrmion_ellipse_lcc: a must be > 0.");
+    }
+    const int ny = m.ny, nx = m.nx;
+    const std::vector<std::uint8_t> mask =
+        largest_core_mask_pbc(m, core_polarity);
+    std::size_t n_inside = 0;
+    for (std::uint8_t v : mask) n_inside += v;
+    if (n_inside < 3) {
+        throw std::runtime_error(
+            "skyrmion_ellipse_lcc: largest component has < 3 sites.");
+    }
+    // Circular-mean reference index per axis (the unwrap anchor) so a
+    // component straddling a wrap collapses into one contiguous window.
+    const Real kx = 2.0 * kPi / nx;
+    const Real ky = 2.0 * kPi / ny;
+    Real Sx = 0.0, Cx = 0.0, Sy = 0.0, Cy = 0.0;
+    for (int i = 0; i < ny; ++i) {
+        const Real ty = ky * i;
+        const Real syv = std::sin(ty), cyv = std::cos(ty);
+        for (int j = 0; j < nx; ++j) {
+            if (!mask[static_cast<std::size_t>(i) * nx + j]) continue;
+            Sx += std::sin(kx * j);
+            Cx += std::cos(kx * j);
+            Sy += syv;
+            Cy += cyv;
+        }
+    }
+    Real ang_x = std::atan2(Sx, Cx);
+    if (ang_x < 0.0) ang_x += 2.0 * kPi;
+    Real ang_y = std::atan2(Sy, Cy);
+    if (ang_y < 0.0) ang_y += 2.0 * kPi;
+    const Real ref_x = ang_x / (2.0 * kPi) * nx;
+    const Real ref_y = ang_y / (2.0 * kPi) * ny;
+    // Positive-modulo unwrap into [ref - N/2, ref + N/2), in meters.
+    auto pmod = [](Real v, Real N) {
+        Real r = std::fmod(v, N);
+        if (r < 0.0) r += N;
+        return r;
+    };
+    Real sx = 0.0, sy = 0.0, sxx = 0.0, syy = 0.0, sxy = 0.0;
+    for (int i = 0; i < ny; ++i) {
+        for (int j = 0; j < nx; ++j) {
+            if (!mask[static_cast<std::size_t>(i) * nx + j]) continue;
+            const Real xu =
+                (pmod(j - ref_x + 0.5 * nx, nx) - 0.5 * nx + ref_x) * a;
+            const Real yu =
+                (pmod(i - ref_y + 0.5 * ny, ny) - 0.5 * ny + ref_y) * a;
+            sx += xu; sy += yu;
+            sxx += xu * xu; syy += yu * yu; sxy += xu * yu;
+        }
+    }
+    const Real inv = 1.0 / static_cast<Real>(n_inside);
+    const Real mx = sx * inv, my = sy * inv;
+    // Centered covariance entries.
+    const Real cxx = sxx * inv - mx * mx;
+    const Real cyy = syy * inv - my * my;
+    const Real cxy = sxy * inv - mx * my;
+    const Real tr = cxx + cyy;
+    Real disc = 0.25 * (cxx - cyy) * (cxx - cyy) + cxy * cxy;
+    if (disc < 0.0) disc = 0.0;
+    const Real sqrt_disc = std::sqrt(disc);
+    const Real lam1 = 0.5 * tr + sqrt_disc;
+    const Real lam2 = 0.5 * tr - sqrt_disc;
+    Real theta = 0.0;
+    if (std::fabs(cxx - cyy) >= 1e-30 || std::fabs(cxy) >= 1e-30) {
+        theta = 0.5 * std::atan2(2.0 * cxy, cxx - cyy);
+    }
+    Ellipse e;
+    e.D1 = 4.0 * std::sqrt(lam1 > 0.0 ? lam1 : 0.0);
+    e.D2 = 4.0 * std::sqrt(lam2 > 0.0 ? lam2 : 0.0);
+    e.theta = theta;
+    return e;
+}
+
 } // namespace stochastic
 } // namespace skyrmion

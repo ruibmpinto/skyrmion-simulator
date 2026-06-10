@@ -2,13 +2,43 @@
 
 #include <npy/npy.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
 namespace skyrmion {
 namespace stochastic {
+
+SAFPair load_saf_npz(const std::string& path) {
+    npy::npzfilereader r(path);
+    auto read_one = [&](const std::string& key) {
+        npy::tensor<Real> t = r.read<npy::tensor<Real>>(key);
+        const std::vector<std::size_t>& sh = t.shape();
+        int ny = 0, nx = 0;
+        if (sh.size() == 4) {
+            ny = static_cast<int>(sh[1]); nx = static_cast<int>(sh[2]);
+        } else if (sh.size() == 3) {
+            ny = static_cast<int>(sh[0]); nx = static_cast<int>(sh[1]);
+        } else {
+            throw std::runtime_error(
+                "load_saf_npz: unexpected shape for " + key);
+        }
+        Field3 f(ny, nx);
+        if (t.size() < f.data.size()) {
+            throw std::runtime_error(
+                "load_saf_npz: too few values for " + key);
+        }
+        std::copy(t.data(), t.data() + f.data.size(), f.data.begin());
+        return f;
+    };
+    SAFPair p;
+    p.m_top = read_one("m_top");
+    p.m_bot = read_one("m_bot");
+    return p;
+}
 
 namespace {
 
@@ -70,7 +100,21 @@ void save_trajectory(const std::string& path, const StochasticPayload& pl,
     w.write("cy_lcc_bot",      arr(pl.cy_lcc_bot));
     w.write("diameter_lcc",    arr(pl.diameter_lcc));
     w.write("diameter_lcc_bot", arr(pl.diameter_lcc_bot));
+    w.write("D1_top",          arr(pl.D1_top));
+    w.write("D2_top",          arr(pl.D2_top));
+    w.write("theta_top",       arr(pl.theta_top));
+    w.write("D1_bot",          arr(pl.D1_bot));
+    w.write("D2_bot",          arr(pl.D2_bot));
+    w.write("theta_bot",       arr(pl.theta_bot));
     w.write("norm_drift_max",  arr(pl.norm_drift_max));
+    w.write("L_x",             sc(pl.L_x));
+    w.write("L_y",             sc(pl.L_y));
+    w.write("T_sub",           sc(pl.T_sub));
+    w.write("j_current",       sc(pl.j_current));
+    w.write("D1_relaxed_top",  sc(pl.D1_relaxed_top));
+    w.write("D2_relaxed_top",  sc(pl.D2_relaxed_top));
+    w.write("n_relax_used",    sc_i(pl.n_relax_used));
+    w.write("equil_converged", sc_i(pl.equil_converged ? 1 : 0));
     w.write("T_effective",     sc(pl.T_effective));
     w.write("sigma_noise",     sc(pl.sigma_noise));
     w.write("alive_at_end",    sc_i(pl.alive_at_end ? 1 : 0));

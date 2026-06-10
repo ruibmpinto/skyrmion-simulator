@@ -22,6 +22,10 @@ skyrmion_diameter_lcc
     Equivalent-disk diameter of the largest connected core
     component. Robust to thermal-noise blobs that contaminate
     the full-mask `skyrmion_diameter`.
+skyrmion_ellipse_lcc
+    Major/minor diameters of the largest connected core via
+    PBC-aware second moments. Thermal-noise-robust counterpart
+    of `src.simulator.analysis.skyrmion_ellipse`.
 skyrmion_center_lcc_pbc
     Circular-mean center restricted to the largest connected
     core component.
@@ -249,6 +253,131 @@ def skyrmion_diameter_lcc(m, a, core_polarity):
         return 0.0
     area = n_inside * a * a
     return 2.0 * np.sqrt(area / np.pi)
+
+
+# -----------------------------------------------------------------------------
+def _circular_ref_index(idx, period):
+    """Circular-mean reference index for a 1D set of indices on
+    a periodic axis of length `period`.
+
+    Treats indices as angles `2*pi*idx/period`, averages on the
+    unit circle, and maps the mean angle back to an index in
+    `[0, period)`. Used as the unwrap anchor so coordinates
+    straddling the wrap collapse into a single contiguous window.
+
+    Parameters
+    ----------
+    idx : numpy.ndarray(1d)
+        Integer-valued site indices along one axis.
+    period : int
+        Axis length (nx or ny).
+
+    Returns
+    -------
+    ref : float
+        Circular-mean index in `[0, period)`.
+    """
+    ang = 2.0 * np.pi * idx / period
+    mean_cos = float(np.mean(np.cos(ang)))
+    mean_sin = float(np.mean(np.sin(ang)))
+    mean_ang = np.arctan2(mean_sin, mean_cos)
+    return (mean_ang / (2.0 * np.pi)) * period % period
+
+
+# -----------------------------------------------------------------------------
+def skyrmion_ellipse_lcc(m, a, core_polarity):
+    """Major and minor diameters of the largest connected core
+    component via PBC-aware second moments.
+
+    The thermally-robust counterpart of
+    `src.simulator.analysis.skyrmion_ellipse`: the all-mask
+    estimator there diagonalises the covariance of every
+    `core_polarity * m_z < 0` site, so scattered thermal-flip
+    sites far from the core inflate the variance and the
+    diameters. This restricts the point cloud to the single
+    largest connected component and unwraps coordinates around
+    its circular-mean centre so a skyrmion straddling a periodic
+    boundary is measured correctly.
+
+    Parameters
+    ----------
+    m : numpy.ndarray(3d)
+        Spin configuration, shape (ny, nx, 3). Periodic.
+    a : float
+        Lattice constant in meters.
+    core_polarity : {+1, -1}
+        `+1` if the core is at `m_z = -1`; `-1` if the core is
+        at `m_z = +1`. Required, no default.
+
+    Returns
+    -------
+    D1 : float
+        Major-axis diameter in meters.
+    D2 : float
+        Minor-axis diameter in meters.
+    theta : float
+        Angle of the major axis with respect to +x, in radians,
+        in [-pi/2, pi/2].
+
+    Notes
+    -----
+    Raises `RuntimeError` if the largest component has fewer
+    than 3 sites (the covariance is not well-defined). For a
+    circular skyrmion the eigenvalues coincide and `theta` is
+    set to zero.
+    """
+    if core_polarity not in (+1, -1):
+        raise RuntimeError(
+            f'skyrmion_ellipse_lcc: core_polarity must be +1 or '
+            f'-1, got {core_polarity!r}.')
+    if not (np.isfinite(a) and a > 0.0):
+        raise RuntimeError(
+            f'skyrmion_ellipse_lcc: a must be positive, '
+            f'got {a!r}.')
+    mask = largest_core_mask_pbc(m, core_polarity)
+    n_inside = int(mask.sum())
+    if n_inside < 3:
+        raise RuntimeError(
+            f'skyrmion_ellipse_lcc: largest component has only '
+            f'{n_inside} sites; need at least 3.')
+    ny, nx = m.shape[:2]
+    # Integer index grids of the masked sites (jj=x, ii=y).
+    jj, ii = np.meshgrid(
+        np.arange(nx, dtype=float),
+        np.arange(ny, dtype=float),)
+    jx = jj[mask]
+    iy = ii[mask]
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # PBC unwrap: bring each coordinate into a contiguous window
+    # around the circular-mean reference so a component crossing
+    # a boundary keeps a correct centroid and variance.
+    ref_x = _circular_ref_index(jx, nx)
+    ref_y = _circular_ref_index(iy, ny)
+    jx_u = (jx - ref_x + 0.5 * nx) % nx - 0.5 * nx + ref_x
+    iy_u = (iy - ref_y + 0.5 * ny) % ny - 0.5 * ny + ref_y
+    # Physical coordinates (meters), centred at the centroid.
+    x = jx_u * a
+    y = iy_u * a
+    x = x - np.mean(x)
+    y = y - np.mean(y)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Covariance entries and 2x2 eigen-decomposition.
+    sxx = float(np.mean(x * x))
+    syy = float(np.mean(y * y))
+    sxy = float(np.mean(x * y))
+    tr = sxx + syy
+    disc = max(0.25 * (sxx - syy) ** 2 + sxy * sxy, 0.0)
+    sqrt_disc = np.sqrt(disc)
+    lam1 = 0.5 * tr + sqrt_disc
+    lam2 = 0.5 * tr - sqrt_disc
+    if abs(sxx - syy) < 1e-30 and abs(sxy) < 1e-30:
+        theta = 0.0
+    else:
+        theta = 0.5 * np.arctan2(2.0 * sxy, sxx - syy)
+    # D = 4 sqrt(variance) for a uniformly filled ellipse.
+    D1 = 4.0 * np.sqrt(max(lam1, 0.0))
+    D2 = 4.0 * np.sqrt(max(lam2, 0.0))
+    return float(D1), float(D2), float(theta)
 
 
 # -----------------------------------------------------------------------------

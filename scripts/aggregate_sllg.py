@@ -48,6 +48,7 @@ __status__ = 'Development'
 # =============================================================================
 _KNOWN_TYPES = (
     'scan_tj',
+    'scan_track_width',
     'scan_arrhenius',
     'scan_radius',
     'pair_potential',
@@ -137,6 +138,136 @@ def _aggregate_scan_tj(in_dir):
         'v_mean': v_mean, 'v_se': v_se,
         'theta_mean': th_mean, 'theta_se': th_se,
         'sigma_y_mean': sy_mean,
+    }
+
+
+# -----------------------------------------------------------------------------
+def _aggregate_track_width(in_dir):
+    """Group `T{T_sub}_j{j}_ens{idx}.npz` files into a
+    `(T_sub, j)` grid of ensemble statistics, carrying the
+    elliptical axes D_1, D_2 alongside the scan_tj fields.
+
+    The `anim_*.npz` full-field dumps are skipped here; only the
+    per-trajectory files are aggregated. The drive-phase second
+    half is used as the steady-state window for D_1, D_2.
+
+    Returns
+    -------
+    payload : dict
+        Keys: Ts, Js, n_ens, P_surv, v_mean, v_se, theta_mean,
+        theta_se, sigma_y_mean, D1_mean, D1_se, D2_mean, D2_se,
+        L_x, L_y.
+    """
+    files = sorted(glob.glob(os.path.join(in_dir, 'T*.npz')))
+    if not files:
+        raise RuntimeError(
+            f'No T*.npz files in {in_dir!r}.'
+        )
+    by_cell = {}
+    L_x = float('nan')
+    L_y = float('nan')
+    for path in files:
+        if os.path.basename(path) == 'aggregate.npz':
+            continue
+        d = np.load(path, allow_pickle=True)
+        T_sub = float(d['T_sub'])
+        j = float(d['j_current'])
+        cell = (T_sub, j)
+        by_cell.setdefault(cell, {
+            'alive': 0, 'n': 0,
+            'v': [], 'theta': [], 'sigma_y': [],
+            'D1': [], 'D2': [], 'D1r': [], 'D2r': [],
+        })
+        rec = by_cell[cell]
+        rec['n'] += 1
+        # Physical box extent for the downstream length-scale
+        # ratios; recorded authoritatively by the worker.
+        L_x = float(d['L_x'])
+        L_y = float(d['L_y'])
+        # Pre-drive (J=0) finite-T equilibrium size, recorded for
+        # every trajectory regardless of drive survival.
+        if 'D1_relaxed_top' in d.files:
+            d1r = float(d['D1_relaxed_top'])
+            d2r = float(d['D2_relaxed_top'])
+            if np.isfinite(d1r):
+                rec['D1r'].append(d1r)
+            if np.isfinite(d2r):
+                rec['D2r'].append(d2r)
+        if not bool(d['alive_at_end']):
+            continue
+        rec['alive'] += 1
+        v = float(d['velocity'])
+        th = float(d['hall_deg'])
+        sy = float(d['sigma_y'])
+        if np.isfinite(v):
+            rec['v'].append(v)
+        if np.isfinite(th):
+            rec['theta'].append(th)
+        if np.isfinite(sy):
+            rec['sigma_y'].append(sy)
+        # Steady-state ellipse axes: mean over the drive-phase
+        # second half (skip the initial deformation transient).
+        d1 = d['D1_top']
+        d2 = d['D2_top']
+        half = max(1, d1.size // 2)
+        d1_m = float(np.nanmean(d1[half:]))
+        d2_m = float(np.nanmean(d2[half:]))
+        if np.isfinite(d1_m):
+            rec['D1'].append(d1_m)
+        if np.isfinite(d2_m):
+            rec['D2'].append(d2_m)
+    Ts = np.array(
+        sorted({c[0] for c in by_cell}), dtype=float)
+    Js = np.array(
+        sorted({c[1] for c in by_cell}), dtype=float)
+    nT, nJ = Ts.size, Js.size
+    P_surv = np.full((nT, nJ), np.nan)
+    v_mean = np.full((nT, nJ), np.nan)
+    v_se = np.full((nT, nJ), np.nan)
+    th_mean = np.full((nT, nJ), np.nan)
+    th_se = np.full((nT, nJ), np.nan)
+    sy_mean = np.full((nT, nJ), np.nan)
+    D1_mean = np.full((nT, nJ), np.nan)
+    D1_se = np.full((nT, nJ), np.nan)
+    D2_mean = np.full((nT, nJ), np.nan)
+    D2_se = np.full((nT, nJ), np.nan)
+    D1r_mean = np.full((nT, nJ), np.nan)
+    D1r_se = np.full((nT, nJ), np.nan)
+    D2r_mean = np.full((nT, nJ), np.nan)
+    D2r_se = np.full((nT, nJ), np.nan)
+    n_ens = np.zeros((nT, nJ), dtype=np.int64)
+    for i, T_sub in enumerate(Ts):
+        for k, j in enumerate(Js):
+            rec = by_cell.get((float(T_sub), float(j)))
+            if rec is None:
+                continue
+            n_ens[i, k] = rec['n']
+            P_surv[i, k] = rec['alive'] / max(rec['n'], 1)
+            v_mean[i, k], v_se[i, k] = _safe_mean_se(
+                np.array(rec['v']))
+            th_mean[i, k], th_se[i, k] = _safe_mean_se(
+                np.array(rec['theta']))
+            sy_mean[i, k], _ = _safe_mean_se(
+                np.array(rec['sigma_y']))
+            D1_mean[i, k], D1_se[i, k] = _safe_mean_se(
+                np.array(rec['D1']))
+            D2_mean[i, k], D2_se[i, k] = _safe_mean_se(
+                np.array(rec['D2']))
+            D1r_mean[i, k], D1r_se[i, k] = _safe_mean_se(
+                np.array(rec['D1r']))
+            D2r_mean[i, k], D2r_se[i, k] = _safe_mean_se(
+                np.array(rec['D2r']))
+    return {
+        'Ts': Ts, 'Js': Js, 'n_ens': n_ens,
+        'P_surv': P_surv,
+        'v_mean': v_mean, 'v_se': v_se,
+        'theta_mean': th_mean, 'theta_se': th_se,
+        'sigma_y_mean': sy_mean,
+        'D1_mean': D1_mean, 'D1_se': D1_se,
+        'D2_mean': D2_mean, 'D2_se': D2_se,
+        'D1r_mean': D1r_mean, 'D1r_se': D1r_se,
+        'D2r_mean': D2r_mean, 'D2r_se': D2r_se,
+        'L_x': float(L_x), 'L_y': float(L_y),
     }
 
 
@@ -431,6 +562,16 @@ def main():
             f'  cells: {payload["Ts"].size} T x '
             f'{payload["Js"].size} j  '
             f'(total n_ens entries: '
+            f'{int(payload["n_ens"].sum())})'
+        )
+    elif analysis == 'scan_track_width':
+        payload = _aggregate_track_width(in_dir)
+        print(
+            f'  cells: {payload["Ts"].size} T x '
+            f'{payload["Js"].size} j  '
+            f'(L_x={payload["L_x"]*1e9:.0f} nm, '
+            f'L_y={payload["L_y"]*1e9:.0f} nm, '
+            f'total n_ens entries: '
             f'{int(payload["n_ens"].sum())})'
         )
     elif analysis == 'scan_arrhenius':

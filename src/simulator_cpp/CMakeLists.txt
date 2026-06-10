@@ -56,6 +56,7 @@ set(SKYRMION_SOURCES
     src/stochastic/heun.cpp
     src/stochastic/lcc.cpp
     src/stochastic/diagnostics.cpp
+    src/stochastic/equilibrate.cpp
     src/stochastic/trajectory.cpp
     src/stochastic/trajectory_io.cpp
     src/stochastic/pair_ic.cpp
@@ -113,6 +114,11 @@ target_link_libraries(profile_run PRIVATE skyrmion_core)
 target_compile_options(profile_run PRIVATE
     -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
 
+add_executable(tw_check tools/tw_check.cpp)
+target_link_libraries(tw_check PRIVATE skyrmion_core)
+target_compile_options(tw_check PRIVATE
+    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+
 # -------------------- Sweep analyses ------------------------------------------
 
 set(SWEEP_BINARIES
@@ -141,6 +147,9 @@ endforeach()
 set(STOCHASTIC_BINARIES
     run_single
     scan_tj
+    scan_track_width
+    relax_track_width
+    equilibrate_track_width
     scan_arrhenius
     scan_radius
     pair_potential)
@@ -158,7 +167,8 @@ set(VALIDATION_BINARIES
     run_t0_nodemag
     run_t0_demag
     run_langevin
-    run_brown_reversal)
+    run_brown_reversal
+    validate_relax_torque)
 foreach(s ${VALIDATION_BINARIES})
     add_executable(${s} src/validation/${s}.cpp)
     target_link_libraries(${s} PRIVATE skyrmion_core)

@@ -28,5 +28,11 @@ Real skyrmion_diameter_lcc(const Field3& m, Real a, int core_polarity);
 // indicator). Raises on an empty core mask.
 Center2D skyrmion_center_lcc_pbc(const Field3& m, Real a, int core_polarity);
 
+// Major/minor diameters (D1 >= D2) and major-axis angle of the LCC via
+// PBC-aware second moments. Thermal-noise-robust counterpart of
+// skyrmion_ellipse. Raises if the LCC has fewer than 3 sites. Port of
+// src/stochastic_llgs/diagnostics.py::skyrmion_ellipse_lcc.
+Ellipse skyrmion_ellipse_lcc(const Field3& m, Real a, int core_polarity);
+
 } // namespace stochastic
 } // namespace skyrmion

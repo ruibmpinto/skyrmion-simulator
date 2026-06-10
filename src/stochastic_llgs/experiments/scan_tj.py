@@ -84,6 +84,11 @@ def _run_one_point(args):
         'q_threshold': float(cfg['q_threshold']),
         'k_consecutive': int(cfg['k_consecutive']),
         'param_overrides': {},
+        'dump_fields': False, 'snapshot_every': 0,
+        'demag_kind': 'none',
+        'demag_accuracy': None, 'demag_tol_conv': None,
+        'm_init_top': None, 'm_init_bot': None,
+        'equil': None,
     }
     payload = trajectory_worker(base_config)
     T_eff = T_of_j(j, T_sub=T_sub, R_th=cfg['R_th'])
