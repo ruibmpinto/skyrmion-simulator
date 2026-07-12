@@ -9,7 +9,20 @@
 
 namespace skyrmion {
 
-enum class DemagKind { None, Slab, Newell };
+// NewellFreeBC: Newell kernel on a 2N zero-padded grid (isolated /
+// free-boundary, no periodic images; matches mumax3's default demag and
+// the Python kind='newell_freebc').
+// Racetrack: mixed track geometry -- periodic along x (circular
+// convolution, grid width nx) and free/isolated along y (grid height
+// 2*ny, zero-padded top/bottom). The strip is infinite along x and has
+// open edges across its width.
+enum class DemagKind { None, Slab, Newell, NewellFreeBC, Racetrack };
+
+// Per-cell-pair Newell tensor evaluation. Closed: the Newell-Williams-
+// Dunlop 1993 closed form (exact to machine precision; matches the Python
+// _METHOD='closed' default). Quadrature: mumax3-style adaptive Gauss-
+// Legendre surface integration (converges to Closed as accuracy grows).
+enum class DemagMethod { Closed, Quadrature };
 
 struct Params {
     // -------- Lattice --------
@@ -69,7 +82,9 @@ struct Params {
 
     // -------- Demag --------
     DemagKind demag_kind = DemagKind::None;  // matches Python rhs_local_keff
-    Real      demag_accuracy = 8.0;          // Newell
+    // Closed-form Newell tensor by default (exact, fast; matches Python).
+    DemagMethod demag_method = DemagMethod::Closed;
+    Real      demag_accuracy = 8.0;          // Newell quadrature only
     Real      demag_tol_conv = 2.0e-2;       // Newell (typical floor at 32x32)
 
     // -------- Thermal (stochastic LLG); filled by attach_thermal --------
@@ -121,5 +136,10 @@ Real pma_anisotropy_field(const Params& p);
 // Compact JSON serialization of run-time parameters; embedded into the
 // snapshot .npz so Python plotters can recover provenance.
 std::string params_to_json(const Params& p);
+
+// Output-directory tag for a DMI value, e.g. 0.545e-3 -> "D0p545",
+// 0.85e-3 -> "D0p85" (mJ/m^2, trailing zeros stripped, '.' -> 'p'). The
+// canonical D-tag shared by every tool that writes a per-D subdirectory.
+std::string dmi_dir_tag(Real D);
 
 } // namespace skyrmion

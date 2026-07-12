@@ -2801,6 +2801,381 @@ and is negligible at large skyrmions.}
 
 %======================================================================
 \newpage
+\section{Relaxation Convergence and Finite-Size Independence}
+\label{sec:relax-convergence}
+%======================================================================
+
+Before any finite-temperature or current-driven measurement, the
+Set~A SAF skyrmion is relaxed to its zero-current ground state. Two
+questions decide whether a relaxed configuration is a usable
+reference: (i) how many integration steps are needed for the
+skyrmion \emph{size} to converge, and (ii) whether the converged size
+depends on the simulation box. Both are answered by relaxing the same
+initial skyrmion in four boxes and tracking the size, energy, and
+residual torque as a function of step.
+
+\textbf{Setup.} Set~A parameters, single magnetisation pulse switched
+off ($J=0$), overdamped relaxation ($\alpha=1$, $dt=5\times10^{-14}$~s)
+under the periodic (circular-convolution) Newell demag evaluated with
+the Gauss--Legendre quadrature tensor. Each box is relaxed for
+$2.5\times10^{5}$ steps in chunks of $2000$, \emph{never}
+early-stopping, so the full convergence transient is recorded. After
+every chunk the relaxed top-layer state is reduced to: the
+largest-connected-component (LCC) ellipse axes $D_1,D_2$ (PBC-aware
+second moments), the total energy $E$, and the percentiles of the
+per-site tangential torque $|\mb{m}\times(\mb{m}\times\mb{H})|$
+(maximum, $99$th percentile, median, RMS).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c c c c c c c}
+\hline
+grid & size (nm) & steps & $\max|\mb{\tau}|$ & $\tau_{p99}$ &
+$\tau_{\mathrm{med}}$ & $D_1=D_2$ (nm) & $E$ (J)\\
+\hline
+$256\times256$ & $512\times512$   & $250{,}000$ & $5.82\times10^{-5}$
+  & $5.77\times10^{-5}$ & $1.21\times10^{-6}$ & $206.5$ & $-1.11\times10^{-16}$\\
+$350\times350$ & $700\times700$   & $250{,}000$ & $5.77\times10^{-5}$
+  & $5.68\times10^{-5}$ & $4.60\times10^{-8}$ & $206.5$ & $-2.09\times10^{-16}$\\
+$350\times500$ & $700\times1000$  & $250{,}000$ & $5.76\times10^{-5}$
+  & $5.64\times10^{-5}$ & $5.89\times10^{-9}$ & $206.5$ & $-2.98\times10^{-16}$\\
+$500\times500$ & $1000\times1000$ & $250{,}000$ & $5.76\times10^{-5}$
+  & $5.59\times10^{-5}$ & $1.34\times10^{-9}$ & $206.5$ & $-4.26\times10^{-16}$\\
+\hline
+\end{tabular}
+\caption{Relaxed-state observables after $2.5\times10^{5}$ steps. The
+relaxed diameter is identical to within the LCC-ellipse resolution
+across all boxes; the total energy scales with the ferromagnetic
+background area, as expected for a fixed-size skyrmion in a larger
+cell.}
+\label{tab:relax-box}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{relax_box_snapshots_D0p85_newell.pdf}
+\caption{Relaxed top-layer $m_z$ in each box, drawn at true physical
+scale. The skyrmion ($m_z<0$ core) is the same $\approx 207$~nm
+object in every box; only the surrounding ferromagnetic background
+($m_z=+1$) grows. The $256^2$ box is the tightest confinement and the
+$500\times500$ box the most generous, yet the core is unchanged.}
+\label{fig:relax-snapshots}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{relax_box_convergence_D0p85_newell.pdf}
+\caption{(a) Diameter vs step: the skyrmion overshoots to
+$\approx 211.7$~nm within the first $\sim 10^{4}$ steps, then relaxes
+slowly to $206.5$~nm; the four boxes overlap. (b) Maximum tangential
+torque vs step: it falls four orders of magnitude in $\sim 3\times10^{4}$
+steps to a flat floor of $\approx 6\times10^{-5}$. (c) Relaxed diameter
+vs lattice-cell count: flat, i.e.\ box-size independent.}
+\label{fig:relax-convergence}
+\end{figure}
+
+\textbf{Why $2.5\times10^{5}$ steps and not $4\times10^{4}$.}
+Figure~\ref{fig:relax-convergence}(a) shows the diameter is
+\emph{non-monotonic}: it overshoots to $\approx 211.7$~nm during the
+initial collapse, then drifts downward over the next
+$\sim 2\times10^{5}$ steps to the converged $206.5$~nm. Stopping at
+$4\times10^{4}$ steps would report $\approx 210$~nm --- roughly
+$1.7\%$ too large and still visibly drifting. The longer run is
+required precisely because the size, not just the torque, must
+plateau.
+
+\textbf{Box-size independence.} The relaxed diameter is $206.5$~nm in
+all four boxes (Table~\ref{tab:relax-box},
+Fig.~\ref{fig:relax-convergence}(c)), even though the cell area grows
+by $3.8\times$ from $256^2$ to $500\times500$. This is the expected
+behaviour of a \emph{compensated} synthetic antiferromagnet: the two
+antiparallel layers nearly cancel the net magnetostatic moment, so the
+periodic images contribute negligibly and the confinement is set by the
+intrinsic balance of exchange, DMI, and anisotropy rather than by the
+cell. The practical consequence is that the periodic and the isolated
+(zero-padded, free-boundary) demag give the same relaxed size for this
+stack, so the boundary-condition choice is a question of matching the
+reference paper, not of physics.
+
+\textbf{Circular at $J=0$.} The relaxed skyrmion has $D_1=D_2$ to
+within the ellipse resolution: with no spin--orbit torque there is no
+preferred in-plane direction and the ground state is axisymmetric. The
+elliptical ($D_1\neq D_2$) deformation studied elsewhere in this work
+appears only once a current drives the skyrmion.
+
+\textbf{The residual-torque floor is not under-relaxation.} The
+maximum tangential torque does not vanish; it plateaus at
+$\approx 6\times10^{-5}$ (Fig.~\ref{fig:relax-convergence}(b)). Two
+facts identify this as a benign max-norm artifact rather than an
+unrelaxed skyrmion. First, $\tau_{p99}\approx\max|\mb{\tau}|$ while the
+median is three to five orders of magnitude smaller
+(Table~\ref{tab:relax-box}): the residual is a broad, low-amplitude
+field spread across the ferromagnetic background, not a torque spike
+localised at the domain wall. Second, the floor does \emph{not} grow
+with lattice size --- if anything it is slightly lower on the larger
+boxes --- whereas a genuinely under-relaxed wall would tighten and the
+peak torque would track the wall, not the background. The skyrmion
+itself (where the size and energy are determined) is fully relaxed; the
+floor is the maximum over an ever-larger set of near-zero background
+sites.
+
+\textbf{Demag-method robustness.} These results use the Gauss--Legendre
+quadrature evaluation of the Newell tensor. Re-relaxing with the
+closed-form Newell--Williams--Dunlop tensor (exact to machine
+precision) yields the identical $206.5$~nm diameter, confirming that
+the relaxed size is insensitive to the demag-evaluation method and that
+the convergence behaviour above is a property of the physics, not of
+the quadrature.
+
+%----------------------------------------------------------------------
+\subsection{Free top/bottom boundaries: the $D>D_c$ expansion}
+\label{sec:relax-freebc-y}
+
+Repeating the relaxation with free (open) top and bottom edges across
+the width $y$ --- the $2n_y\times n_x$ zero-padded racetrack demag, here
+with the exchange/DMI still on the $y$-torus (the demag-only free-$y$
+case of Sec.~\ref{sec:bc-comparison}) --- changes the picture completely.
+All other settings are unchanged (Set~A, $D=0.85$~mJ/m$^2$, $J=0$,
+$\alpha=1$, $2.5\times10^{5}$ steps).
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l c c c c c c}
+\hline
+grid & size (nm) & $\max|\mb{\tau}|$ & $\tau_{\mathrm{med}}$ &
+$D_1$ (nm) & $D_2$ (nm) & $E$ (J)\\
+\hline
+$256\times256$ & $512\times512$   & $1.39\times10^{-3}$ & $1.62\times10^{-4}$
+  & $406.4$ & $401.9$ & $-1.15\times10^{-16}$\\
+$350\times350$ & $700\times700$   & $1.55\times10^{-3}$ & $1.63\times10^{-4}$
+  & $436.5$ & $435.8$ & $-2.13\times10^{-16}$\\
+$350\times500$ & $700\times1000$  & $1.58\times10^{-3}$ & $4.55\times10^{-5}$
+  & $436.8$ & $436.2$ & $-3.03\times10^{-16}$\\
+$500\times500$ & $1000\times1000$ & $1.58\times10^{-3}$ & $8.04\times10^{-6}$
+  & $436.7$ & $436.6$ & $-4.31\times10^{-16}$\\
+\hline
+\end{tabular}
+\caption{Relaxed-state observables with free top/bottom boundaries
+after $2.5\times10^{5}$ steps. In contrast to the periodic case
+(Table~\ref{tab:relax-box}, a box-independent $206.5$~nm), the diameter
+is roughly doubled and has \emph{not} converged --- see
+Fig.~\ref{fig:relax-freebc-y}.}
+\label{tab:relax-box-freebcy}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{relax_freebc_y_expansion_D0p85_newell_freebc_y_maskless.pdf}
+\caption{(a) Diameter vs step under free top/bottom boundaries: the
+skyrmion expands monotonically and is still growing at
+$2.5\times10^{5}$ steps ($\approx +0.7$~nm per $10^{3}$ steps). The
+three larger boxes share one trajectory because none has yet reached
+its confining edge; only $256^2$ ($512$~nm) is small enough to bend
+below the others. The periodic equilibrium ($206.5$~nm, dashed) sits
+far below. (b) Maximum torque plateaus at $\approx 1.5\times10^{-3}$
+($\sim 25\times$ the periodic floor) --- the persistent torque of the
+still-moving wall and the open edges.}
+\label{fig:relax-freebc-y}
+\end{figure}
+
+\textbf{The skyrmion does not settle.} The reported $406$--$437$~nm are
+mid-expansion snapshots, not equilibria: the diameter is still rising
+at $+0.7$~nm per $10^{3}$ steps over the last $10^{5}$ steps. The three
+larger boxes ($350^2$, $350\times500$, $500^2$) report nearly identical
+sizes ($\approx 436$--$437$~nm) \emph{not} because they have converged
+but because they follow the same free-expansion trajectory --- at
+$1.5\times10^{5}$ steps all three read $363$~nm --- and none has yet
+grown enough to feel its (different) box edge. The $256^2$ box is the
+only one small enough that the skyrmion already touches the edge by
+$\sim 1.2\times10^{5}$ steps, which is why it bends below the others and
+its expansion rate halves.
+
+\textbf{The residual torque is an edge/expansion transient, not bulk
+under-relaxation.} $\max|\mb{\tau}|$ holds at $\sim 1.5\times10^{-3}$
+(the moving wall and the open edges), but the \emph{median} torque
+falls by more than an order of magnitude as the box grows
+($1.6\times10^{-4}$ at $256^2$ to $8.0\times10^{-6}$ at $500^2$): the
+interior is increasingly well-relaxed while the residual concentrates
+at the expanding wall and the free boundary.
+
+\textbf{Why this happens.} Set~A sits at $D/D_c = 1.75$
+($\sigma_{\mathrm{DW}} = 4\sqrt{\Aex\,\Keff} - \pi D = -1.14\times
+10^{-3}$~J/m$^2 < 0$, Sec.~\ref{sec:relax-convergence}). With negative
+wall energy the isolated skyrmion has no finite equilibrium radius --- it
+lowers its energy by enlarging toward a stripe domain. Periodic
+boundaries on all sides supply a confining image interaction that pins
+it at the metastable, box-independent $206.5$~nm; removing the
+confinement across the width (free top/bottom) eliminates that
+restoring term and the skyrmion expands until arrested by the physical
+edge. Consistently, the energy grows more negative as the skyrmion (and
+its surrounding domain) enlarges.
+
+\textbf{Consequence.} For this stack a free-edge --- or a true
+finite-width track --- skyrmion size is set by confinement, not by
+intrinsic energetics, and there is no $T=0$ free-relaxation equilibrium
+to use as a seed. An intrinsically stable, finite skyrmion would require
+either $D < D_c \approx 0.49$~mJ/m$^2$ (the lower end of the paper's
+reported $D = 0.62\pm0.24$~mJ/m$^2$ band, where
+$\sigma_{\mathrm{DW}}>0$) or hard-edge geometric confinement at the
+intended width.
+
+\subsection{Boundary conditions: periodic vs racetrack vs masked band}
+\label{sec:bc-comparison}
+
+The periodic bulk, the production racetrack, and the masked-band
+diagnostic differ only in the top/bottom ($y$) boundary, and that
+boundary is applied \emph{identically to both} long-range couplings ---
+magnetostatics and exchange/DMI. Fig.~\ref{fig:bc-schematic} contrasts
+the three. The $x$ direction (track length) is periodic throughout.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]{bc_schematic.pdf}
+\caption{Width ($y$) boundary conditions. \textbf{Periodic}
+(\texttt{newell}): both the demag kernel and the exchange/DMI stencil
+wrap top$\leftrightarrow$bottom, so the cell sees an infinite stack of
+$y$ images and behaves as a $2$-torus. \textbf{Free-$y$ demag only}:
+the demag kernel is built on the $2n_y\times n_x$ zero-padded grid
+(isolated across $y$) but the exchange/DMI stencil still wraps --- the
+short-range torques remain a torus; not a production BC, shown to
+motivate why both couplings must be freed (Sec.~\ref{sec:relax-freebc-y}
+uses this case). \textbf{Racetrack} (\texttt{racetrack}): the full box
+is the track --- the demag kernel is zero-padded across $y$ (no images)
+\emph{and} the exchange/DMI stencil is cut at the box edge with the
+Rohart--Thiaville free-edge tilt (red arrows); periodic $x$, free $y$,
+no mask, track width $L_y=n_y a$. \textbf{Masked band}
+(\texttt{masked\_band}): the same racetrack demag, but the magnetic
+region is a centred band of width $W<L_y$ with vacuum margins carrying
+the free edge.}
+\label{fig:bc-schematic}
+\end{figure}
+
+\textbf{Periodic} (\texttt{newell}). The demag is a circular convolution
+on the $n_y\times n_x$ grid and the exchange/DMI stencil wraps $y\pm1$
+across the box: the slab feels an infinite array of $y$ images, a
+$2$-torus on both couplings.
+
+\textbf{Racetrack} (\texttt{racetrack}). The full box is the track. The
+demag kernel is built on the doubled $2n_y\times n_x$ zero-padded grid,
+a linear convolution isolating a single finite-width stripe (no $y$
+images); and the exchange/DMI stencil is cut at the box edge (rows $0$
+and $n_y-1$), where ghost cells carry the Rohart--Thiaville free-edge
+condition
+$\partial_n\mb{m} = (D/2\Aex)\,(\hat{\mb{n}}\times\hat{\mb{z}})\times
+\mb{m}$. Periodic $x$, free $y$, no mask: the track width is the
+transverse box extent $L_y=n_y a$.
+
+\textbf{Masked band} (\texttt{masked\_band}). The same racetrack demag,
+but the magnetic region is a centred band of width $W<L_y$; vacuum
+margins above and below carry the free edge. This imposes a track width
+narrower than the box and is exercised by the diagnostic
+\texttt{validate\_relax\_torque masked\_band}.
+
+\textbf{Both couplings must be free.} Isolating only the demag (free
+demag, periodic exchange) leaves the short-range torques on a torus and,
+for $D>D_c$, the texture still expands without bound
+(Sec.~\ref{sec:relax-freebc-y}). The complete racetrack frees both. The
+long-range demag dominates the field change (here $\approx 17\%$ versus
+periodic), while the exchange/DMI edge is local --- it matters once the
+texture reaches the boundary (e.g.\ under the SOT Hall drift), not for a
+centred skyrmion. The C++ and Python implementations are identical,
+cross-validated to FFT round-off ($\sim10^{-12}$).
+
+\subsection{DMI sweep: dialing a stable, larger racetrack skyrmion}
+\label{sec:dmi-sweep}
+
+The racetrack relaxation at $D=0.47$~mJ/m$^2$ settles a compact
+$\approx 90$~nm skyrmion. To reach the paper's $\approx 180$--$200$~nm
+scale while staying intrinsically stable, we sweep $D$ across the
+reported band ($0.62\pm0.24$, i.e.\ $0.38$--$0.86$~mJ/m$^2$) and relax
+the full-box racetrack BC (Sec.~\ref{sec:bc-comparison}) on two boxes
+($256^2$, $350^2$, $J=0$, $\alpha=1$, $2.5\times10^{5}$ steps), reading
+the relaxed LCC ellipse $D_1,D_2$ and the box-to-box consistency.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{c c c c c l}
+\hline
+$D$ & $D_1/D_2$ & $D_1/D_2$ & $D_1$ (nm) &
+$|\Delta D_1|/D_1$ & class\\
+(mJ/m$^2$) & ($256^2$) & ($350^2$) & ($350^2$) & (box) & \\
+\hline
+$0.47$ & $1.00$ & $1.00$ & $91.2$  & $0.012$ & compact\\
+$0.52$ & $1.00$ & $1.00$ & $144.4$ & $0.018$ & compact\\
+$0.57$ & $1.01$ & $1.00$ & $209.1$ & $0.020$ & compact\\
+$0.62$ & $1.04$ & $1.01$ & $270.5$ & $0.017$ & compact (edge)\\
+$0.66$ & $1.07$ & $1.01$ & $314.2$ & $0.013$ & compact (edge)\\
+\hline
+\end{tabular}
+\caption{Relaxed racetrack skyrmion versus DMI. $D_1/D_2$ is the LCC
+ellipse aspect ratio per box; $D_1$ is the major axis on the $350^2$
+box; $|\Delta D_1|/D_1$ is the relative difference of $D_1$ between the
+two boxes (box-independence test).}
+\label{tab:dmi-sweep}
+\end{table}
+
+\textbf{All five are stable, compact skyrmions --- none is a stripe.}
+The decisive test is box-independence: a $D>D_c$ stripe has no finite
+equilibrium and grows with the box (as in Sec.~\ref{sec:relax-freebc-y},
+$D_1$ rising from $406$ to $437$~nm with box size). Here every $D$ gives
+$|\Delta D_1|/D_1 \le 2\%$ across the two boxes --- a genuine
+finite-radius equilibrium. The size grows monotonically $90\to314$~nm as
+$D:0.47\to0.66$, consistent with the equilibrium radius diverging as
+$D\to D_c^-$.
+
+\textbf{The high-$D$ ellipticity is a finite-box edge effect, not an
+instability.} $D_1/D_2$ is $\approx 1.00$ up to $0.57$; at $0.62$--$0.66$
+it rises to $1.04$--$1.07$ \emph{only on the $256^2$ box} and stays
+$\approx 1.01$ on $350^2$. A $\approx 310$~nm skyrmion in a $512$~nm
+($256$-cell) box sits only $\sim 100$~nm from each free top/bottom edge,
+so it elongates along the periodic $x$; on the $700$~nm box it is round.
+The effect vanishes with box size, the signature of confinement rather
+than intrinsic anisotropy.
+
+\textbf{The relaxation does not stop on the torque gate, and should not.}
+Every entry runs the full $2.5\times10^{5}$ steps without triggering the
+$10^{-5}$ torque tolerance: the racetrack $\max|\mb{\tau}|$ floor is the
+max-norm artifact of Sec.~\ref{sec:relax-convergence} (a well-relaxed
+skyrmion with residual torque delocalised in the ferromagnetic
+background), not under-relaxation. Size and box-independence, not the
+torque gate, are the stability criteria.
+
+\textbf{Target.} The $180$--$200$~nm goal corresponds to $D\approx0.57$
+($209$~nm) or, interpolating $0.52\to0.57$, $D\approx0.545$
+($\approx 185$~nm) --- both well inside the paper's band and comfortably
+below the effective $D_c$.
+
+\textbf{Confirmation at $D=0.545$~mJ/m$^2$.} A dedicated relaxation at
+the chosen $D=0.545$ settles a compact skyrmion of $D_1=184.5$~nm on the
+production $350\times500$ box and $180.7/180.2$~nm on $256^2$ --- box
+independent to $2\%$ and on target.
+Figures~\ref{fig:relax-d0545-snap} and~\ref{fig:relax-d0545-conv} show
+the relaxed configuration and the diameter / torque evolution.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]%
+{relax_box_snapshots_D0p545_racetrack.pdf}
+\caption{Relaxed top-layer $m_z$ at $D=0.545$~mJ/m$^2$ (racetrack BC,
+$J=0$) for the two boxes finished so far. The compact $\approx 182$~nm
+skyrmion is centred and round on both, the target track scale.}
+\label{fig:relax-d0545-snap}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\linewidth]%
+{relax_box_convergence_D0p545_racetrack.pdf}
+\caption{(a) Diameter vs step: overshoot then relaxation to a flat,
+box-independent $\approx 182$--$185$~nm plateau. (b) Maximum tangential
+torque vs step: falls to the max-norm floor (Sec.~\ref{sec:relax-convergence}),
+not the $10^{-5}$ gate. (c) Relaxed diameter vs lattice cells: flat ---
+the equilibrium is set by $D$, not the box.}
+\label{fig:relax-d0545-conv}
+\end{figure}
+
+%======================================================================
+\newpage
 \appendix
 \section{Derivation of the Domain Wall Profile}
 \label{app:dw}

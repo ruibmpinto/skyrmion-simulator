@@ -18,16 +18,21 @@ namespace skyrmion {
 void effective_field(const Field3& m, const Field3& m_other,
                      Real C_ex, Real C_dmi, Real C_anis,
                      const Vec3& H_ext, Real H_RKKY,
-                     Field3& H, const std::uint8_t* mask) {
+                     Field3& H, const std::uint8_t* mask, bool free_y) {
     const int ny = m.ny;
     const int nx = m.nx;
-    const Real xia = (mask && C_ex > 0.0) ? (C_dmi / C_ex) : 0.0;
+    const Real xia =
+        ((mask || free_y) && C_ex > 0.0) ? (C_dmi / C_ex) : 0.0;
 #ifdef SKYRMION_OPENMP
     #pragma omp parallel for schedule(static)
 #endif
     for (int i = 0; i < ny; ++i) {
         int im, ip;
         pbc_pm(i, ny, im, ip);
+        // Free-y edge: the -y neighbour of row 0 and the +y neighbour of
+        // row ny-1 are outside (open top/bottom of the track).
+        const bool free_my = free_y && (i == 0);
+        const bool free_py = free_y && (i == ny - 1);
         for (int j = 0; j < nx; ++j) {
             int jm, jp;
             pbc_pm(j, nx, jm, jp);
@@ -59,12 +64,14 @@ void effective_field(const Field3& m, const Field3& m_other,
             } else {
                 mmx_x = mx + xia * mz; mmx_y = my; mmx_z = mz - xia * mx;
             }
-            if (!mask || mask[static_cast<std::size_t>(ip) * nx + j]) {
+            if (!free_py
+                && (!mask || mask[static_cast<std::size_t>(ip) * nx + j])) {
                 mpy_x = m(ip, j, 0); mpy_y = m(ip, j, 1); mpy_z = m(ip, j, 2);
             } else {
                 mpy_x = mx; mpy_y = my - xia * mz; mpy_z = mz + xia * my;
             }
-            if (!mask || mask[static_cast<std::size_t>(im) * nx + j]) {
+            if (!free_my
+                && (!mask || mask[static_cast<std::size_t>(im) * nx + j])) {
                 mmy_x = m(im, j, 0); mmy_y = m(im, j, 1); mmy_z = m(im, j, 2);
             } else {
                 mmy_x = mx; mmy_y = my + xia * mz; mmy_z = mz - xia * my;
@@ -104,10 +111,13 @@ void effective_field_demag(const Field3& m_top, const Field3& m_bot,
                            Field3& H_top, Field3& H_bot,
                            const std::uint8_t* mask) {
     const BareAnis ba = bare_anis_prefactors(p);
+    // Racetrack: free top/bottom (y) exchange/DMI, the local analogue of
+    // the Racetrack free-y demag.
+    const bool free_y = (p.demag_kind == DemagKind::Racetrack);
     effective_field(m_top, m_bot, p.C_ex, p.C_dmi, ba.C_top,
-                    p.H_ext, p.H_RKKY, H_top, mask);
+                    p.H_ext, p.H_RKKY, H_top, mask, free_y);
     effective_field(m_bot, m_top, p.C_ex, p.C_dmi, ba.C_bot,
-                    p.H_ext, p.H_RKKY, H_bot, mask);
+                    p.H_ext, p.H_RKKY, H_bot, mask, free_y);
 
     Field3 H_dem_top(p.ny, p.nx);
     Field3 H_dem_bot(p.ny, p.nx);

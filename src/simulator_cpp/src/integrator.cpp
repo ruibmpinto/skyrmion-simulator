@@ -130,9 +130,9 @@ RHSLocalKeff::RHSLocalKeff(const Params& p, const std::uint8_t* mask)
 void RHSLocalKeff::operator()(const Field3& m_top, const Field3& m_bot, Real t,
                               Field3& dmdt_top, Field3& dmdt_bot) {
     effective_field(m_top, m_bot, p_.C_ex, p_.C_dmi, p_.C_anis_top,
-                    p_.H_ext, p_.H_RKKY, H_top_, mask_);
+                    p_.H_ext, p_.H_RKKY, H_top_, mask_, /*free_y=*/false);
     effective_field(m_bot, m_top, p_.C_ex, p_.C_dmi, p_.C_anis_bot,
-                    p_.H_ext, p_.H_RKKY, H_bot_, mask_);
+                    p_.H_ext, p_.H_RKKY, H_bot_, mask_, /*free_y=*/false);
     llgs_rhs(m_top, H_top_, p_, t, dmdt_top);
     llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot);
 }
@@ -154,7 +154,7 @@ RHSSingleKeff::RHSSingleKeff(const Params& p, const std::uint8_t* mask)
 
 void RHSSingleKeff::operator()(const Field3& m, Real t, Field3& dmdt) {
     effective_field(m, m, p_.C_ex, p_.C_dmi, p_.C_anis_top,
-                    p_.H_ext, p_.H_RKKY, H_, mask_);
+                    p_.H_ext, p_.H_RKKY, H_, mask_, /*free_y=*/false);
     llgs_rhs(m, H_, p_, t, dmdt);
 }
 

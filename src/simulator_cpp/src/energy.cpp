@@ -11,12 +11,14 @@ Real total_energy(const Field3& m_top, const Field3& m_bot,
     const Real Ms = p.Ms;
     const BareAnis ba = bare_anis_prefactors(p);
 
-    // Internal (bilinear) field, bare-K anisotropy, both layers.
+    // Internal (bilinear) field, bare-K anisotropy, both layers. Free-y
+    // exchange/DMI for the racetrack (matches the free-y demag below).
+    const bool free_y = (p.demag_kind == DemagKind::Racetrack);
     Field3 H_top(p.ny, p.nx), H_bot(p.ny, p.nx);
     effective_field(m_top, m_bot, p.C_ex, p.C_dmi, ba.C_top,
-                    Vec3{0, 0, 0}, p.H_RKKY, H_top, nullptr);
+                    Vec3{0, 0, 0}, p.H_RKKY, H_top, nullptr, free_y);
     effective_field(m_bot, m_top, p.C_ex, p.C_dmi, ba.C_bot,
-                    Vec3{0, 0, 0}, p.H_RKKY, H_bot, nullptr);
+                    Vec3{0, 0, 0}, p.H_RKKY, H_bot, nullptr, free_y);
 
     Field3 H_dem_top(p.ny, p.nx), H_dem_bot(p.ny, p.nx);
     demag.compute(m_top, m_bot, H_dem_top, H_dem_bot);

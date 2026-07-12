@@ -45,7 +45,8 @@ int main() {
     const int nx = 350, ny = 500;
     const std::vector<double> j_list = {
         0.5e11, 1.0e11, 2.0e11, 3.0e11, 4.0e11, 5.0e11};
-    const std::vector<double> t_sub_list = {10.0, 100.0, 200.0, 300.0};
+    const std::vector<double> t_sub_list = {
+        10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
     const double r_th = 0.0;
     const double dt = 5.0e-14;
     const int n_drive = 40000;       // 2 ns
@@ -56,7 +57,12 @@ int main() {
     const double tol_norm = 5.0e-3;
     const double q_threshold = 0.5;
     const int k_consecutive = 10;
-    const DemagKind demag_kind = DemagKind::Newell;
+    // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
+    // over the full box; track width = transverse box extent L_y = ny*a.
+    // Exchange/DMI wrap (mask=None), matching the Python pipeline. D
+    // must match stages 1 & 2.
+    const DemagKind demag_kind = DemagKind::Racetrack;
+    const double dmi = 0.545e-3;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
     const std::string out_dir = "output/stochastic_llgs/scan_track_width";
@@ -106,6 +112,7 @@ int main() {
         cfg.seed = seed_base + 1000LL * tr.ens
                    + 1000000LL * tr.cell_idx;
         cfg.tol_norm = tol_norm;
+        cfg.D = dmi;
         cfg.use_demag = true;
         cfg.demag_kind = demag_kind;
         cfg.demag_accuracy = demag_accuracy;
@@ -132,7 +139,7 @@ int main() {
                 << ",\"nx\":" << nx << ",\"ny\":" << ny
                 << ",\"dt\":" << dt
                 << ",\"n_drive\":" << n_drive
-                << ",\"demag_kind\":\"newell\"}";
+                << ",\"demag_kind\":\"racetrack\"}";
 
         std::unique_ptr<SnapshotBuffer> snaps;
         if (dump) {

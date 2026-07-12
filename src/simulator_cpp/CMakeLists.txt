@@ -44,6 +44,7 @@ set(SKYRMION_SOURCES
     src/demag.cpp
     src/fields.cpp
     src/energy.cpp
+    src/relax_torque_probe.cpp
     src/integrator.cpp
     src/observables.cpp
     src/io_npz.cpp
@@ -117,6 +118,21 @@ target_compile_options(profile_run PRIVATE
 add_executable(tw_check tools/tw_check.cpp)
 target_link_libraries(tw_check PRIVATE skyrmion_core)
 target_compile_options(tw_check PRIVATE
+    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+
+add_executable(dump_freebc_demag tools/dump_freebc_demag.cpp)
+target_link_libraries(dump_freebc_demag PRIVATE skyrmion_core)
+target_compile_options(dump_freebc_demag PRIVATE
+    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+
+add_executable(bench_demag_method tools/bench_demag_method.cpp)
+target_link_libraries(bench_demag_method PRIVATE skyrmion_core)
+target_compile_options(bench_demag_method PRIVATE
+    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+
+add_executable(sweep_dmi_racetrack tools/sweep_dmi_racetrack.cpp)
+target_link_libraries(sweep_dmi_racetrack PRIVATE skyrmion_core)
+target_compile_options(sweep_dmi_racetrack PRIVATE
     -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
 
 # -------------------- Sweep analyses ------------------------------------------

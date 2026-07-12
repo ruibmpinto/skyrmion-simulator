@@ -35,13 +35,19 @@ using namespace skyrmion::stochastic;
 int main() {
     // ----- Run configuration (box must match stages 1 & 3) -------------------
     const int nx = 350, ny = 500;
-    const std::vector<double> t_sub_list = {10.0, 100.0, 200.0, 300.0};
+    const std::vector<double> t_sub_list = {
+        10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
     const int n_ens = 100;
     const double r_th = 0.0;
     const double dt = 5.0e-14;
     const long long seed_base = 101;
     const double tol_norm = 5.0e-3;
-    const DemagKind demag_kind = DemagKind::Newell;
+    // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
+    // over the full box; the track width is the transverse box extent
+    // L_y = ny*a. Exchange/DMI wrap (mask=None), matching the Python
+    // pipeline. D must match stages 1 & 3.
+    const DemagKind demag_kind = DemagKind::Racetrack;
+    const double dmi = 0.545e-3;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
     // Equilibrate until the LCC size plateaus.
@@ -51,7 +57,9 @@ int main() {
     const int equil_k_consec = 3;          // consecutive stable windows
     const int equil_max_steps = 300000;    // 15 ns cap
     const std::string out_dir = "output/stochastic_llgs/scan_track_width";
-    const std::string m_eq_path = out_dir + "/m_eq.npz";
+    // Box-tagged so the 350x500 and 500x350 equilibria never collide.
+    const std::string m_eq_path = out_dir + "/m_eq_"
+        + std::to_string(nx) + "x" + std::to_string(ny) + ".npz";
     // -------------------------------------------------------------------------
     std::filesystem::create_directories(out_dir);
     int fft_threads = 1;
@@ -79,6 +87,7 @@ int main() {
         const Cell c = grid[idx];
         Params p = make_default_params();
         p.nx = nx; p.ny = ny; p.dt = dt;
+        p.D = dmi;
         p.demag_kind = demag_kind;
         p.demag_accuracy = demag_accuracy;
         p.demag_tol_conv = demag_tol_conv;

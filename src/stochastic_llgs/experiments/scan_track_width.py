@@ -93,7 +93,8 @@ def _relax_equilibrium(cfg):
     m_eq_bot : numpy.ndarray(3d)
         Relaxed bottom-layer field.
     """
-    p = make_params(nx=int(cfg['nx']), ny=int(cfg['ny']))
+    p = make_params(nx=int(cfg['nx']), ny=int(cfg['ny']),
+                    D=float(cfg['D']))
     p.dt = float(cfg['dt'])
     kernels = precompute_demag_kernels(
         p, kind=str(cfg['demag_kind']),
@@ -129,7 +130,8 @@ def _thermalize(cfg, t_idx, T_sub, ens, m_eq_top, m_eq_bot):
     m_top, m_bot : numpy.ndarray(3d)
         Thermally equilibrated fields at `T_sub`.
     """
-    p = make_params(nx=int(cfg['nx']), ny=int(cfg['ny']))
+    p = make_params(nx=int(cfg['nx']), ny=int(cfg['ny']),
+                    D=float(cfg['D']))
     p.dt = float(cfg['dt'])
     kernels = precompute_demag_kernels(
         p, kind=str(cfg['demag_kind']),
@@ -204,7 +206,7 @@ def _run_one_point(args):
         'use_demag': True,
         'q_threshold': float(cfg['q_threshold']),
         'k_consecutive': int(cfg['k_consecutive']),
-        'param_overrides': {},
+        'param_overrides': {'D': float(cfg['D'])},
         'dump_fields': dump_fields,
         'snapshot_every': snapshot_every,
         'demag_kind': str(cfg['demag_kind']),
@@ -260,7 +262,7 @@ def main():
     # Substrate temperatures spanning the ~200 K Tomasello regime
     # split.
     t_sub_list      = [
-        10.0, 100.0, 200.0, 300.0,
+        10.0, 50.0, 100.0, 130.0, 160.0, 200.0,
     ]
     r_th            = 0.0            # isolate substrate T
     dt              = 5.0e-14
@@ -277,13 +279,17 @@ def main():
     equil_window      = 10           # checks per window (100 ps)
     equil_tol         = 0.02         # relative size-change tolerance
     equil_k_consec    = 3            # consecutive stable windows
-    equil_max_steps   = 60000        # 3 ns cap
+    equil_max_steps   = 300000       # 15 ns cap
     seed_base       = 101
     tol_norm        = 5.0e-3
     q_threshold     = 0.5
     k_consecutive   = 10
-    # Newell FFT demag (required for Set-A skyrmion stability).
-    demag_kind      = 'newell'
+    # Racetrack: periodic x, free top/bottom (y) for both demag and
+    # exchange/DMI over the full box; the track width is the transverse
+    # box extent L_y = ny*a. DMI just below D_c for a stable compact
+    # skyrmion. Must match the C++ campaign drivers.
+    demag_kind      = 'racetrack'
+    dmi             = 0.47e-3
     demag_accuracy  = 4.0
     demag_tol_conv  = 0.02
     # Deterministic equilibrium relaxation (matches S47).
@@ -306,6 +312,7 @@ def main():
         'q_threshold': float(q_threshold),
         'k_consecutive': int(k_consecutive),
         'demag_kind': str(demag_kind),
+        'D': float(dmi),
         'demag_accuracy': float(demag_accuracy),
         'demag_tol_conv': float(demag_tol_conv),
         'equil': {

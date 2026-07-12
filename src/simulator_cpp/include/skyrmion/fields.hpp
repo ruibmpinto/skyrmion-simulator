@@ -23,10 +23,18 @@ namespace skyrmion {
 // when C_ex > 0, else 0) shared by the exchange and DMI stencils, and
 // the field is zeroed outside the region. Matches Python
 // fields.effective_field(mask=...).
+//
+// `free_y` selects the racetrack boundary: periodic along x, free
+// top/bottom along y over the full box. The y-neighbour of row 0 (-y)
+// and of row ny-1 (+y) is taken as outside, so it uses the same R-T
+// ghost as a mask edge; x stays periodic and no cells are zeroed. This
+// is the exchange/DMI analogue of the Racetrack demag (free-y over
+// the full box). free_y composes with mask (a neighbour is "outside" if
+// the mask says so OR it is across the free y-edge).
 void effective_field(const Field3& m, const Field3& m_other,
                      Real C_ex, Real C_dmi, Real C_anis,
                      const Vec3& H_ext, Real H_RKKY,
-                     Field3& H, const std::uint8_t* mask);
+                     Field3& H, const std::uint8_t* mask, bool free_y);
 
 // Bare-K + demag pair path (matches Python effective_field_demag_pair).
 //

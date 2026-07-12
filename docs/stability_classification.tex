@@ -1,0 +1,177 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\graphicspath{{figures/}%
+  {../output/figures_sllg/track_width/box350x500_racetrack_D0p545/}}
+
+\newcommand{\Q}{\lvert Q\rvert}
+
+\title{Data-driven stability classification of the racetrack
+skyrmion campaign\\[2pt]
+\large box $350\times500$, racetrack BC, $D=0.545$~mJ/m$^2$}
+\author{Rui Barreira}
+\date{2026-07-12}
+
+\begin{document}
+\maketitle
+
+\section{Motivation}
+The first stability map was produced by a hardcoded two-threshold
+lookup on $(T,J)$: labyrinth for $T\ge130$~K, elongated stripe for
+$J\ge3\times10^{11}$~A/m$^2$, else compact skyrmion. Those thresholds
+were read by eye off the snapshots of a \emph{different} run (the
+periodic $350\times500$ \texttt{pbcx\_pbcy} box) and then frozen; they
+never consulted the actual configurations of the racetrack $D=0.545$
+run, and carried no guard against the periodic-boundary artifact below.
+This note replaces the lookup with a classifier computed from the raw
+simulation output, and documents the method and results.
+
+\paragraph{The periodicity artifact.}
+The track is periodic along $x$ (motion axis, length $L_x=n_x a=700$~nm)
+and free along $y$. Once the reversed domain extends along $x$ to about
+half the track, $D_x\gtrsim0.5\,L_x$, it can connect to its own
+periodic-$x$ image. The largest-connected-component (LCC) analysis then
+describes a wrapped, image-bridged object, and the single-skyrmion
+picture is invalid there. Crucially the relevant length is the
+\emph{$x$-extent} $D_x$, \emph{not} the ellipse major axis $D_1$: a
+skyrmion stretched along free-$y$ has large $D_1$ but small $D_x$ and
+does not bridge its $x$-image. We measure $D_x$ directly from the field
+and flag the affected cells explicitly rather than trust them.
+
+\section{Data reuse --- no new simulation}
+Everything needed already exists in the completed campaign output; no
+resimulation was required.
+\begin{itemize}
+  \item \textbf{Topological charge $\Q$}: stored per frame
+  (\texttt{Q\_top}) in the 36 \texttt{anim\_*.npz} full-field dumps
+  (the \texttt{ens0} representative of each $(T,J)$ cell).
+  \item \textbf{Domain structure and $D_x$}: computed from the final
+  drive-frame $m_z(x,y)$ field in the same dumps (the only place full
+  fields were saved).
+  \item \textbf{$D_1/D_2$ elongation ratio}: the ensemble-mean ellipse
+  axes in \texttt{aggregate\_350x500\_racetrack\_D0p545.npz}.
+\end{itemize}
+
+\section{Methodology}
+Each $(T,J)$ cell is classified from the final drive-phase
+configuration of its \texttt{ens0} realization, combining three
+physical signals.
+
+\paragraph{1. Topology.}
+$\Q$ is the integrated topological charge: $\Q\approx1$ marks one
+skyrmion; $\Q\approx0$ a collapse to the ferromagnet or a chargeless
+stripe; $\Q\gtrsim1.6$ more than one skyrmion.
+
+\paragraph{2. Domain structure (de-speckled).}
+The reversed domain is the mask $m_z<-0.5$ --- a hard threshold, so
+thermal fluctuations near $m_z=0$ are not miscounted as domains.
+Connected components are labelled with periodic-$x$ / free-$y$
+connectivity (a union-find merge across the $x$ seam), and components
+below $0.2\%$ of the box are dropped as speckle. From the survivors we
+take the count $N_c$, the reversed-area fraction, whether any component
+wraps the $x$ seam, and the periodic $x$-extent $D_x$ of the largest
+component (span $=n_x-$ largest cyclic gap of empty columns).
+
+\paragraph{3. Periodic gate.}
+$D_x/L_x\ge0.5$ means the domain can bridge its periodic image (loss of
+periodicity).
+
+\paragraph{Decision order.}
+\begin{enumerate}
+  \item No surviving domain (or a sub-floor domain with $\Q<0.5$)
+  $\rightarrow$ \textbf{A} (annihilated, ferromagnetic).
+  \item $N_c\ge2$, or reversed fraction $\ge0.35$, or $\Q\ge1.6$
+  $\rightarrow$ \textbf{L} (labyrinth / multi-domain).
+  \item Single domain with $\Q<0.5$: \textbf{E} if it spans the seam,
+  else \textbf{L}.
+  \item One skyrmion ($\Q\approx1$), single domain: \textbf{E} if it
+  wraps, $D_x/L_x\ge0.5$, or $D_1/D_2\ge1.7$; else \textbf{S}
+  (compact skyrmion).
+\end{enumerate}
+Independently, a second index \textbf{p} is appended wherever
+$D_x/L_x\ge0.5$ (loss of periodicity): e.g. \texttt{Ep} is an elongated
+state whose $x$-size is no longer trustworthy, \texttt{Lp} a labyrinth
+in the image-bridged regime.
+
+\begin{table}[h]
+\centering
+\caption{Classifier thresholds (physical constants, local to the
+routine).}
+\begin{tabular}{lll}
+\toprule
+quantity & value & meaning\\
+\midrule
+core threshold & $m_z<-0.5$ & reversed domain vs thermal noise\\
+speckle floor & $0.2\%$ of box & minimum component area\\
+$\Q$ skyrmion & $0.5$ & topological skyrmion present\\
+$\Q$ multi & $1.6$ & more than one skyrmion\\
+reversed fill & $0.35$ & space-filling $\rightarrow$ labyrinth\\
+$D_x/L_x$ gate & $0.5$ & periodic-image bridging (index p)\\
+$D_1/D_2$ & $1.7$ & elongated\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Results}
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.82\linewidth]{stability_map.png}
+\caption{Stability regimes over the $(T,J)$ grid. Colour is the
+physical class (S/E/L/A); the appended \textbf{p} marks loss of
+periodicity ($D_x\ge0.5\,L_x$).}
+\label{fig:stab}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{Classification grid (rows $T$ in K, columns $J$ in
+$10^{11}$~A/m$^2$). Code $=$ physical class $+$ optional \textbf{p}
+(loss of periodicity, $D_x\ge0.5\,L_x$).}
+\begin{tabular}{r|cccccc}
+\toprule
+$T\,\backslash\,J$ & 0.5 & 1 & 2 & 3 & 4 & 5\\
+\midrule
+10  & S  & S  & E  & E  & E  & Lp\\
+50  & S  & E  & E  & E  & Lp & Lp\\
+100 & Lp & Lp & Ep & Ep & Ep & Ep\\
+130 & Ep & Ep & Lp & Ep & Lp & Lp\\
+160 & Ep & Lp & Lp & Lp & Lp & Lp\\
+200 & L  & L  & L  & Lp & L  & Lp\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Findings.}
+\begin{itemize}
+  \item A genuinely compact skyrmion (\textbf{S}) survives only in the
+  cold, low-drive corner: $T=10$~K at $J\le1\times10^{11}$ and $T=50$~K
+  at $J=5\times10^{10}$. There $\Q=1.00$, $D_1/D_2\approx1.0$--$1.1$,
+  $D_x/L_x\approx0.2$--$0.5$.
+  \item With increasing current the low-$T$ skyrmion stretches
+  (\textbf{E}: $D_1/D_2$ rising to $3.2$ at $T=10$), then collapses to a
+  labyrinth at the highest current (\texttt{Lp}; $\Q=0.17$ at $T=10$,
+  $J=5\times10^{11}$).
+  \item \textbf{Loss of periodicity affects $23$ of $36$ cells}, but the
+  field-measured $D_x$ gate is far more discriminating than the ellipse
+  $D_1$: the round $T=50$, $J=5\times10^{10}$ skyrmion
+  ($D_1/D_2=1.11$, $D_x/L_x=0.47$) is correctly \textbf{S}, whereas a
+  $D_1$-based gate flagged it (its $D_1$ was thermally inflated). At
+  warm/high-drive cells $D_x$ reaches or exceeds $L_x$.
+  \item Warm cells ($T\ge130$) are labyrinthine at most currents; at
+  $T=200$ the texture fragments into several small domains, so the
+  \emph{largest} component's $D_x$ is small and most cells there are
+  plain \textbf{L}.
+\end{itemize}
+
+\paragraph{Consequence.}
+The reliable, intrinsic region of this run is the small cold/low-drive
+corner. To characterise the elongated and driven states without the
+periodic-image artifact, the track must be extended along the motion
+axis (larger $L_x$ at fixed width), the subject of a follow-up campaign
+($256$, $512$, $1024$ cells along $x$, free $y$).
+
+\end{document}

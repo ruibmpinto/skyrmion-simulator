@@ -23,7 +23,14 @@ namespace skyrmion {
 using Complex = std::complex<Real>;
 
 struct DemagKernels {
+    // ny/nx are the FFT grid size: equal to the physical grid for the
+    // periodic kinds, but the DOUBLED (2*phys) grid for free-BC.
     int ny = 0, nx = 0;
+    // Free-boundary (zero-padded) kernel: ny/nx are 2*phys and the demag
+    // is the isolated (no-image) field; ny_phys/nx_phys are the physical
+    // size to pad into / crop out. freebc=false => periodic (ny==ny_phys).
+    bool freebc = false;
+    int ny_phys = 0, nx_phys = 0;
     Real mu0_Ms = 0.0;
     Real t_Co = 0.0, d_Ru = 0.0;
     // Each (ny * nx) entries, full k-space spectrum.
@@ -57,8 +64,20 @@ private:
 // Build the analytic slab-approximation demag kernel.
 DemagKernels precompute_demag_slab(const Params& p);
 
-// Newell kernel: not implemented in this C++ port. Throws.
+// Newell kernel, periodic (circular-convolution) on the ny*nx grid.
 DemagKernels precompute_demag_newell(const Params& p, Real accuracy, Real tol_conv);
+
+// Newell kernel, free-boundary: built on a 2N zero-padded grid for an
+// isolated (no periodic image) linear convolution. Port of Python
+// precompute_demag_kernels_newell_freebc.
+DemagKernels precompute_demag_newell_freebc(const Params& p, Real accuracy,
+                                            Real tol_conv);
+
+// Newell kernel, mixed track BC: periodic along x (grid width nx,
+// circular convolution) and free/isolated along y (grid height 2*ny,
+// zero-padded). Strip infinite along x, open across its width.
+DemagKernels precompute_demag_racetrack(const Params& p, Real accuracy,
+                                              Real tol_conv);
 
 // Dispatcher matching the Python signature.
 DemagKernels precompute_demag_kernels(const Params& p);

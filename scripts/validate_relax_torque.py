@@ -237,8 +237,10 @@ def _plot_scaling(dicts, out_path):
 def main():
     """Run the Python diagnostics (optional) and render the plots."""
     # =========================== User Configuration =========================
-    out_dir = 'output/stochastic_llgs/validation/relax_torque'
-    fig_dir = 'output/figures_sllg/relax_torque'
+    # Boundary condition: 'newell' (periodic) or 'newell_freebc' (isolated
+    # zero-padded). Each writes/reads its own subdirectory so the two never
+    # overwrite each other; matches the C++ validate_relax_torque <bc> flag.
+    demag_kind = 'newell'
     # Boxes to relax in PYTHON (slow with newell; keep modest). Set to []
     # to skip running and only plot existing NPZ (e.g. from the C++ tool).
     boxes_to_run = [(160, 140), (200, 200)]
@@ -246,12 +248,14 @@ def main():
     n_chunks = 20
     alpha_relax = 1.0
     dt = 5.0e-14
-    demag_kind = 'newell'
     demag_accuracy = 4.0
     demag_tol_conv = 0.02
     # Box to use for the map + convergence panels (prefix match on
     # filename, e.g. '350x500'); falls back to the largest available.
     map_box = '350x500'
+    out_dir = os.path.join(
+        'output/stochastic_llgs/validation/relax_torque', demag_kind)
+    fig_dir = os.path.join('output/figures_sllg/relax_torque', demag_kind)
     # ======================= End User Configuration =========================
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(fig_dir, exist_ok=True)

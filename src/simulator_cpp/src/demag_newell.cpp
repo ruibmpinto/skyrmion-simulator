@@ -211,6 +211,108 @@ void compute_one_pair_tensor(Real X, Real Y, Real Z,
     }
 }
 
+// -------- Closed-form Newell-Williams-Dunlop 1993 tensor ------------------
+// Exact analytic alternative to the Gauss-Legendre quadrature above. Direct
+// transcription of OOMMF's Oxs_Newell_f / Oxs_Newell_g antiderivatives and
+// the Python _newell_tensor_closed. The 27-corner second-difference of f
+// (diagonals) / g (off-diagonals) on the (-1,0,+1)^3 lattice gives the
+// tensor between two prisms of dims (dx,dy,dz) at offset (X,Y,Z), in the
+// depolarizing-positive sign convention (H = -mu0*Ms*N*m, no later negation).
+
+Real newell_f(Real x, Real y, Real z) {
+    x = std::abs(x); y = std::abs(y); z = std::abs(z);
+    const Real xsq = x * x, ysq = y * y, zsq = z * z;
+    const Real R2 = xsq + ysq + zsq;
+    if (R2 <= 0.0) return 0.0;
+    const Real R = std::sqrt(R2);
+    Real sum = 0.0;
+    if (z > 0.0) {
+        sum += 2.0 * (2.0 * xsq - ysq - zsq) * R;
+        const Real t1 = x * y * z;
+        if (t1 > 0.0) sum += -12.0 * t1 * std::atan2(y * z, x * R);
+        const Real t2 = xsq + zsq;
+        if (y > 0.0 && t2 > 0.0)
+            sum += 3.0 * y * (zsq - xsq) * std::log(((y + R) * (y + R)) / t2);
+        const Real t3 = xsq + ysq;
+        if (t3 > 0.0)
+            sum += 3.0 * z * (ysq - xsq) * std::log(((z + R) * (z + R)) / t3);
+    } else {
+        if (x == y) {
+            const Real K = 2.0 * std::sqrt(2.0)
+                           - 6.0 * std::log(1.0 + std::sqrt(2.0));
+            sum += K * xsq * x;
+        } else {
+            sum += 2.0 * (2.0 * xsq - ysq) * R;
+            if (y > 0.0 && x > 0.0)
+                sum += -6.0 * y * xsq * std::log((y + R) / x);
+        }
+    }
+    return sum / 12.0;
+}
+
+Real newell_g(Real x, Real y, Real z) {
+    Real result_sign = 1.0;
+    if (x < 0.0) result_sign *= -1.0;
+    if (y < 0.0) result_sign *= -1.0;
+    x = std::abs(x); y = std::abs(y); z = std::abs(z);
+    const Real xsq = x * x, ysq = y * y, zsq = z * z;
+    const Real R2 = xsq + ysq + zsq;
+    if (R2 <= 0.0) return 0.0;
+    const Real R = std::sqrt(R2);
+    Real sum = -2.0 * x * y * R;
+    if (z > 0.0) {
+        sum += -z * zsq * std::atan2(x * y, z * R);
+        sum += -3.0 * z * ysq * std::atan2(x * z, y * R);
+        sum += -3.0 * z * xsq * std::atan2(y * z, x * R);
+        const Real t1 = xsq + ysq;
+        if (t1 > 0.0)
+            sum += 3.0 * x * y * z * std::log(((z + R) * (z + R)) / t1);
+        const Real t2 = ysq + zsq;
+        if (t2 > 0.0)
+            sum += 0.5 * y * (3.0 * zsq - ysq)
+                   * std::log(((x + R) * (x + R)) / t2);
+        const Real t3 = xsq + zsq;
+        if (t3 > 0.0)
+            sum += 0.5 * x * (3.0 * zsq - xsq)
+                   * std::log(((y + R) * (y + R)) / t3);
+    } else {
+        if (y > 0.0) sum += -y * ysq * std::log((x + R) / y);
+        if (x > 0.0) sum += -x * xsq * std::log((y + R) / x);
+    }
+    return result_sign * sum / 6.0;
+}
+
+template <typename Antideriv>
+Real newell_27_corner(Real X, Real Y, Real Z, Real dx, Real dy, Real dz,
+                      Antideriv f_func) {
+    static const Real w[3] = {-1.0, 2.0, -1.0};
+    static const int off[3] = {-1, 0, 1};
+    Real val = 0.0;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+                val += w[i] * w[j] * w[k]
+                       * f_func(X + off[i] * dx, Y + off[j] * dy,
+                                Z + off[k] * dz);
+            }
+        }
+    }
+    return val / (4.0 * kPi * dx * dy * dz);
+}
+
+void newell_tensor_closed(Real X, Real Y, Real Z, Real dx, Real dy, Real dz,
+                          Real out[3][3]) {
+    out[0][0] = newell_27_corner(X, Y, Z, dx, dy, dz, newell_f);
+    out[1][1] = newell_27_corner(Y, X, Z, dy, dx, dz, newell_f);
+    out[2][2] = newell_27_corner(Z, Y, X, dz, dy, dx, newell_f);
+    out[0][1] = newell_27_corner(X, Y, Z, dx, dy, dz, newell_g);
+    out[1][0] = out[0][1];
+    out[0][2] = newell_27_corner(X, Z, Y, dx, dz, dy, newell_g);
+    out[2][0] = out[0][2];
+    out[1][2] = newell_27_corner(Y, Z, X, dy, dz, dx, newell_g);
+    out[2][1] = out[1][2];
+}
+
 struct LayerPairKernel {
     int ny, nx;
     std::vector<Real> Nxx, Nyy, Nzz, Nxy, Nxz, Nyz;  // (ny * nx) real-space
@@ -218,7 +320,7 @@ struct LayerPairKernel {
 
 LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
                                         Real t_layer, Real Z_separation,
-                                        Real accuracy) {
+                                        Real accuracy, DemagMethod method) {
     const Real cs[3] = {dx, dy, t_layer};
     const Real L = std::min({dx, dy, t_layer});
     LayerPairKernel K;
@@ -231,6 +333,11 @@ LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
         return (idx <= n / 2) ? idx : (idx - n);
     };
 
+    // Closed form already returns the depolarizing-positive tensor; the
+    // quadrature returns mumax3's +H/M convention (= -N), so it is negated
+    // into the same convention as it is stored.
+    const Real sign = (method == DemagMethod::Closed) ? 1.0 : -1.0;
+
 #ifdef SKYRMION_OPENMP
     #pragma omp parallel for schedule(dynamic)
 #endif
@@ -241,42 +348,40 @@ LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
             const Real X = ix_s * dx;
             const Real Y = iy_s * dy;
             const Real Z = Z_separation;
-            const Real dxe = delta_lat(ix_s) * dx;
-            const Real dye = delta_lat(iy_s) * dy;
-            Real dze;
-            if (Z_separation == 0.0) dze = 0.0;
-            else dze = std::max(std::abs(Z_separation) - t_layer, 0.0);
-            Real d = std::sqrt(dxe*dxe + dye*dye + dze*dze);
-            if (d == 0.0) d = L;
-            const Real maxSize = d / accuracy;
-            const int n_x = std::max(static_cast<int>(dx / maxSize + 0.5), 1);
-            const int n_y = std::max(static_cast<int>(dy / maxSize + 0.5), 1);
-            const int n_z = std::max(static_cast<int>(t_layer / maxSize + 0.5), 1);
-            const int n_density[3] = {n_x, n_y, n_z};
             Real tensor[3][3];
-            compute_one_pair_tensor(X, Y, Z, cs, n_density, tensor);
+            if (method == DemagMethod::Closed) {
+                newell_tensor_closed(X, Y, Z, dx, dy, t_layer, tensor);
+            } else {
+                const Real dxe = delta_lat(ix_s) * dx;
+                const Real dye = delta_lat(iy_s) * dy;
+                Real dze;
+                if (Z_separation == 0.0) dze = 0.0;
+                else dze = std::max(std::abs(Z_separation) - t_layer, 0.0);
+                Real d = std::sqrt(dxe*dxe + dye*dye + dze*dze);
+                if (d == 0.0) d = L;
+                const Real maxSize = d / accuracy;
+                const int n_x =
+                    std::max(static_cast<int>(dx / maxSize + 0.5), 1);
+                const int n_y =
+                    std::max(static_cast<int>(dy / maxSize + 0.5), 1);
+                const int n_z =
+                    std::max(static_cast<int>(t_layer / maxSize + 0.5), 1);
+                const int n_density[3] = {n_x, n_y, n_z};
+                compute_one_pair_tensor(X, Y, Z, cs, n_density, tensor);
+            }
             const std::size_t idx = static_cast<std::size_t>(j_idx) * nx + i_idx;
-            K.Nxx[idx] = tensor[0][0];
-            K.Nyy[idx] = tensor[1][1];
-            K.Nzz[idx] = tensor[2][2];
-            K.Nxy[idx] = tensor[0][1];
-            K.Nxz[idx] = tensor[0][2];
-            K.Nyz[idx] = tensor[1][2];
+            K.Nxx[idx] = sign * tensor[0][0];
+            K.Nyy[idx] = sign * tensor[1][1];
+            K.Nzz[idx] = sign * tensor[2][2];
+            K.Nxy[idx] = sign * tensor[0][1];
+            K.Nxz[idx] = sign * tensor[0][2];
+            K.Nyz[idx] = sign * tensor[1][2];
         }
     }
 
-    // Sign convention: mumax3 stores +H/M; slab uses H = -mu0*Ms*N*m.
-    for (std::size_t k = 0; k < n_tot; ++k) {
-        K.Nxx[k] = -K.Nxx[k];
-        K.Nyy[k] = -K.Nyy[k];
-        K.Nzz[k] = -K.Nzz[k];
-        K.Nxy[k] = -K.Nxy[k];
-        K.Nxz[k] = -K.Nxz[k];
-        K.Nyz[k] = -K.Nyz[k];
-    }
-
     // Aharoni override at (0, 0) for the self-layer kernel: the
-    // quadrature is singular near the source-coincides-dest pole.
+    // quadrature is singular near the source-coincides-dest pole, and the
+    // closed form is overridden too for exact parity with the Python path.
     if (Z_separation == 0.0) {
         K.Nxx[0] = aharoni_demag_factor(dy, t_layer, dx);
         K.Nyy[0] = aharoni_demag_factor(dx, t_layer, dy);
@@ -309,29 +414,37 @@ void fft_real_kernel(const std::vector<Real>& real_kernel,
     }
 }
 
-DemagKernels assemble_kernel_dict(const Params& p, Real accuracy) {
+// Build the k-space kernel on a (gny, gnx) FFT grid. For the periodic
+// kinds gny/gnx == p.ny/p.nx; for free-BC they are the doubled (2*phys)
+// grid and `freebc` records the physical size for pad/crop at apply time.
+DemagKernels assemble_kernel_dict(const Params& p, Real accuracy,
+                                  int gny, int gnx, bool freebc) {
     LayerPairKernel self_k = build_layer_pair_kernel(
-        p.nx, p.ny, p.a, p.a, p.t_Co, 0.0, accuracy);
+        gnx, gny, p.a, p.a, p.t_Co, 0.0, accuracy, p.demag_method);
     LayerPairKernel inter_k = build_layer_pair_kernel(
-        p.nx, p.ny, p.a, p.a, p.t_Co, p.t_Co + p.d_Ru, accuracy);
+        gnx, gny, p.a, p.a, p.t_Co, p.t_Co + p.d_Ru, accuracy,
+        p.demag_method);
 
-    FFT2D fft(p.ny, p.nx, 0);
+    FFT2D fft(gny, gnx, 0);
     DemagKernels K;
-    K.ny = p.ny; K.nx = p.nx;
+    K.ny = gny; K.nx = gnx;
+    K.freebc = freebc;
+    K.ny_phys = freebc ? p.ny : gny;
+    K.nx_phys = freebc ? p.nx : gnx;
     K.mu0_Ms = p.mu0 * p.Ms;
     K.t_Co = p.t_Co;
     K.d_Ru = p.d_Ru;
 
-    fft_real_kernel(self_k.Nxx, p.ny, p.nx, fft, K.Nxx_self);
-    fft_real_kernel(self_k.Nyy, p.ny, p.nx, fft, K.Nyy_self);
-    fft_real_kernel(self_k.Nzz, p.ny, p.nx, fft, K.Nzz_self);
-    fft_real_kernel(self_k.Nxy, p.ny, p.nx, fft, K.Nxy_self);
-    fft_real_kernel(inter_k.Nxx, p.ny, p.nx, fft, K.Nxx_inter);
-    fft_real_kernel(inter_k.Nyy, p.ny, p.nx, fft, K.Nyy_inter);
-    fft_real_kernel(inter_k.Nzz, p.ny, p.nx, fft, K.Nzz_inter);
-    fft_real_kernel(inter_k.Nxy, p.ny, p.nx, fft, K.Nxy_inter);
-    fft_real_kernel(inter_k.Nxz, p.ny, p.nx, fft, K.Nxz_inter);
-    fft_real_kernel(inter_k.Nyz, p.ny, p.nx, fft, K.Nyz_inter);
+    fft_real_kernel(self_k.Nxx, gny, gnx, fft, K.Nxx_self);
+    fft_real_kernel(self_k.Nyy, gny, gnx, fft, K.Nyy_self);
+    fft_real_kernel(self_k.Nzz, gny, gnx, fft, K.Nzz_self);
+    fft_real_kernel(self_k.Nxy, gny, gnx, fft, K.Nxy_self);
+    fft_real_kernel(inter_k.Nxx, gny, gnx, fft, K.Nxx_inter);
+    fft_real_kernel(inter_k.Nyy, gny, gnx, fft, K.Nyy_inter);
+    fft_real_kernel(inter_k.Nzz, gny, gnx, fft, K.Nzz_inter);
+    fft_real_kernel(inter_k.Nxy, gny, gnx, fft, K.Nxy_inter);
+    fft_real_kernel(inter_k.Nxz, gny, gnx, fft, K.Nxz_inter);
+    fft_real_kernel(inter_k.Nyz, gny, gnx, fft, K.Nyz_inter);
     return K;
 }
 
@@ -356,10 +469,21 @@ void check_convergence(const char* name,
     }
 }
 
-} // namespace
+void check_all_components(const DemagKernels& lo, const DemagKernels& hi,
+                          Real tol_conv) {
+    check_convergence("Nxx_self",  lo.Nxx_self,  hi.Nxx_self,  tol_conv);
+    check_convergence("Nyy_self",  lo.Nyy_self,  hi.Nyy_self,  tol_conv);
+    check_convergence("Nzz_self",  lo.Nzz_self,  hi.Nzz_self,  tol_conv);
+    check_convergence("Nxy_self",  lo.Nxy_self,  hi.Nxy_self,  tol_conv);
+    check_convergence("Nxx_inter", lo.Nxx_inter, hi.Nxx_inter, tol_conv);
+    check_convergence("Nyy_inter", lo.Nyy_inter, hi.Nyy_inter, tol_conv);
+    check_convergence("Nzz_inter", lo.Nzz_inter, hi.Nzz_inter, tol_conv);
+    check_convergence("Nxy_inter", lo.Nxy_inter, hi.Nxy_inter, tol_conv);
+    check_convergence("Nxz_inter", lo.Nxz_inter, hi.Nxz_inter, tol_conv);
+    check_convergence("Nyz_inter", lo.Nyz_inter, hi.Nyz_inter, tol_conv);
+}
 
-DemagKernels precompute_demag_newell(const Params& p,
-                                     Real accuracy, Real tol_conv) {
+void validate_newell_params(const Params& p, Real accuracy, Real tol_conv) {
     if (accuracy <= 0.0) {
         throw std::runtime_error("demag_newell: accuracy must be positive.");
     }
@@ -375,18 +499,54 @@ DemagKernels precompute_demag_newell(const Params& p,
     if (p.nx < 2 || p.ny < 2) {
         throw std::runtime_error("demag_newell: nx, ny must be >= 2.");
     }
-    DemagKernels K_lo = assemble_kernel_dict(p, accuracy);
-    DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy);
-    check_convergence("Nxx_self",  K_lo.Nxx_self,  K_hi.Nxx_self,  tol_conv);
-    check_convergence("Nyy_self",  K_lo.Nyy_self,  K_hi.Nyy_self,  tol_conv);
-    check_convergence("Nzz_self",  K_lo.Nzz_self,  K_hi.Nzz_self,  tol_conv);
-    check_convergence("Nxy_self",  K_lo.Nxy_self,  K_hi.Nxy_self,  tol_conv);
-    check_convergence("Nxx_inter", K_lo.Nxx_inter, K_hi.Nxx_inter, tol_conv);
-    check_convergence("Nyy_inter", K_lo.Nyy_inter, K_hi.Nyy_inter, tol_conv);
-    check_convergence("Nzz_inter", K_lo.Nzz_inter, K_hi.Nzz_inter, tol_conv);
-    check_convergence("Nxy_inter", K_lo.Nxy_inter, K_hi.Nxy_inter, tol_conv);
-    check_convergence("Nxz_inter", K_lo.Nxz_inter, K_hi.Nxz_inter, tol_conv);
-    check_convergence("Nyz_inter", K_lo.Nyz_inter, K_hi.Nyz_inter, tol_conv);
+}
+
+} // namespace
+
+DemagKernels precompute_demag_newell(const Params& p,
+                                     Real accuracy, Real tol_conv) {
+    validate_newell_params(p, accuracy, tol_conv);
+    // Closed form is exact and accuracy-independent: build once, no check.
+    if (p.demag_method == DemagMethod::Closed) {
+        return assemble_kernel_dict(p, accuracy, p.ny, p.nx, false);
+    }
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, p.ny, p.nx, false);
+    DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
+                                             p.ny, p.nx, false);
+    check_all_components(K_lo, K_hi, tol_conv);
+    return K_hi;
+}
+
+DemagKernels precompute_demag_newell_freebc(const Params& p,
+                                            Real accuracy, Real tol_conv) {
+    validate_newell_params(p, accuracy, tol_conv);
+    // 2N zero-padded grid -> isolated (no periodic image) convolution.
+    const int gny = 2 * p.ny, gnx = 2 * p.nx;
+    if (p.demag_method == DemagMethod::Closed) {
+        return assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    }
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
+                                             gny, gnx, true);
+    check_all_components(K_lo, K_hi, tol_conv);
+    return K_hi;
+}
+
+DemagKernels precompute_demag_racetrack(const Params& p,
+                                              Real accuracy, Real tol_conv) {
+    validate_newell_params(p, accuracy, tol_conv);
+    // Mixed track BC: periodic along x (grid width nx), free/isolated
+    // along y (grid height 2*ny, zero-padded). The freebc flag drives the
+    // top-left pad/crop in DemagState; since gnx == nx the field fills all
+    // columns (circular x) while the doubled rows give linear-conv y.
+    const int gny = 2 * p.ny, gnx = p.nx;
+    if (p.demag_method == DemagMethod::Closed) {
+        return assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    }
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
+                                             gny, gnx, true);
+    check_all_components(K_lo, K_hi, tol_conv);
     return K_hi;
 }
 

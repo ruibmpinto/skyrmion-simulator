@@ -47,7 +47,7 @@ __status__ = 'Development'
 # =====================================================================
 
 
-def _neighbors_with_bc(m, mask=None, xi_inv_a=0.0):
+def _neighbors_with_bc(m, mask=None, xi_inv_a=0.0, free_y=False):
     """Return the four nearest-neighbour arrays with optional
     free-BC boundary handling, matching mumax3's exchange+DMI
     edge convention.
@@ -83,14 +83,27 @@ def _neighbors_with_bc(m, mask=None, xi_inv_a=0.0):
     natural limit when no DMI is present.
     """
     m_px, m_mx, m_py, m_my = neighbors(m)
-    if mask is None:
+    if mask is None and not free_y:
         return m_px, m_mx, m_py, m_my
-    # Indicator of "neighbour is inside the mask" for each
-    # direction (Boolean, shape (ny, nx, 1) for broadcasting).
-    mask_px = np.roll(mask, -1, axis=1)[..., np.newaxis]
-    mask_mx = np.roll(mask, +1, axis=1)[..., np.newaxis]
-    mask_py = np.roll(mask, -1, axis=0)[..., np.newaxis]
-    mask_my = np.roll(mask, +1, axis=0)[..., np.newaxis]
+    # Neighbour-inside indicators. Without a mask the region is the
+    # whole box (all inside); `free_y` then opens only the top/bottom
+    # y-edges (periodic x, free y -- the racetrack), the exchange/DMI
+    # analogue of the racetrack free-y demag.
+    if mask is None:
+        mask = np.ones(m.shape[:2], dtype=bool)
+    mask_px = np.roll(mask, -1, axis=1)
+    mask_mx = np.roll(mask, +1, axis=1)
+    mask_py = np.roll(mask, -1, axis=0)
+    mask_my = np.roll(mask, +1, axis=0)
+    if free_y:
+        # The +y neighbour of the last row and the -y neighbour of the
+        # first row lie outside the track (open top/bottom edges).
+        mask_py[-1, :] = False
+        mask_my[0, :] = False
+    mask_px = mask_px[..., np.newaxis]
+    mask_mx = mask_mx[..., np.newaxis]
+    mask_py = mask_py[..., np.newaxis]
+    mask_my = mask_my[..., np.newaxis]
     xia = float(xi_inv_a)
     g_px = np.empty_like(m)
     g_px[..., 0] = m[..., 0] - xia * m[..., 2]
@@ -573,18 +586,22 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     # since demag is added explicitly below.
     C_top_bare, C_bot_bare = bare_anis_prefactors(p)
     shape = m_top.shape[:2]
+    # Racetrack (racetrack): free top/bottom (y) exchange/DMI over
+    # the full box, the local analogue of the free-y demag. Realised
+    # through the shared RT ghost cells, so no separate edge term.
+    free_y = (kernels.get('kind') == 'racetrack')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Local-in-space terms. With a free-BC mask and non-zero
-    # DMI, compute shared RT 2013 Eq. (6) ghost cells once
-    # per layer and forward to exchange + DMI.
-    if mask is not None and float(p.C_ex) > 0.0:
+    # Local-in-space terms. With a free-BC mask or free-y, and non-zero
+    # DMI, compute shared RT 2013 Eq. (6) ghost cells once per layer and
+    # forward to exchange + DMI.
+    if (mask is not None or free_y) and float(p.C_ex) > 0.0:
         # mumax3 / Bogdanov-Roesler BC (see effective_field
         # above): xi_inv_a = a/xi = C_dmi/C_ex.
         xi_inv_a = float(p.C_dmi) / float(p.C_ex)
         nbrs_top = _neighbors_with_bc(
-            m_top, mask=mask, xi_inv_a=xi_inv_a)
+            m_top, mask=mask, xi_inv_a=xi_inv_a, free_y=free_y)
         nbrs_bot = _neighbors_with_bc(
-            m_bot, mask=mask, xi_inv_a=xi_inv_a)
+            m_bot, mask=mask, xi_inv_a=xi_inv_a, free_y=free_y)
     else:
         nbrs_top = None
         nbrs_bot = None

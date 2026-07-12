@@ -109,7 +109,8 @@ def _validate_config(config):
         )
     # Demag kind must be one of the recognised formulations and
     # consistent with the use_demag flag.
-    allowed_kinds = ('none', 'slab', 'newell')
+    allowed_kinds = (
+        'none', 'slab', 'newell', 'newell_freebc', 'racetrack')
     if config['demag_kind'] not in allowed_kinds:
         raise RuntimeError(
             f'trajectory_worker: demag_kind must be one of '
@@ -125,13 +126,13 @@ def _validate_config(config):
             f'trajectory_worker: use_demag is False but demag_kind '
             f'is {config["demag_kind"]!r}; use "none".'
         )
-    # Newell needs finite positive accuracy and tolerance.
-    if config['demag_kind'] == 'newell':
+    # Newell (periodic or free-BC) needs finite positive accuracy/tol.
+    if config['demag_kind'] in ('newell', 'newell_freebc'):
         if not (config['demag_accuracy'] and
                 float(config['demag_accuracy']) > 0.0):
             raise RuntimeError(
-                'trajectory_worker: demag_kind "newell" requires a '
-                'positive demag_accuracy.'
+                'trajectory_worker: demag_kind "newell"/"newell_freebc" '
+                'requires a positive demag_accuracy.'
             )
         if not (config['demag_tol_conv'] and
                 float(config['demag_tol_conv']) > 0.0):

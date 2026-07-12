@@ -9,6 +9,10 @@ DemagKernels precompute_demag_kernels(const Params& p) {
     switch (p.demag_kind) {
         case DemagKind::Slab:   return precompute_demag_slab(p);
         case DemagKind::Newell: return precompute_demag_newell(p, p.demag_accuracy, p.demag_tol_conv);
+        case DemagKind::NewellFreeBC:
+            return precompute_demag_newell_freebc(p, p.demag_accuracy, p.demag_tol_conv);
+        case DemagKind::Racetrack:
+            return precompute_demag_racetrack(p, p.demag_accuracy, p.demag_tol_conv);
         case DemagKind::None:
             throw std::runtime_error("precompute_demag_kernels: demag_kind == None.");
     }
@@ -16,8 +20,10 @@ DemagKernels precompute_demag_kernels(const Params& p) {
 }
 
 DemagState::DemagState(const Params& p, int fft_threads)
-    : k_(precompute_demag_kernels(p)), fft_(p.ny, p.nx, fft_threads) {
-    const std::size_t n = static_cast<std::size_t>(p.ny) * p.nx;
+    // FFT grid = kernel grid: ny*nx for periodic, the doubled 2N grid for
+    // free-BC (k_ is initialized before fft_ by member-declaration order).
+    : k_(precompute_demag_kernels(p)), fft_(k_.ny, k_.nx, fft_threads) {
+    const std::size_t n = static_cast<std::size_t>(k_.ny) * k_.nx;
     Mxt_.assign(n, Complex{0, 0});
     Myt_.assign(n, Complex{0, 0});
     Mzt_.assign(n, Complex{0, 0});
@@ -30,14 +36,18 @@ void DemagState::transform_layer(const Field3& m,
                                  std::vector<Complex>& Mx,
                                  std::vector<Complex>& My,
                                  std::vector<Complex>& Mz) {
-    const int ny = fft_.ny(), nx = fft_.nx();
-    const std::size_t n = static_cast<std::size_t>(ny) * nx;
+    const int gny = fft_.ny(), gnx = fft_.nx();   // FFT grid (2N if freebc)
+    const int pny = m.ny, pnx = m.nx;             // physical field size
+    const std::size_t n = static_cast<std::size_t>(gny) * gnx;
     for (int comp = 0; comp < 3; ++comp) {
         fftw_complex* in = fft_.scratch_in();
-        for (int i = 0; i < ny; ++i) {
-            for (int j = 0; j < nx; ++j) {
-                in[i * nx + j][0] = m(i, j, comp);
-                in[i * nx + j][1] = 0.0;
+        // Zero the grid, then place the physical field in the top-left
+        // tile. For the periodic kinds gny/gnx == pny/pnx (fills all); for
+        // free-BC the remaining cells stay zero (magnetic vacuum).
+        for (std::size_t k = 0; k < n; ++k) { in[k][0] = 0.0; in[k][1] = 0.0; }
+        for (int i = 0; i < pny; ++i) {
+            for (int j = 0; j < pnx; ++j) {
+                in[i * gnx + j][0] = m(i, j, comp);
             }
         }
         fft_.execute_fwd();
@@ -53,8 +63,9 @@ void DemagState::inverse_to_layer(std::vector<Complex>& Hx_k,
                                   std::vector<Complex>& Hy_k,
                                   std::vector<Complex>& Hz_k,
                                   Field3& H) {
-    const int ny = fft_.ny(), nx = fft_.nx();
-    const std::size_t n = static_cast<std::size_t>(ny) * nx;
+    const int gny = fft_.ny(), gnx = fft_.nx();   // FFT grid (2N if freebc)
+    const int pny = H.ny, pnx = H.nx;             // physical field size
+    const std::size_t n = static_cast<std::size_t>(gny) * gnx;
     std::vector<Complex>* arrays[3] = {&Hx_k, &Hy_k, &Hz_k};
     for (int comp = 0; comp < 3; ++comp) {
         fftw_complex* dst = fft_.scratch_in();
@@ -65,12 +76,13 @@ void DemagState::inverse_to_layer(std::vector<Complex>& Hx_k,
         }
         fft_.execute_inv();
         const fftw_complex* out = fft_.scratch_out();
-        for (int i = 0; i < ny; ++i) {
-            for (int j = 0; j < nx; ++j) {
+        // Crop the top-left physical tile (the whole grid for periodic).
+        for (int i = 0; i < pny; ++i) {
+            for (int j = 0; j < pnx; ++j) {
                 // Take real part; imaginary residual is numerical noise
                 // plus the non-Hermitian-symmetric Nyquist-row component
                 // that Python discards via np.real(ifft2(...)).
-                H(i, j, comp) = out[i * nx + j][0];
+                H(i, j, comp) = out[i * gnx + j][0];
             }
         }
     }

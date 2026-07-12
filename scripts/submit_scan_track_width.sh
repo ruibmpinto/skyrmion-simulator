@@ -6,12 +6,12 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=2048
-#SBATCH --array=0-2399%1000
+#SBATCH --array=0-3599%1000
 
 set -euo pipefail
 mkdir -p logs
 
-# Stage 3 of the track-width campaign. 6 J x 4 T x 100 ens = 2400
+# Stage 3 of the track-width campaign. 6 J x 6 T x 100 ens = 3600
 # trajectories; one SLURM array task per trajectory, up to 1000
 # concurrent. Each task loads the cached per-(T,ens) thermal state
 # m_thermal_T{T}_ens{ens}.npz (written by submit_equilibrate_track_width.sh),

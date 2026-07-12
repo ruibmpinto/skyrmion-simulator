@@ -47,6 +47,7 @@ import scipy.fft as sfft
 from src.simulator.demag_newell import (
     precompute_demag_kernels_newell,
     precompute_demag_kernels_newell_freebc,
+    precompute_demag_kernels_racetrack,
 )
 
 #
@@ -138,9 +139,19 @@ def precompute_demag_kernels(p, kind, accuracy, tol_conv):
                 f"tol_conv={tol_conv!r}.")
         return precompute_demag_kernels_newell_freebc(
             p, accuracy=accuracy, tol_conv=tol_conv)
+    if kind == 'racetrack':
+        if accuracy is None or tol_conv is None:
+            raise RuntimeError(
+                f"precompute_demag_kernels: "
+                f"kind='racetrack' requires accuracy and "
+                f"tol_conv; got accuracy={accuracy!r}, "
+                f"tol_conv={tol_conv!r}.")
+        return precompute_demag_kernels_racetrack(
+            p, accuracy=accuracy, tol_conv=tol_conv)
     raise RuntimeError(
         f"precompute_demag_kernels: kind must be 'none', "
-        f"'slab', 'newell', or 'newell_freebc', got {kind!r}.")
+        f"'slab', 'newell', 'newell_freebc', or "
+        f"'racetrack', got {kind!r}.")
 
 
 # ---------------------------------------------------------------------
@@ -291,7 +302,7 @@ def demag_field(m_top, m_bot, kernels):
         # diagram) that must run the production field/integrator
         # code with no magnetostatic contribution.
         return (np.zeros_like(m_top), np.zeros_like(m_bot))
-    if kernels.get('kind') == 'newell_freebc':
+    if kernels.get('kind') in ('newell_freebc', 'racetrack'):
         return _demag_field_freebc(m_top, m_bot, kernels)
     mu0_Ms = kernels['mu0_Ms']
     # Forward FFT each component (top and bot)
@@ -412,8 +423,10 @@ def _demag_field_freebc(m_top, m_bot, kernels):
             f'{m_bot.shape[:2]} does not match kernels '
             f'shape_phys {(ny_phys, nx_phys)}.')
     mu0_Ms = kernels['mu0_Ms']
-    ny_pad = 2 * ny_phys
-    nx_pad = 2 * nx_phys
+    # Padded grid = the kernel's own k-space shape, so this serves
+    # both full free-BC (2 ny, 2 nx) and the mixed track kernel
+    # (2 ny, nx; periodic x, free y).
+    ny_pad, nx_pad = kernels['Nxx_self'].shape
     # Allocate padded arrays and copy the physical data into
     # the top-left (ny_phys, nx_phys) tile; the remaining
     # cells stay at zero, which encodes the magnetic vacuum

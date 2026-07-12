@@ -39,14 +39,14 @@ void HeunStochasticStepper::field_plus_noise(const Field3& m_top,
         // Lone ferromagnet: the layer is its own RKKY partner (harmless
         // when H_RKKY = 0). No demag (a bilayer coupling).
         effective_field(m_top, m_top, p.C_ex, p.C_dmi, p.C_anis_top,
-                        p.H_ext, p.H_RKKY, H_top_, mask_);
+                        p.H_ext, p.H_RKKY, H_top_, mask_, /*free_y=*/false);
     } else if (demag_) {
         effective_field_demag(m_top, m_bot, p, *demag_, H_top_, H_bot_, mask_);
     } else {
         effective_field(m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
-                        p.H_ext, p.H_RKKY, H_top_, mask_);
+                        p.H_ext, p.H_RKKY, H_top_, mask_, /*free_y=*/false);
         effective_field(m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
-                        p.H_ext, p.H_RKKY, H_bot_, mask_);
+                        p.H_ext, p.H_RKKY, H_bot_, mask_, /*free_y=*/false);
     }
     // Add the pre-sampled thermal field to the assembled H (never
     // inside field assembly, so the exchange/DMI difference operators

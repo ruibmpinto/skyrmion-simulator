@@ -915,6 +915,87 @@ def precompute_demag_kernels_newell_freebc(p, accuracy, tol_conv):
 
 
 # -----------------------------------------------------------------------------
+def precompute_demag_kernels_racetrack(p, accuracy, tol_conv):
+    """Mixed track-BC Newell demag kernel: periodic x, free y.
+
+    Same per-component Newell kernel as the free-BC builder, but
+    on a grid that is doubled only along y (2*ny x nx). The
+    cyclic convolution is then linear (non-periodic) across the
+    width (y, open top/bottom edges) and circular along the
+    length (x, periodic). Caller-side use: pad the physical m to
+    (2*ny, nx) with zeros in the bottom ny rows, FFT, multiply by
+    these kernels, IFFT, extract the top (ny x nx) tile.
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Same attributes as `precompute_demag_kernels_newell`.
+    accuracy : float
+        Mumax3 accuracy parameter.
+    tol_conv : float
+        Maximum relative kernel error between `accuracy` and
+        `2 * accuracy` for the convergence check.
+
+    Returns
+    -------
+    kernels : dict
+        Same schema as the PBC Newell kernel plus
+        'kind' = 'racetrack' and 'shape_phys' = (ny, nx).
+    """
+    if accuracy <= 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_racetrack: '
+            f'accuracy must be positive, got {accuracy}.')
+    if tol_conv <= 0.0 or tol_conv >= 1.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_racetrack: '
+            f'tol_conv must lie in (0, 1), got {tol_conv}.')
+    if p.t_Co <= 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_racetrack: '
+            f'p.t_Co must be positive, got {p.t_Co}.')
+    if p.d_Ru < 0.0:
+        raise RuntimeError(
+            f'precompute_demag_kernels_racetrack: '
+            f'p.d_Ru must be non-negative, got {p.d_Ru}.')
+    if p.nx < 2 or p.ny < 2:
+        raise RuntimeError(
+            f'precompute_demag_kernels_racetrack: '
+            f'nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # y-doubled namespace: ny is 2x (free top/bottom), nx is kept
+    # (periodic along the strip length).
+    p_pad = SimpleNamespace(
+        nx=int(p.nx), ny=int(2 * p.ny),
+        a=float(p.a), t_Co=float(p.t_Co), d_Ru=float(p.d_Ru),
+        Ms=float(p.Ms), mu0=float(p.mu0))
+    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy)
+    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy)
+    comp_keys = [
+        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
+        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
+        'Nxz_inter', 'Nyz_inter',
+    ]
+    for key in comp_keys:
+        diff = np.abs(K_hi[key] - K_lo[key])
+        denom = np.abs(K_hi[key]).max()
+        if denom < 1e-30:
+            continue
+        rel_err = diff.max() / denom
+        if rel_err > tol_conv:
+            raise RuntimeError(
+                f'precompute_demag_kernels_racetrack: '
+                f'kernel did not converge for component '
+                f'{key!r} between accuracy={accuracy} and '
+                f'accuracy={2.0*accuracy} (max relative '
+                f'difference {rel_err:.4e} exceeds '
+                f'tol_conv={tol_conv:.4e}).')
+    K_hi['kind'] = 'racetrack'
+    K_hi['shape_phys'] = (int(p.ny), int(p.nx))
+    return K_hi
+
+
+# -----------------------------------------------------------------------------
 def precompute_demag_kernels_newell(p, accuracy, tol_conv):
     """Newell demag kernel via mumax3-style variable-density
     Gauss-Legendre numerical integration of the surface-charge

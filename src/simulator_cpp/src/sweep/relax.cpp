@@ -53,9 +53,9 @@ double max_tangential_torque(const Field3& m_top, const Field3& m_bot,
         effective_field_demag(m_top, m_bot, p, *demag, H_top, H_bot, mask);
     } else {
         effective_field(m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
-                        p.H_ext, p.H_RKKY, H_top, mask);
+                        p.H_ext, p.H_RKKY, H_top, mask, /*free_y=*/false);
         effective_field(m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
-                        p.H_ext, p.H_RKKY, H_bot, mask);
+                        p.H_ext, p.H_RKKY, H_bot, mask, /*free_y=*/false);
     }
     return std::max(layer_torque_max(m_top, H_top, mask),
                     layer_torque_max(m_bot, H_bot, mask));
@@ -66,7 +66,7 @@ double max_tangential_torque(const Field3& m_top, const Field3& m_bot,
 double max_tangential_torque_single(const Field3& m, const Params& p,
                                     const std::uint8_t* mask, Field3& H) {
     effective_field(m, m, p.C_ex, p.C_dmi, p.C_anis_top,
-                    p.H_ext, p.H_RKKY, H, mask);
+                    p.H_ext, p.H_RKKY, H, mask, /*free_y=*/false);
     return layer_torque_max(m, H, mask);
 }
 

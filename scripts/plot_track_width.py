@@ -28,8 +28,10 @@ import glob
 import os
 # Third-party
 import numpy as np
+import scipy.ndimage as ndi
 import matplotlib.animation as manim
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 # Local
 from src.plots.plot_snapshot_mz import plot_snapshot_mz
@@ -46,9 +48,18 @@ __status__ = 'Development'
 # =============================================================================
 
 
-def _load_aggregate(in_dir):
-    """Load the aggregate NPZ as a plain dict of arrays."""
-    path = os.path.join(in_dir, 'aggregate.npz')
+def _load_aggregate(in_dir, agg_name):
+    """Load the aggregate NPZ as a plain dict of arrays.
+
+    Parameters
+    ----------
+    in_dir : str
+        Directory holding the aggregate file.
+    agg_name : str
+        Aggregate file name (box/BC-tagged, e.g.
+        'aggregate_350x500_pbcx_pbcy.npz').
+    """
+    path = os.path.join(in_dir, agg_name)
     if not os.path.isfile(path):
         raise RuntimeError(
             f'plot_track_width: aggregate not found at {path!r}; '
@@ -82,6 +93,343 @@ def _plot_axes_vs_j(agg, out_path):
         ax.set_ylabel(r'diameter (nm)')
         ax.legend(title='T')
         ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f'Saved: {out_path}')
+    plt.close(fig)
+
+
+# -----------------------------------------------------------------------------
+def _periodic_x_components(mask, min_cells):
+    """Connected components of a Boolean field with periodic x, free y.
+
+    Labels the 4-connected components of `mask`, merges labels that touch
+    across the periodic seam (column 0 <-> column nx-1) via a union-find,
+    and DROPS components smaller than `min_cells` -- at finite T the
+    reversed-domain mask is peppered with single-cell thermal speckles
+    that would otherwise be counted as domains. Returns the retained
+    component count, the largest-component area fraction, whether any
+    retained component wraps the x seam (connects to its own periodic
+    image -> spanning stripe), and the total retained area (cells).
+
+    Parameters
+    ----------
+    mask : numpy.ndarray(2d, bool)
+        Reversed-domain mask, shape (ny, nx). x is the periodic axis.
+    min_cells : int
+        Minimum component size (cells) to count as a real domain.
+
+    Returns
+    -------
+    n_comp : int
+        Number of retained components after the seam merge + size filter.
+    f_max : float
+        Largest retained component cell count / total cells.
+    x_percolates : bool
+        True if a retained component spans the periodic-x seam.
+    area : int
+        Total retained (domain) area in cells.
+    dx_cells : int
+        Periodic-aware x-extent (columns) of the largest retained
+        component -- the span along the periodic axis, used for the
+        loss-of-periodicity gate (this is D_x, not the ellipse major
+        axis D_1 which may lie along free-y).
+    """
+    lab, n = ndi.label(mask)
+    if n == 0:
+        return 0, 0.0, False, 0, 0
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Union-find over labels; merge across the periodic-x seam.
+    parent = list(range(n + 1))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+    left = lab[:, 0]
+    right = lab[:, -1]
+    for a, b in zip(left, right):
+        if a > 0 and b > 0:
+            union(int(a), int(b))
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Merged sizes; drop speckles below min_cells; seam-wrap test on the
+    # retained (large) components only.
+    roots = np.array([find(i) for i in range(n + 1)])
+    sizes = np.bincount(lab.ravel(), minlength=n + 1)
+    merged = {}
+    for label in range(1, n + 1):
+        r = roots[label]
+        merged[r] = merged.get(r, 0) + int(sizes[label])
+    big = {r: s for r, s in merged.items() if s >= min_cells}
+    if not big:
+        return 0, 0.0, False, 0, 0
+    n_comp = len(big)
+    area = int(sum(big.values()))
+    f_max = max(big.values()) / float(mask.size)
+    seam = ({roots[int(a)] for a in left if a > 0}
+            & {roots[int(b)] for b in right if b > 0})
+    x_percolates = any(r in big for r in seam)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Periodic x-extent (D_x) of the largest retained component: the
+    # columns it occupies, then span = nx - largest cyclic gap of empty
+    # columns (so a seam-wrapping domain measures its true span).
+    r_max = max(big, key=big.get)
+    root_of = roots[lab]
+    occ = np.any(root_of == r_max, axis=0)
+    nx = mask.shape[1]
+    if occ.all():
+        dx_cells = nx
+    else:
+        idx = np.flatnonzero(occ)
+        gaps = np.diff(idx) - 1
+        wrap_gap = idx[0] + nx - idx[-1] - 1
+        max_gap = int(max(gaps.max() if gaps.size else 0, wrap_gap))
+        dx_cells = nx - max_gap
+    return n_comp, f_max, x_percolates, area, dx_cells
+
+
+def _classify_field(mz, q_abs, D1, D2, L_x):
+    """Classify one relaxed/driven configuration from the raw field.
+
+    Combines the three physical signals: the topological charge |Q|
+    (skyrmion present vs collapsed vs multi-domain), the periodic-x
+    connected-component / percolation structure of the reversed domain
+    (single vs fragmented vs spanning), and the D_1 / L_x periodic gate
+    (a domain longer than half the track can bridge its own x-image, so
+    the single-skyrmion ellipse is invalid).
+
+    The loss-of-periodicity gate uses D_x, the field-measured x-extent
+    of the reversed domain (periodic axis), NOT the ellipse major axis
+    D_1 -- a skyrmion elongated along free-y has large D_1 but small
+    D_x and does not bridge its periodic-x image.
+
+    Parameters
+    ----------
+    mz : numpy.ndarray(2d)
+        Top-layer m_z of the final drive frame, shape (ny, nx).
+    q_abs : float
+        |Q| (absolute topological charge) of that frame.
+    D1, D2 : float
+        LCC ellipse major / minor axes (m), ensemble mean for the cell
+        (used only for the D_1/D_2 elongation ratio).
+    L_x : float
+        Track length along the periodic axis (m).
+
+    Returns
+    -------
+    code : str
+        'S' compact skyrmion, 'E' elongated / spanning skyrmion,
+        'L' labyrinth / multi-domain, 'A' annihilated (ferromagnetic).
+    metrics : dict
+        Diagnostic values used by the decision (for the report table).
+    """
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Decision thresholds (physical; local, not global state).
+    core_thresh = -0.5  # m_z below this = reversed domain (not T noise)
+    min_frac = 0.002    # component size below this frac of box = speckle
+    q_sk = 0.5          # |Q| above -> a topological skyrmion is present
+    q_multi = 1.6       # |Q| above -> more than one skyrmion
+    core_min = 0.005    # domain-area frac below -> no domain (FM)
+    laby_fill = 0.35    # domain-area frac above -> space-filling
+    x_gate = 0.5        # D_x/L_x above -> periodic-image break
+    r_elong = 1.7       # D1/D2 above -> elongated
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Reversed domain, de-speckled: threshold hard (m_z < -0.5) and drop
+    # components below min_frac of the box, so thermal fluctuations near
+    # m_z = 0 are not counted as domains.
+    core = mz < core_thresh
+    min_cells = max(20, int(min_frac * mz.size))
+    n_comp, f_max, x_perc, area, dx_cells = _periodic_x_components(
+        core, min_cells)
+    core_frac = area / float(mz.size)
+    # Loss-of-periodicity uses the field x-extent D_x (= dx_cells / nx),
+    # not the ellipse major axis. D1/L_x is kept only for reference.
+    dx_lx = dx_cells / float(mz.shape[1])
+    d1_lx = D1 / L_x if (L_x > 0.0 and np.isfinite(D1)) else 0.0
+    ratio = D1 / D2 if (D2 > 0.0 and np.isfinite(D1)
+                        and np.isfinite(D2)) else 1.0
+    metrics = {
+        'q_abs': q_abs, 'core_frac': core_frac, 'n_comp': n_comp,
+        'f_max': f_max, 'x_perc': bool(x_perc), 'dx_lx': dx_lx,
+        'd1_lx': d1_lx, 'ratio': ratio,
+    }
+    # Collapsed to the ferromagnetic background: no reversed domain above
+    # the speckle floor (and no residual sub-floor domain with winding).
+    if n_comp == 0 or (core_frac < core_min and q_abs < q_sk):
+        return 'A', metrics
+    # Multi-domain / labyrinth: several disconnected reversed domains,
+    # a space-filling texture, or more than one skyrmion's charge.
+    if n_comp >= 2 or core_frac >= laby_fill or q_abs >= q_multi:
+        return 'L', metrics
+    # Single reversed domain without net winding: a bare stripe if it
+    # spans the periodic seam, else a fragment / collapsing bubble.
+    if q_abs < q_sk:
+        return ('E', metrics) if x_perc else ('L', metrics)
+    # One topological skyrmion (|Q| ~ 1), single component.
+    if x_perc or dx_lx >= x_gate:
+        return 'E', metrics
+    if ratio >= r_elong:
+        return 'E', metrics
+    return 'S', metrics
+
+
+def _save_classes(path, Ts, Js, cls, rows):
+    """Persist the class grid and per-cell decision metrics.
+
+    Writes an NPZ with the (T, j) axes, the class-code grid, and the
+    metric grids (|Q|, component count, x-percolation, D1/L_x, D1/D2,
+    reversed-area fraction) that the stability-classification report
+    tabulates.
+
+    Parameters
+    ----------
+    path : str
+        Output NPZ path.
+    Ts, Js : numpy.ndarray(1d)
+        Grid axes.
+    cls : numpy.ndarray(2d)
+        Class-code grid.
+    rows : list[dict]
+        Per-cell metrics from `_classify_field`.
+    """
+    def grid(key):
+        g = np.full((Ts.size, Js.size), np.nan)
+        for r in rows:
+            i = int(np.argmin(np.abs(Ts - r['T'])))
+            k = int(np.argmin(np.abs(Js - r['J'])))
+            g[i, k] = float(r[key])
+        return g
+    np.savez_compressed(
+        path, Ts=Ts, Js=Js, cls=cls,
+        q_abs=grid('q_abs'), n_comp=grid('n_comp'),
+        x_perc=grid('x_perc'), dx_lx=grid('dx_lx'),
+        d1_lx=grid('d1_lx'), ratio=grid('ratio'),
+        core_frac=grid('core_frac'))
+    print(f'Saved: {path}')
+
+
+# -----------------------------------------------------------------------------
+def _plot_stability_map(agg, cls, dx_lx, out_path):
+    """Skyrmion stability regime diagram over the (T, J) grid.
+
+    Parameters
+    ----------
+    agg : dict
+        Aggregate payload (keys Ts, Js).
+    cls : numpy.ndarray(2d)
+        Per-cell class codes from the field classifier.
+    dx_lx : numpy.ndarray(2d)
+        Per-cell D_x / L_x (field x-extent of the reversed domain over
+        the track length); >= 0.5 appends the loss-of-periodicity 'p'.
+    out_path : str
+        Output PNG path.
+    """
+    Ts = agg['Ts']
+    Js = agg['Js']
+    # Loss-of-periodicity second index 'p': the field x-extent D_x of the
+    # reversed domain reaches half the track length, so it can bridge its
+    # own periodic-x image and the single-skyrmion classification is
+    # compromised. dx_lx is D_x / L_x (from the field classifier).
+    code = {'S': 0, 'E': 1, 'L': 2, 'A': 3, '?': 4}
+    z = np.array(
+        [[code[cls[i, k]] for k in range(Js.size)]
+         for i in range(Ts.size)], dtype=float)
+    cmap = mcolors.ListedColormap(
+        ['#2c7bb6', '#fdae61', '#d7191c', '#999999', '#ffffff'])
+    norm = mcolors.BoundaryNorm(
+        [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5], cmap.N)
+    fig, ax = plt.subplots(figsize=(7.5, 5.0))
+    ax.imshow(z, origin='lower', aspect='auto', cmap=cmap, norm=norm)
+    ax.set_xticks(np.arange(Js.size))
+    ax.set_xticklabels([f'{j*1e-11:.2g}' for j in Js])
+    ax.set_yticks(np.arange(Ts.size))
+    ax.set_yticklabels([f'{t:.0f}' for t in Ts])
+    ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
+    ax.set_ylabel('T (K)')
+    ax.set_title('skyrmion stability regimes')
+    for i in range(Ts.size):
+        for k in range(Js.size):
+            c = 'k' if cls[i, k] in ('E', '?') else 'w'
+            label = cls[i, k]
+            if np.isfinite(dx_lx[i, k]) and dx_lx[i, k] >= 0.5:
+                label = label + 'p'
+            ax.text(k, i, label, ha='center', va='center',
+                    color=c, fontweight='bold')
+    handles = [
+        mpatches.Patch(color='#2c7bb6', label='S: compact skyrmion'),
+        mpatches.Patch(color='#fdae61', label='E: elongated / spanning'),
+        mpatches.Patch(color='#d7191c', label='L: labyrinth / multi-domain'),
+        mpatches.Patch(color='#999999', label='A: annihilated (FM)'),
+        mpatches.Patch(facecolor='white', edgecolor='k',
+                       label=r'$\cdots$p: loss of periodicity '
+                             r'($D_x\geq0.5\,L_x$)')]
+    ax.legend(handles=handles, bbox_to_anchor=(1.02, 1.0),
+              loc='upper left', fontsize=9, frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f'Saved: {out_path}')
+    plt.close(fig)
+
+
+# -----------------------------------------------------------------------------
+def _plot_velocity_vs_j(agg, cls, out_path):
+    """Skyrmion drift speed (m/s) versus current density.
+
+    One curve per substrate temperature, coloured by T (cool->warm),
+    points joined and carrying the ensemble standard error. Per-cell
+    stability class (from the field classifier) is overlaid: 'E' cells
+    are ringed (elongated / spanning), and 'L'/'A' cells (labyrinth /
+    annihilated -- where the tracked speed is a multi-domain artifact,
+    not a skyrmion velocity) are marked with a faded grey cross.
+
+    Parameters
+    ----------
+    agg : dict
+        Aggregate payload (keys Ts, Js, v_mean, v_se).
+    cls : numpy.ndarray(2d)
+        Per-cell class codes from `_classify_grid`.
+    out_path : str
+        Output PNG path.
+    """
+    Ts = agg['Ts']
+    Js = agg['Js']
+    v = agg['v_mean']
+    v_se = agg['v_se']
+    cmap = plt.get_cmap('coolwarm')
+    t_min = float(np.min(Ts))
+    t_span = max(float(np.max(Ts)) - t_min, 1.0)
+    fig, ax = plt.subplots(figsize=(8.0, 5.5))
+    for i, T in enumerate(Ts):
+        color = cmap((float(T) - t_min) / t_span)
+        ax.errorbar(
+            Js * 1e-11, v[i, :], yerr=v_se[i, :],
+            marker='o', capsize=3, color=color, label=f'{T:.0f} K')
+        for k in range(Js.size):
+            if not np.isfinite(v[i, k]):
+                continue
+            if cls[i, k] == 'E':
+                ax.plot(Js[k] * 1e-11, v[i, k], marker='o', ms=11,
+                        mfc='none', mec=color, mew=1.6)
+            elif cls[i, k] in ('L', 'A'):
+                ax.plot(Js[k] * 1e-11, v[i, k], marker='x', ms=9,
+                        color='0.4', mew=2.0)
+    ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
+    ax.set_ylabel(r'skyrmion speed $v$ (m/s)')
+    ax.set_title('skyrmion speed vs current density')
+    # Stability legend entries: ring = elongated/spanning skyrmion;
+    # cross = labyrinth/annihilated (tracked speed not a skyrmion).
+    ax.plot([], [], color='0.4', marker='o', ms=11, mfc='none',
+            ls='none', label='ring: elongated / spanning')
+    ax.plot([], [], color='0.4', marker='x', ms=9, ls='none',
+            label='cross: labyrinth / annihilated')
+    ax.legend(title='T', fontsize=8, ncol=2)
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path)
     print(f'Saved: {out_path}')
@@ -244,9 +592,10 @@ def _load_anim(path):
     Returns
     -------
     na : dict
-        Keys `mi_top`, `mr_top`, `mf_top` (initial / relaxed /
-        final (ny, nx, 3) top-layer fields), `mz_top` (drive-phase
-        m_z stack, shape (n_frames, ny, nx)) and `t` (frame times).
+        Keys `mi_top`/`mi_bot`, `mr_top`/`mr_bot`, `mf_top`/`mf_bot`
+        (initial / relaxed / final (ny, nx, 3) fields per layer),
+        `mz_top` (drive-phase m_z stack, shape (n_frames, ny, nx))
+        and `t` (frame times).
     """
     d = np.load(path, allow_pickle=True)
     if 'anim_mz_top' in d.files:
@@ -255,12 +604,16 @@ def _load_anim(path):
             'mi_top': d['field_m_initial_top'],
             'mr_top': d['field_m_relaxed_top'],
             'mf_top': d['field_m_final_top'],
+            'mi_bot': d['field_m_initial_bot'],
+            'mr_bot': d['field_m_relaxed_bot'],
+            'mf_bot': d['field_m_final_bot'],
             'mz_top': d['anim_mz_top'],
             't': d['anim_t'],
         }
     if 'm_top' in d.files and 'phase_id' in d.files:
         # C++ SnapshotBuffer layout.
         m_top = d['m_top']
+        m_bot = d['m_bot']
         phase = d['phase_id']
         t = d['time_s']
         relax_idx = np.flatnonzero(phase == 0)
@@ -269,12 +622,21 @@ def _load_anim(path):
             raise RuntimeError(
                 f'_load_anim: {path!r} lacks both relax and '
                 f'drive frames (phase_id).')
+        if 'Q_top' not in d.files:
+            raise RuntimeError(
+                f'_load_anim: {path!r} lacks the Q_top array needed '
+                f'for |Q| stability classification.')
+        q_final = float(np.asarray(d['Q_top'])[drive_idx[-1]])
         return {
             'mi_top': m_top[relax_idx[0]],
             'mr_top': m_top[relax_idx[-1]],
             'mf_top': m_top[drive_idx[-1]],
+            'mi_bot': m_bot[relax_idx[0]],
+            'mr_bot': m_bot[relax_idx[-1]],
+            'mf_bot': m_bot[drive_idx[-1]],
             'mz_top': m_top[drive_idx][..., 2],
             't': t[drive_idx],
+            'q_final': q_final,
         }
     raise RuntimeError(
         f'_load_anim: unrecognised dump layout in {path!r}; '
@@ -283,13 +645,21 @@ def _load_anim(path):
 
 # -----------------------------------------------------------------------------
 def _plot_three_configs(na, a, out_path):
-    """Three-panel initial / relaxed / final m_z still (top layer)."""
-    fields = (na['mi_top'], na['mr_top'], na['mf_top'])
+    """2x3 initial / relaxed / final m_z still.
+
+    Top row: top layer. Bottom row: bottom layer.
+    """
+    rows = (
+        ('top', (na['mi_top'], na['mr_top'], na['mf_top'])),
+        ('bottom', (na['mi_bot'], na['mr_bot'], na['mf_bot'])),
+    )
     titles = ('initial', 'relaxed', 'final')
-    fig, axes = plt.subplots(1, 3, figsize=(16.0, 5.0))
-    for ax, field, title in zip(axes, fields, titles):
-        plot_snapshot_mz(
-            field, a, ax=ax, title=title, show_colorbar=False)
+    fig, axes = plt.subplots(2, 3, figsize=(16.0, 10.0))
+    for row_axes, (layer, fields) in zip(axes, rows):
+        for ax, field, title in zip(row_axes, fields, titles):
+            plot_snapshot_mz(
+                field, a, ax=ax, title=f'{title} ({layer})',
+                show_colorbar=False)
     fig.tight_layout()
     fig.savefig(out_path)
     print(f'Saved: {out_path}')
@@ -338,16 +708,37 @@ def _build_animation(na, a, out_path):
 def main():
     """Render all length-scale figures and one animation."""
     # =========================== User Configuration =========================
+    # Run tag: box geometry + boundary condition. Used to name the
+    # aggregate, the dump folder, and the figure output folder so each
+    # run's products stay separate.
+    run_tag         = 'box350x500_racetrack_D0p545'
+    # Directory holding the (box/BC-tagged) aggregate NPZ.
     in_dir          = 'output/stochastic_llgs/scan_track_width'
-    out_dir         = 'output/figures_sllg/track_width'
+    agg_name        = 'aggregate_350x500_racetrack_D0p545.npz'
+    # Directory holding the large full-field dumps (anim_*.npz). These
+    # can live on a separate drive while the aggregate stays in in_dir.
+    dump_dir        = ('/Volumes/T7/skyrmion_simulator/output/'
+                       'stochastic_llgs/scan_track_width/' + run_tag)
+    out_dir         = os.path.join(
+        'output/figures_sllg/track_width', run_tag)
+    # GIFs are large, so they are written directly to the T7 backup at
+    # the same repo-relative path (not the local disk). The small grid
+    # figures and config stills stay local in out_dir.
+    gif_dir         = os.path.join(
+        '/Volumes/T7/skyrmion_simulator',
+        'output/figures_sllg/track_width', run_tag)
     a               = 2.0e-9         # m, lattice constant
-    # Animation / still: pick one dumped cell by its file glob.
+    # Animation / still: process every dumped cell matching this glob.
     anim_glob       = 'anim_T*.npz'
+    # Re-render config stills / GIFs that already exist. Default False:
+    # existing outputs are skipped (the GIF encoding is the slow step).
+    overwrite       = False
     # ======================= End User Configuration =========================
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(gif_dir, exist_ok=True)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Aggregate-derived grid figures.
-    agg = _load_aggregate(in_dir)
+    # Class-independent aggregate grid figures.
+    agg = _load_aggregate(in_dir, agg_name)
     _plot_axes_vs_j(
         agg, os.path.join(out_dir, 'axes_vs_J.png'))
     _plot_axes_vs_t(
@@ -359,21 +750,69 @@ def main():
     _plot_survival(
         agg, os.path.join(out_dir, 'survival_hall.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Full-field still and animation for one dumped realization.
-    anim_files = sorted(glob.glob(os.path.join(in_dir, anim_glob)))
+    # Single pass over the ens0 field dumps: classify each (T, j) cell
+    # (|Q| + periodic-x components + D1/L_x gate) and render its config
+    # still + GIF. Each dump is loaded once (classification needs the
+    # field, so the load cannot be skipped as before).
+    Ts = agg['Ts']
+    Js = agg['Js']
+    L_x = float(agg['L_x'])
+    D1m = agg['D1_mean']
+    D2m = agg['D2_mean']
+    anim_files = sorted(glob.glob(os.path.join(dump_dir, anim_glob)))
     if not anim_files:
         raise RuntimeError(
             f'plot_track_width: no {anim_glob!r} dump files in '
-            f'{in_dir!r}; dumping is gated to ens_idx==0.')
-    anim_path = anim_files[0]
-    na = _load_anim(anim_path)
-    stem = os.path.splitext(os.path.basename(anim_path))[0]
-    _plot_three_configs(
-        na, a,
-        os.path.join(out_dir, f'{stem}_configs.png'))
-    _build_animation(
-        na, a,
-        os.path.join(out_dir, f'{stem}.gif'))
+            f'{dump_dir!r}; dumping is gated to ens_idx==0.')
+    # Pass 1 -- classify every cell from its final field, then write the
+    # class table and the class-dependent maps first (they do not depend
+    # on the slow GIF encoding that follows).
+    cls = np.full((Ts.size, Js.size), '?', dtype='<U1')
+    rows = []
+    for anim_path in anim_files:
+        stem = os.path.splitext(os.path.basename(anim_path))[0]
+        T = float(stem.split('_T')[1].split('_j')[0])
+        J = float(stem.split('_j')[1])
+        i = int(np.argmin(np.abs(Ts - T)))
+        k = int(np.argmin(np.abs(Js - J)))
+        na = _load_anim(anim_path)
+        code, m = _classify_field(
+            na['mf_top'][..., 2], abs(na['q_final']),
+            float(D1m[i, k]), float(D2m[i, k]), L_x)
+        cls[i, k] = code
+        rows.append({'T': T, 'J': J, 'code': code, **m})
+        print(f"  {stem}: |Q|={m['q_abs']:.2f}  Nc={m['n_comp']}  "
+              f"xperc={int(m['x_perc'])}  Dx/Lx={m['dx_lx']:.2f}  "
+              f"D1/D2={m['ratio']:.2f}  -> {code}")
+    _save_classes(
+        os.path.join(in_dir, f'stability_classes_{run_tag}.npz'),
+        Ts, Js, cls, rows)
+    dx_lx = np.full((Ts.size, Js.size), np.nan)
+    for r in rows:
+        i = int(np.argmin(np.abs(Ts - r['T'])))
+        k = int(np.argmin(np.abs(Js - r['J'])))
+        dx_lx[i, k] = r['dx_lx']
+    _plot_stability_map(
+        agg, cls, dx_lx, os.path.join(out_dir, 'stability_map.png'))
+    _plot_velocity_vs_j(
+        agg, cls, os.path.join(out_dir, 'velocity_vs_J.png'))
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Pass 2 -- config stills + GIFs (skip existing; the GIF encode is the
+    # slow step and its outputs go to the T7 gif_dir).
+    for anim_path in anim_files:
+        stem = os.path.splitext(os.path.basename(anim_path))[0]
+        cfg_path = os.path.join(out_dir, f'{stem}_configs.png')
+        gif_path = os.path.join(gif_dir, f'{stem}.gif')
+        need_cfg = overwrite or not os.path.isfile(cfg_path)
+        need_gif = overwrite or not os.path.isfile(gif_path)
+        if not need_cfg and not need_gif:
+            print(f'Skip (exists): {stem}')
+            continue
+        na = _load_anim(anim_path)
+        if need_cfg:
+            _plot_three_configs(na, a, cfg_path)
+        if need_gif:
+            _build_animation(na, a, gif_path)
 
 
 # =============================================================================

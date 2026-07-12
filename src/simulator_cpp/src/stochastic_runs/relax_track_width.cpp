@@ -22,9 +22,18 @@ int main() {
     // ----- Run configuration (must match scan_track_width box) ---------------
     const int nx = 350, ny = 500;
     const double dt = 5.0e-14;
-    const DemagKind demag_kind = DemagKind::Newell;
+    // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
+    // over the full box; the track width is the transverse box extent
+    // L_y = ny*a. Exchange/DMI wrap (mask=None), matching the Python
+    // pipeline.
+    const DemagKind demag_kind = DemagKind::Racetrack;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
+    // DMI below D_c, chosen from the coarse sweep to relax to the
+    // ~185 nm target track skyrmion; seed radius 103 nm (diameter
+    // 206 nm). Must match equilibrate & scan stages.
+    const double dmi = 0.545e-3;
+    const double skyrmion_radius = 103.0e-9;
     const int relax_max_steps = 200000;
     const double relax_alpha = 1.0;
     const double relax_tol_torque = 1.0e-5;
@@ -33,10 +42,14 @@ int main() {
     const std::string out_dir = "output/stochastic_llgs/scan_track_width";
     // -------------------------------------------------------------------------
     std::filesystem::create_directories(out_dir);
-    const std::string m_eq_path = out_dir + "/m_eq.npz";
+    // Box-tagged so the 350x500 and 500x350 equilibria never collide.
+    const std::string m_eq_path = out_dir + "/m_eq_"
+        + std::to_string(nx) + "x" + std::to_string(ny) + ".npz";
 
     Params p = make_default_params();
     p.nx = nx; p.ny = ny; p.dt = dt;
+    p.D = dmi;
+    p.skyrmion_R = skyrmion_radius;
     p.demag_kind = demag_kind;
     p.demag_accuracy = demag_accuracy;
     p.demag_tol_conv = demag_tol_conv;

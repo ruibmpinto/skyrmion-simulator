@@ -6,14 +6,14 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=2048
-#SBATCH --array=0-399%1000
+#SBATCH --array=0-599%1000
 
 set -euo pipefail
 mkdir -p logs
 
 # Stage 2 of the track-width campaign. The J=0 thermal equilibrium is
 # current-independent, so it is computed ONCE per (T_sub, ens):
-# 4 T x 100 ens = 400 tasks. Each loads the shared T=0 m_eq.npz
+# 6 T x 100 ens = 600 tasks. Each loads the shared T=0 m_eq.npz
 # (submit_relax_track_width.sh), equilibrates at its T until the LCC
 # size plateaus, and caches m_thermal_T{T}_ens{ens}.npz. The drive
 # stage reuses each cached state across all 6 current values.

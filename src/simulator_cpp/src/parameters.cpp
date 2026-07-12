@@ -1,6 +1,7 @@
 #include "skyrmion/parameters.hpp"
 
 #include <cmath>
+#include <cstdio>
 #include <sstream>
 #include <stdexcept>
 
@@ -67,9 +68,11 @@ Real pma_anisotropy_field(const Params& p) {
 
 static const char* demag_kind_str(DemagKind k) {
     switch (k) {
-        case DemagKind::None:   return "none";
-        case DemagKind::Slab:   return "slab";
-        case DemagKind::Newell: return "newell";
+        case DemagKind::None:         return "none";
+        case DemagKind::Slab:         return "slab";
+        case DemagKind::Newell:       return "newell";
+        case DemagKind::NewellFreeBC: return "newell_freebc";
+        case DemagKind::Racetrack:    return "racetrack";
     }
     return "none";
 }
@@ -100,6 +103,15 @@ std::string params_to_json(const Params& p) {
     s << ",\"H_DL\":" << p.H_DL << ",\"H_FL\":" << p.H_FL;
     s << "}";
     return s.str();
+}
+
+std::string dmi_dir_tag(Real D) {
+    // mJ/m^2 with trailing zeros stripped (%g), then '.' -> 'p'.
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(D) * 1e3);
+    std::string tag = "D";
+    for (const char* c = buf; *c; ++c) tag += (*c == '.') ? 'p' : *c;
+    return tag;
 }
 
 } // namespace skyrmion

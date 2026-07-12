@@ -5,6 +5,9 @@
 
 #include "skyrmion/types.hpp"
 
+#include <cstdint>
+#include <vector>
+
 namespace skyrmion {
 
 inline int pbc_index(int i, int n) {
@@ -25,5 +28,13 @@ inline void pbc_pm(int i, int n, int& prev, int& next) {
 
 // Physical coordinates for a flat layer at z = 0, shape (ny, nx, 3).
 Field3 lattice_positions(int nx, int ny, Real a);
+
+// Racetrack mask (row-major ny*nx, 1 = inside the magnetic region):
+// full periodic x and a centred band of physical width `width_m` along
+// y, vacuum (0) elsewhere. The band edges are the free top/bottom edges
+// (Rohart-Thiaville tilt) of a periodic-x / free-y (Racetrack)
+// track. Throws if the band does not leave at least one vacuum row each
+// side, so a width that cannot form a free edge fails loudly.
+std::vector<std::uint8_t> track_mask(int nx, int ny, Real a, Real width_m);
 
 } // namespace skyrmion
