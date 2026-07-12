@@ -29,6 +29,7 @@ import os
 # Third-party
 import numpy as np
 import scipy.ndimage as ndi
+from scipy.spatial import ConvexHull
 import matplotlib.animation as manim
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
@@ -134,10 +135,14 @@ def _periodic_x_components(mask, min_cells):
         component -- the span along the periodic axis, used for the
         loss-of-periodicity gate (this is D_x, not the ellipse major
         axis D_1 which may lie along free-y).
+    solidity : float
+        Area / convex-hull-area of the largest retained component
+        (periodic-unwrapped in x). Near 1 for a convex blob or stripe
+        (skyrmion); low for a serpentine, hull-underfilling labyrinth.
     """
     lab, n = ndi.label(mask)
     if n == 0:
-        return 0, 0.0, False, 0, 0
+        return 0, 0.0, False, 0, 0, 1.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Union-find over labels; merge across the periodic-x seam.
     parent = list(range(n + 1))
@@ -168,7 +173,7 @@ def _periodic_x_components(mask, min_cells):
         merged[r] = merged.get(r, 0) + int(sizes[label])
     big = {r: s for r, s in merged.items() if s >= min_cells}
     if not big:
-        return 0, 0.0, False, 0, 0
+        return 0, 0.0, False, 0, 0, 1.0
     n_comp = len(big)
     area = int(sum(big.values()))
     f_max = max(big.values()) / float(mask.size)
@@ -176,22 +181,33 @@ def _periodic_x_components(mask, min_cells):
             & {roots[int(b)] for b in right if b > 0})
     x_percolates = any(r in big for r in seam)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Periodic x-extent (D_x) of the largest retained component: the
-    # columns it occupies, then span = nx - largest cyclic gap of empty
-    # columns (so a seam-wrapping domain measures its true span).
+    # Largest retained component; its periodic x-extent (D_x) = nx minus
+    # the largest cyclic gap of empty columns, and its solidity on the
+    # x-unwrapped mask (rolled so the gap sits at the seam).
     r_max = max(big, key=big.get)
-    root_of = roots[lab]
-    occ = np.any(root_of == r_max, axis=0)
+    comp = (roots[lab] == r_max)
+    occ = np.any(comp, axis=0)
     nx = mask.shape[1]
     if occ.all():
         dx_cells = nx
+        comp_uw = comp
     else:
         idx = np.flatnonzero(occ)
         gaps = np.diff(idx) - 1
         wrap_gap = idx[0] + nx - idx[-1] - 1
         max_gap = int(max(gaps.max() if gaps.size else 0, wrap_gap))
         dx_cells = nx - max_gap
-    return n_comp, f_max, x_percolates, area, dx_cells
+        if gaps.size and gaps.max() >= wrap_gap:
+            g = int(gaps.argmax())
+            comp_uw = np.roll(comp, nx - int(idx[g + 1]), axis=1)
+        else:
+            comp_uw = comp
+    pts = np.column_stack(np.nonzero(comp_uw))
+    try:
+        solidity = comp_uw.sum() / float(ConvexHull(pts).volume)
+    except Exception:
+        solidity = 1.0
+    return n_comp, f_max, x_percolates, area, dx_cells, solidity
 
 
 def _classify_field(mz, q_abs, D1, D2, L_x):
@@ -230,23 +246,17 @@ def _classify_field(mz, q_abs, D1, D2, L_x):
         Diagnostic values used by the decision (for the report table).
     """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Decision thresholds (physical; local, not global state).
+    # Field-analysis thresholds (physical; local, not global state).
     core_thresh = -0.5  # m_z below this = reversed domain (not T noise)
     min_frac = 0.002    # component size below this frac of box = speckle
-    q_sk = 0.5          # |Q| above -> a topological skyrmion is present
-    q_multi = 1.6       # |Q| above -> more than one skyrmion
-    core_min = 0.005    # domain-area frac below -> no domain (FM)
-    laby_fill = 0.35    # domain-area frac above -> space-filling
-    x_gate = 0.5        # D_x/L_x above -> periodic-image break
-    r_elong = 1.7       # D1/D2 above -> elongated
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Reversed domain, de-speckled: threshold hard (m_z < -0.5) and drop
     # components below min_frac of the box, so thermal fluctuations near
     # m_z = 0 are not counted as domains.
     core = mz < core_thresh
     min_cells = max(20, int(min_frac * mz.size))
-    n_comp, f_max, x_perc, area, dx_cells = _periodic_x_components(
-        core, min_cells)
+    n_comp, f_max, x_perc, area, dx_cells, solidity = \
+        _periodic_x_components(core, min_cells)
     core_frac = area / float(mz.size)
     # Loss-of-periodicity uses the field x-extent D_x (= dx_cells / nx),
     # not the ellipse major axis. D1/L_x is kept only for reference.
@@ -257,26 +267,57 @@ def _classify_field(mz, q_abs, D1, D2, L_x):
     metrics = {
         'q_abs': q_abs, 'core_frac': core_frac, 'n_comp': n_comp,
         'f_max': f_max, 'x_perc': bool(x_perc), 'dx_lx': dx_lx,
-        'd1_lx': d1_lx, 'ratio': ratio,
+        'd1_lx': d1_lx, 'ratio': ratio, 'solidity': solidity,
     }
-    # Collapsed to the ferromagnetic background: no reversed domain above
-    # the speckle floor (and no residual sub-floor domain with winding).
-    if n_comp == 0 or (core_frac < core_min and q_abs < q_sk):
-        return 'A', metrics
-    # Multi-domain / labyrinth: several disconnected reversed domains,
-    # a space-filling texture, or more than one skyrmion's charge.
-    if n_comp >= 2 or core_frac >= laby_fill or q_abs >= q_multi:
-        return 'L', metrics
-    # Single reversed domain without net winding: a bare stripe if it
-    # spans the periodic seam, else a fragment / collapsing bubble.
-    if q_abs < q_sk:
-        return ('E', metrics) if x_perc else ('L', metrics)
-    # One topological skyrmion (|Q| ~ 1), single component.
-    if x_perc or dx_lx >= x_gate:
-        return 'E', metrics
-    if ratio >= r_elong:
-        return 'E', metrics
-    return 'S', metrics
+    return _decide_class(metrics), metrics
+
+
+def _decide_class(m):
+    """Decide the stability class from the per-cell metrics.
+
+    Topology first, then shape. A single-winding reversed domain
+    ($\\Q\\approx1$) is a skyrmion (compact or elongated) only if it is
+    convex-like (high solidity); a serpentine, hull-underfilling domain
+    is a labyrinth however its charge integrates. Neither the reversed
+    fraction nor a lone satellite domain demotes a genuine skyrmion.
+
+    Parameters
+    ----------
+    m : dict
+        Metrics from `_classify_field`: q_abs, n_comp, core_frac,
+        x_perc, dx_lx, ratio, solidity.
+
+    Returns
+    -------
+    code : str
+        'S', 'E', 'L', or 'A'.
+    """
+    q_sk = 0.5          # |Q| above -> a topological skyrmion is present
+    q_multi = 1.6       # |Q| above -> more than one skyrmion
+    core_min = 0.005    # domain-area frac below -> no domain (FM)
+    x_gate = 0.5        # D_x/L_x above -> periodic-image break (index p)
+    r_elong = 1.7       # D1/D2 above -> elongated
+    n_dom = 3           # this many domains -> labyrinth (multi-domain)
+    s_min = 0.7         # solidity below -> serpentine labyrinth
+    q = m['q_abs']
+    n_comp = m['n_comp']
+    # No reversed domain (and no sub-floor winding): ferromagnetic.
+    if n_comp == 0 or (m['core_frac'] < core_min and q < q_sk):
+        return 'A'
+    # Genuine labyrinth: more than one winding, or many domains.
+    if q >= q_multi or n_comp >= n_dom:
+        return 'L'
+    # Chargeless texture (|Q| ~ 0): not a skyrmion -> stripe / labyrinth.
+    if q < q_sk:
+        return 'L'
+    # One winding: a convex-like blob/stripe is a skyrmion; a serpentine,
+    # hull-underfilling domain is a labyrinth.
+    if m['solidity'] < s_min:
+        return 'L'
+    # Skyrmion: elongated/spanning (E) vs compact (S).
+    if m['x_perc'] or m['dx_lx'] >= x_gate or m['ratio'] >= r_elong:
+        return 'E'
+    return 'S'
 
 
 def _save_classes(path, Ts, Js, cls, rows):
@@ -310,7 +351,7 @@ def _save_classes(path, Ts, Js, cls, rows):
         q_abs=grid('q_abs'), n_comp=grid('n_comp'),
         x_perc=grid('x_perc'), dx_lx=grid('dx_lx'),
         d1_lx=grid('d1_lx'), ratio=grid('ratio'),
-        core_frac=grid('core_frac'))
+        core_frac=grid('core_frac'), solidity=grid('solidity'))
     print(f'Saved: {path}')
 
 
@@ -357,7 +398,11 @@ def _plot_stability_map(agg, cls, dx_lx, out_path):
         for k in range(Js.size):
             c = 'k' if cls[i, k] in ('E', '?') else 'w'
             label = cls[i, k]
-            if np.isfinite(dx_lx[i, k]) and dx_lx[i, k] >= 0.5:
+            # 'p' (loss of periodicity) only qualifies a skyrmion class;
+            # a labyrinth/annihilated cell already voids the single-object
+            # periodic picture, so it carries no 'p'.
+            if (cls[i, k] in ('S', 'E') and np.isfinite(dx_lx[i, k])
+                    and dx_lx[i, k] >= 0.5):
                 label = label + 'p'
             ax.text(k, i, label, ha='center', va='center',
                     color=c, fontweight='bold')

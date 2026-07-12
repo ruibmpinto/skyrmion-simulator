@@ -72,30 +72,36 @@ thermal fluctuations near $m_z=0$ are not miscounted as domains.
 Connected components are labelled with periodic-$x$ / free-$y$
 connectivity (a union-find merge across the $x$ seam), and components
 below $0.2\%$ of the box are dropped as speckle. From the survivors we
-take the count $N_c$, the reversed-area fraction, whether any component
-wraps the $x$ seam, and the periodic $x$-extent $D_x$ of the largest
-component (span $=n_x-$ largest cyclic gap of empty columns).
+take the count $N_c$, the periodic $x$-extent $D_x$ of the largest
+component (span $=n_x-$ largest cyclic gap of empty columns), and its
+\emph{solidity} $=$ area / convex-hull area (on the $x$-unwrapped
+component). Solidity is the skyrmion-vs-labyrinth discriminant: a
+compact or elongated skyrmion is a convex-like blob (solidity near $1$),
+while a labyrinth is a serpentine domain that badly underfills its hull
+(low solidity) --- independent of $\Q$ and $N_c$, which are both
+$\approx1$ for the ambiguous cases.
 
 \paragraph{3. Periodic gate.}
 $D_x/L_x\ge0.5$ means the domain can bridge its periodic image (loss of
-periodicity).
+periodicity). This uses the field $x$-extent, \emph{not} the ellipse
+$D_1$, which can be large along free-$y$ without any $x$-bridging.
 
-\paragraph{Decision order.}
+\paragraph{Decision order (topology, then shape).}
 \begin{enumerate}
   \item No surviving domain (or a sub-floor domain with $\Q<0.5$)
   $\rightarrow$ \textbf{A} (annihilated, ferromagnetic).
-  \item $N_c\ge2$, or reversed fraction $\ge0.35$, or $\Q\ge1.6$
-  $\rightarrow$ \textbf{L} (labyrinth / multi-domain).
-  \item Single domain with $\Q<0.5$: \textbf{E} if it spans the seam,
-  else \textbf{L}.
-  \item One skyrmion ($\Q\approx1$), single domain: \textbf{E} if it
-  wraps, $D_x/L_x\ge0.5$, or $D_1/D_2\ge1.7$; else \textbf{S}
-  (compact skyrmion).
+  \item $\Q\ge1.6$ (multi-winding) or $N_c\ge3$ (many domains)
+  $\rightarrow$ \textbf{L}.
+  \item $\Q<0.5$ (chargeless, not a skyrmion) $\rightarrow$ \textbf{L}.
+  \item One winding ($0.5\le\Q<1.6$): solidity $<0.7$ (serpentine)
+  $\rightarrow$ \textbf{L}; otherwise a skyrmion --- \textbf{E} if it
+  wraps, $D_x/L_x\ge0.5$, or $D_1/D_2\ge1.7$, else \textbf{S}.
 \end{enumerate}
-Independently, a second index \textbf{p} is appended wherever
-$D_x/L_x\ge0.5$ (loss of periodicity): e.g. \texttt{Ep} is an elongated
-state whose $x$-size is no longer trustworthy, \texttt{Lp} a labyrinth
-in the image-bridged regime.
+Neither the reversed-area fraction nor a lone satellite domain demotes a
+genuine ($\Q\approx1$, convex) skyrmion. A second index \textbf{p}
+(loss of periodicity, $D_x/L_x\ge0.5$) is appended \emph{only} to the
+skyrmion classes S/E --- a labyrinth already voids the single-object
+periodic picture, so L/A carry no \textbf{p}.
 
 \begin{table}[h]
 \centering
@@ -109,7 +115,8 @@ core threshold & $m_z<-0.5$ & reversed domain vs thermal noise\\
 speckle floor & $0.2\%$ of box & minimum component area\\
 $\Q$ skyrmion & $0.5$ & topological skyrmion present\\
 $\Q$ multi & $1.6$ & more than one skyrmion\\
-reversed fill & $0.35$ & space-filling $\rightarrow$ labyrinth\\
+domains $N_c$ & $3$ & this many $\rightarrow$ labyrinth\\
+solidity & $0.7$ & below $\rightarrow$ serpentine labyrinth\\
 $D_x/L_x$ gate & $0.5$ & periodic-image bridging (index p)\\
 $D_1/D_2$ & $1.7$ & elongated\\
 \bottomrule
@@ -135,12 +142,12 @@ $10^{11}$~A/m$^2$). Code $=$ physical class $+$ optional \textbf{p}
 \toprule
 $T\,\backslash\,J$ & 0.5 & 1 & 2 & 3 & 4 & 5\\
 \midrule
-10  & S  & S  & E  & E  & E  & Lp\\
-50  & S  & E  & E  & E  & Lp & Lp\\
-100 & Lp & Lp & Ep & Ep & Ep & Ep\\
-130 & Ep & Ep & Lp & Ep & Lp & Lp\\
-160 & Ep & Lp & Lp & Lp & Lp & Lp\\
-200 & L  & L  & L  & Lp & L  & Lp\\
+10  & S  & S  & E  & E  & E  & L\\
+50  & S  & E  & E  & E  & L  & L\\
+100 & Ep & Ep & L  & L  & L  & L\\
+130 & L  & L  & L  & L  & L  & L\\
+160 & L  & L  & L  & L  & L  & L\\
+200 & L  & L  & L  & L  & L  & L\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -149,29 +156,35 @@ $T\,\backslash\,J$ & 0.5 & 1 & 2 & 3 & 4 & 5\\
 \begin{itemize}
   \item A genuinely compact skyrmion (\textbf{S}) survives only in the
   cold, low-drive corner: $T=10$~K at $J\le1\times10^{11}$ and $T=50$~K
-  at $J=5\times10^{10}$. There $\Q=1.00$, $D_1/D_2\approx1.0$--$1.1$,
-  $D_x/L_x\approx0.2$--$0.5$.
-  \item With increasing current the low-$T$ skyrmion stretches
-  (\textbf{E}: $D_1/D_2$ rising to $3.2$ at $T=10$), then collapses to a
-  labyrinth at the highest current (\texttt{Lp}; $\Q=0.17$ at $T=10$,
-  $J=5\times10^{11}$).
-  \item \textbf{Loss of periodicity affects $23$ of $36$ cells}, but the
-  field-measured $D_x$ gate is far more discriminating than the ellipse
-  $D_1$: the round $T=50$, $J=5\times10^{10}$ skyrmion
-  ($D_1/D_2=1.11$, $D_x/L_x=0.47$) is correctly \textbf{S}, whereas a
-  $D_1$-based gate flagged it (its $D_1$ was thermally inflated). At
-  warm/high-drive cells $D_x$ reaches or exceeds $L_x$.
-  \item Warm cells ($T\ge130$) are labyrinthine at most currents; at
-  $T=200$ the texture fragments into several small domains, so the
-  \emph{largest} component's $D_x$ is small and most cells there are
-  plain \textbf{L}.
+  at $J=5\times10^{10}$ ($\Q=1.00$, $D_1/D_2\approx1.0$--$1.1$,
+  solidity $\gtrsim0.9$).
+  \item Raising the current at low $T$ stretches it into an elongated
+  skyrmion (\textbf{E}), still one convex winding: $T=10$ up to
+  $J=4\times10^{11}$, $T=50$ up to $J=3\times10^{11}$. These stretch
+  along free-$y$, so $D_x/L_x<0.5$ and they do \emph{not} lose
+  periodicity (no \textbf{p}).
+  \item Solidity is what separates these from the labyrinths: at
+  $T=130,160$, $J=5\times10^{10}$ the state is still $\Q\approx0.95$ and
+  single-component, but serpentine (solidity $0.47,0.39$) $\rightarrow$
+  \textbf{L}; the borderline $T=50$, $J=4\times10^{11}$
+  (solidity $0.62$) is likewise \textbf{L}. Fill fraction fails here (it
+  is \emph{lower} for the labyrinths, $0.27$--$0.31$, than for the
+  spanning skyrmions, $0.37$--$0.39$).
+  \item Loss of periodicity (\textbf{p}) survives only where a genuine
+  skyrmion also extends across the periodic axis: the two spanning
+  skyrmions at $T=100$, $J\le1\times10^{11}$ (\texttt{Ep}). Elsewhere
+  the object is either compact (low $D_x$) or a labyrinth (no \textbf{p}
+  by definition).
+  \item Everything at $T\ge130$~K, and all high-current cells, are
+  labyrinths.
 \end{itemize}
 
 \paragraph{Consequence.}
-The reliable, intrinsic region of this run is the small cold/low-drive
-corner. To characterise the elongated and driven states without the
-periodic-image artifact, the track must be extended along the motion
-axis (larger $L_x$ at fixed width), the subject of a follow-up campaign
-($256$, $512$, $1024$ cells along $x$, free $y$).
+The reliable, intrinsic skyrmion region of this run is the cold/low-drive
+corner (S and the low-$T$ E band). To characterise the elongated and
+driven states without the periodic-image artifact, the track must be
+extended along the motion axis (larger $L_x$ at fixed width), the
+subject of a follow-up campaign ($256$, $512$, $1024$ cells along $x$,
+free $y$).
 
 \end{document}
