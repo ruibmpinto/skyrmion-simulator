@@ -238,7 +238,7 @@ def main():
     # Cheap end-of-run diagnostic with PBC-aware unwrap.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=nx * p.a, L_y=ny * p.a)
+        L_x=nx * p.a, L_y=ny * p.a, periodic_y=True)
     # v_avg over the pulse window using the unwrapped centroid.
     t = trace['t']
     i_start = int(0)

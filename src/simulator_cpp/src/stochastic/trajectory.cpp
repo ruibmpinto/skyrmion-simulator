@@ -274,7 +274,9 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
         if (end < 4 || !all_finite(cx_w, end)) return;
         std::vector<double> cxw(cx_w.begin(), cx_w.begin() + end);
         std::vector<double> cyw(cy_w.begin(), cy_w.begin() + end);
-        Trajectory2D u = unwrap_trajectory(cxw, cyw, L_x, L_y);
+        // Free-y racetrack: y is not periodic, never unwrap it.
+        const bool periodic_y = (p.demag_kind != DemagKind::Racetrack);
+        Trajectory2D u = unwrap_trajectory(cxw, cyw, L_x, L_y, periodic_y);
         for (int i = 0; i < end; ++i) { cx_u[i] = u.cx[i]; cy_u[i] = u.cy[i]; }
         std::vector<double> tt(P.t_sample.begin(), P.t_sample.begin() + end);
         HallFit f = hall_angle(tt, u.cx, u.cy, 0.5);
@@ -290,9 +292,12 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
             *sig_y = std::sqrt(var / (end - h - 1));  // ddof = 1
         }
     };
-    fit_layer(P.cx_wrapped, P.cy_wrapped, P.cx_unwrapped, P.cy_unwrapped,
+    // Fit the LCC (largest-connected-component core) tracker: unlike
+    // the whole-lattice centroid it stays on the skyrmion once other
+    // domains nucleate.
+    fit_layer(P.cx_lcc, P.cy_lcc, P.cx_unwrapped, P.cy_unwrapped,
               P.v_x, P.v_y, P.velocity, P.hall_deg, &P.sigma_y);
-    fit_layer(P.cx_wrapped_bot, P.cy_wrapped_bot,
+    fit_layer(P.cx_lcc_bot, P.cy_lcc_bot,
               P.cx_unwrapped_bot, P.cy_unwrapped_bot,
               P.v_x_bot, P.v_y_bot, P.velocity_bot, P.hall_deg_bot, nullptr);
     return pl;

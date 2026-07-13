@@ -142,7 +142,7 @@ def _run_one_point(args):
     # PBC-aware v_avg proxy over the +/- tail_sigmas drive window.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)
+        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a, periodic_y=True)
     v_avg = (float(cx[-1] - cx[0])
              / (2.0 * cfg['tail_sigmas'] * sigma))
     return (

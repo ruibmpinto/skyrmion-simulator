@@ -567,11 +567,16 @@ def trajectory_worker(config):
     theta_deg = float('nan')
     sigma_y = float('nan')
     # Unwrap top trajectory if alive long enough; drives v, theta_H.
+    # Fit the LCC (largest-connected-component core) tracker: unlike
+    # the whole-lattice centroid it stays on the skyrmion once other
+    # domains nucleate. Free-y racetrack: y is not periodic, never
+    # unwrap it.
     L_x = nx * p.a
     L_y = ny * p.a
-    if end >= 4 and np.all(np.isfinite(cx_w[:end])):
+    periodic_y = (demag_kind != 'racetrack')
+    if end >= 4 and np.all(np.isfinite(cx_lcc[:end])):
         cx_u, cy_u = unwrap_trajectory(
-            cx_w[:end], cy_w[:end], L_x, L_y)
+            cx_lcc[:end], cy_lcc[:end], L_x, L_y, periodic_y)
         cx_unwrap[:end] = cx_u
         cy_unwrap[:end] = cy_u
         v_x, v_y, theta_deg = hall_angle(
@@ -584,9 +589,9 @@ def trajectory_worker(config):
     v_x_bot = float('nan')
     v_y_bot = float('nan')
     theta_deg_bot = float('nan')
-    if end >= 4 and np.all(np.isfinite(cx_w_bot[:end])):
+    if end >= 4 and np.all(np.isfinite(cx_lcc_bot[:end])):
         cxb_u, cyb_u = unwrap_trajectory(
-            cx_w_bot[:end], cy_w_bot[:end], L_x, L_y)
+            cx_lcc_bot[:end], cy_lcc_bot[:end], L_x, L_y, periodic_y)
         cx_unwrap_bot[:end] = cxb_u
         cy_unwrap_bot[:end] = cyb_u
         v_x_bot, v_y_bot, theta_deg_bot = hall_angle(

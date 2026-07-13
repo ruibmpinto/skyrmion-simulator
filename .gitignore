@@ -14,3 +14,7 @@ docs/*.synctex.gz
 # C++ build tree and clangd index (regenerated; do not track)
 build/
 .cache/
+*.aux
+*.toc
+*.out
+docs/benchmarks/*.log

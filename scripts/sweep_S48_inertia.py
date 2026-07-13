@@ -131,7 +131,7 @@ def _run_one_point(args):
     # Steady-state v proxy in the pulse middle (0.5-1.5 ns).
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)
+        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a, periodic_y=True)
     import numpy as np
     t_arr = trace['t']
     win = (t_arr > 0.5e-9) & (t_arr < 1.5e-9)

@@ -85,7 +85,7 @@ def main():
     L_y = ny * a_default
     cx_w = trace['cx_top']
     cy_w = trace['cy_top']
-    cx, cy = unwrap_trajectory(cx_w, cy_w, L_x=L_x, L_y=L_y)
+    cx, cy = unwrap_trajectory(cx_w, cy_w, L_x=L_x, L_y=L_y, periodic_y=True)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Instantaneous velocity from centred finite differences on
     # the unwrapped centroids.

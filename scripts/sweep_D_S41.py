@@ -282,7 +282,7 @@ def main():
     # Unwrap PBC jumps so centroid is monotone in real space.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=nx * p.a, L_y=ny * p.a)
+        L_x=nx * p.a, L_y=ny * p.a, periodic_y=True)
     t = trace['t']
     # Pulse window indices: start at IC, end at the t_pulse mark.
     i_start = 0

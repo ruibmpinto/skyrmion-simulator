@@ -20,16 +20,6 @@ skyrmion campaign\\[2pt]
 \maketitle
 
 \section{Motivation}
-The first stability map was produced by a hardcoded two-threshold
-lookup on $(T,J)$: labyrinth for $T\ge130$~K, elongated stripe for
-$J\ge3\times10^{11}$~A/m$^2$, else compact skyrmion. Those thresholds
-were read by eye off the snapshots of a \emph{different} run (the
-periodic $350\times500$ \texttt{pbcx\_pbcy} box) and then frozen; they
-never consulted the actual configurations of the racetrack $D=0.545$
-run, and carried no guard against the periodic-boundary artifact below.
-This note replaces the lookup with a classifier computed from the raw
-simulation output, and documents the method and results.
-
 \paragraph{The periodicity artifact.}
 The track is periodic along $x$ (motion axis, length $L_x=n_x a=700$~nm)
 and free along $y$. Once the reversed domain extends along $x$ to about
@@ -41,20 +31,6 @@ picture is invalid there. Crucially the relevant length is the
 skyrmion stretched along free-$y$ has large $D_1$ but small $D_x$ and
 does not bridge its $x$-image. We measure $D_x$ directly from the field
 and flag the affected cells explicitly rather than trust them.
-
-\section{Data reuse --- no new simulation}
-Everything needed already exists in the completed campaign output; no
-resimulation was required.
-\begin{itemize}
-  \item \textbf{Topological charge $\Q$}: stored per frame
-  (\texttt{Q\_top}) in the 36 \texttt{anim\_*.npz} full-field dumps
-  (the \texttt{ens0} representative of each $(T,J)$ cell).
-  \item \textbf{Domain structure and $D_x$}: computed from the final
-  drive-frame $m_z(x,y)$ field in the same dumps (the only place full
-  fields were saved).
-  \item \textbf{$D_1/D_2$ elongation ratio}: the ensemble-mean ellipse
-  axes in \texttt{aggregate\_350x500\_racetrack\_D0p545.npz}.
-\end{itemize}
 
 \section{Methodology}
 Each $(T,J)$ cell is classified from the final drive-phase
@@ -186,5 +162,22 @@ driven states without the periodic-image artifact, the track must be
 extended along the motion axis (larger $L_x$ at fixed width), the
 subject of a follow-up campaign ($256$, $512$, $1024$ cells along $x$,
 free $y$).
+
+\section{Final configurations}
+The final driven top-layer $m_z$ of every $(T,J)$ cell (ens0
+realization) is shown in Fig.~\ref{fig:configs}, on the same grid as the
+stability map (rows: $T$ decreasing downward; columns: $J$). Only the
+top layer is shown; the bottom layer mirrors it under the SAF coupling.
+Blue is the reversed ($m_z<0$) domain, red the ferromagnetic
+background.
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=\linewidth,height=0.92\textheight,%
+keepaspectratio]{config_table.png}
+\caption{Final top-layer $m_z$ configuration for each $(T,J)$ cell,
+titled with $T$, $J$ ($10^{11}$~A/m$^2$), and stability class.}
+\label{fig:configs}
+\end{figure}
 
 \end{document}

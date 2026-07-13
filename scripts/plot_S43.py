@@ -65,7 +65,7 @@ def _vavg_from_trace(trace, metadata):
     cx, cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
-    )
+    periodic_y=True)
     FWHM = float(metadata['FWHM'])
     tail = (float(metadata['tail_sigmas'])
             * float(metadata['sigma']))

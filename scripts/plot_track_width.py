@@ -596,8 +596,21 @@ def _plot_ratio_heatmaps(agg, out_path):
 
 
 # -----------------------------------------------------------------------------
-def _plot_survival(agg, out_path):
-    """Survival probability and Hall-angle maps."""
+def _plot_survival(agg, cls, out_path):
+    """Survival probability and Hall-angle maps.
+
+    Parameters
+    ----------
+    agg : dict
+        Aggregate payload (keys Ts, Js, P_surv, theta_mean).
+    cls : numpy.ndarray(2d)
+        Per-cell class codes from the field classifier. The Hall
+        angle is only meaningful for a tracked skyrmion, so cells
+        that are not 'S'/'E' (labyrinth, annihilated, unknown) are
+        masked in the theta panel.
+    out_path : str
+        Output PNG path.
+    """
     Ts = agg['Ts']
     Js = agg['Js']
     fig, axes = plt.subplots(1, 2, figsize=(13.0, 5.0))
@@ -606,12 +619,13 @@ def _plot_survival(agg, out_path):
         r'survival probability $P_{\mathrm{surv}}$',
         'magma', 0.0, 1.0)
     fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
-    theta = agg['theta_mean']
+    theta = np.where(
+        np.isin(cls, ('S', 'E')), agg['theta_mean'], np.nan)
     tmax = float(np.nanmax(np.abs(theta))) if np.any(
         np.isfinite(theta)) else 1.0
     im1 = _imshow_grid(
         axes[1], Ts, Js, theta,
-        r'skyrmion Hall angle $\theta_H$ (deg)',
+        r'skyrmion Hall angle $\theta_H$ (deg), S/E cells only',
         'coolwarm', -tmax, tmax)
     fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
     fig.tight_layout()
@@ -792,8 +806,6 @@ def main():
         agg, os.path.join(out_dir, 'relaxed_vs_T.png'))
     _plot_ratio_heatmaps(
         agg, os.path.join(out_dir, 'ratio_heatmaps.png'))
-    _plot_survival(
-        agg, os.path.join(out_dir, 'survival_hall.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Single pass over the ens0 field dumps: classify each (T, j) cell
     # (|Q| + periodic-x components + D1/L_x gate) and render its config
@@ -841,6 +853,8 @@ def main():
         agg, cls, dx_lx, os.path.join(out_dir, 'stability_map.png'))
     _plot_velocity_vs_j(
         agg, cls, os.path.join(out_dir, 'velocity_vs_J.png'))
+    _plot_survival(
+        agg, cls, os.path.join(out_dir, 'survival_hall.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Pass 2 -- config stills + GIFs (skip existing; the GIF encode is the
     # slow step and its outputs go to the T7 gif_dir).

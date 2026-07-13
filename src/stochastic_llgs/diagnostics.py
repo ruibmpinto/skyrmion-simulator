@@ -435,7 +435,7 @@ def skyrmion_center_lcc_pbc(m, a, core_polarity):
 
 
 # -----------------------------------------------------------------------------
-def unwrap_trajectory(cx_series, cy_series, L_x, L_y):
+def unwrap_trajectory(cx_series, cy_series, L_x, L_y, periodic_y):
     """Remove L-jumps from a wrapped trajectory.
 
     Parameters
@@ -448,6 +448,9 @@ def unwrap_trajectory(cx_series, cy_series, L_x, L_y):
         Box length in x, in meters. Strictly positive.
     L_y : float
         Box length in y, in meters. Strictly positive.
+    periodic_y : bool
+        Whether y is periodic. False (free-y racetrack)
+        leaves the y series untouched.
 
     Returns
     -------
@@ -486,9 +489,12 @@ def unwrap_trajectory(cx_series, cy_series, L_x, L_y):
     dx_corr = np.where(dx > 0.5 * L_x, dx - L_x, dx)
     dx_corr = np.where(dx_corr < -0.5 * L_x,
                        dx_corr + L_x, dx_corr)
-    dy_corr = np.where(dy > 0.5 * L_y, dy - L_y, dy)
-    dy_corr = np.where(dy_corr < -0.5 * L_y,
-                       dy_corr + L_y, dy_corr)
+    if periodic_y:
+        dy_corr = np.where(dy > 0.5 * L_y, dy - L_y, dy)
+        dy_corr = np.where(dy_corr < -0.5 * L_y,
+                           dy_corr + L_y, dy_corr)
+    else:
+        dy_corr = dy
     cx_unwrapped = np.concatenate(([cx[0]], cx[0] + np.cumsum(dx_corr)))
     cy_unwrapped = np.concatenate(([cy[0]], cy[0] + np.cumsum(dy_corr)))
     return cx_unwrapped, cy_unwrapped
@@ -590,7 +596,9 @@ def hall_angle(t_series, cx_unwrapped, cy_unwrapped, half):
     v_y : float
         Linear-fit drift velocity along y, in m/s.
     theta_deg : float
-        Hall angle `arctan2(v_y, v_x)` in degrees.
+        Hall angle `arctan2(v_y, |v_x|)` in degrees: the
+        transverse deflection off the drive (x) axis, range
+        (-90, 90].
     """
     t = np.asarray(t_series, dtype=float)
     x = np.asarray(cx_unwrapped, dtype=float)
@@ -617,5 +625,7 @@ def hall_angle(t_series, cx_unwrapped, cy_unwrapped, half):
     y_fit = y[i0:]
     vx = float(np.polyfit(t_fit, x_fit, 1)[0])
     vy = float(np.polyfit(t_fit, y_fit, 1)[0])
-    theta_deg = float(np.degrees(np.arctan2(vy, vx)))
+    # Deflection off the drive (x) axis: -x drift with small
+    # v_y must read as a small angle, not +-180 deg.
+    theta_deg = float(np.degrees(np.arctan2(vy, abs(vx))))
     return vx, vy, theta_deg

@@ -175,7 +175,7 @@ def _aggregate_track_width(in_dir):
         cell = (T_sub, j)
         by_cell.setdefault(cell, {
             'alive': 0, 'n': 0,
-            'v': [], 'theta': [], 'sigma_y': [],
+            'v': [], 'vx': [], 'vy': [], 'sigma_y': [],
             'D1': [], 'D2': [], 'D1r': [], 'D2r': [],
         })
         rec = by_cell[cell]
@@ -197,12 +197,16 @@ def _aggregate_track_width(in_dir):
             continue
         rec['alive'] += 1
         v = float(d['velocity'])
-        th = float(d['hall_deg'])
+        vx = float(d['v_x'])
+        vy = float(d['v_y'])
         sy = float(d['sigma_y'])
         if np.isfinite(v):
             rec['v'].append(v)
-        if np.isfinite(th):
-            rec['theta'].append(th)
+        # Hall statistics are built from the velocity vector, not
+        # from per-member angles (circular data averages wrongly).
+        if np.isfinite(vx) and np.isfinite(vy):
+            rec['vx'].append(vx)
+            rec['vy'].append(vy)
         if np.isfinite(sy):
             rec['sigma_y'].append(sy)
         # Steady-state ellipse axes: mean over the drive-phase
@@ -245,8 +249,17 @@ def _aggregate_track_width(in_dir):
             P_surv[i, k] = rec['alive'] / max(rec['n'], 1)
             v_mean[i, k], v_se[i, k] = _safe_mean_se(
                 np.array(rec['v']))
-            th_mean[i, k], th_se[i, k] = _safe_mean_se(
-                np.array(rec['theta']))
+            # Cell Hall angle: deflection of the ensemble-mean
+            # velocity vector off the drive (x) axis; SE from the
+            # per-member deflection angles (range (-90, 90], no
+            # branch cut).
+            vx_arr = np.array(rec['vx'])
+            vy_arr = np.array(rec['vy'])
+            if vx_arr.size > 0:
+                th_mean[i, k] = float(np.degrees(np.arctan2(
+                    np.mean(vy_arr), abs(np.mean(vx_arr)))))
+                _, th_se[i, k] = _safe_mean_se(np.degrees(
+                    np.arctan2(vy_arr, np.abs(vx_arr))))
             sy_mean[i, k], _ = _safe_mean_se(
                 np.array(rec['sigma_y']))
             D1_mean[i, k], D1_se[i, k] = _safe_mean_se(

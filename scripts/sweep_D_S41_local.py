@@ -191,7 +191,7 @@ def _run_one_D(args):
     # Cheap end-of-run diagnostic.
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=nx * p.a, L_y=ny * p.a)
+        L_x=nx * p.a, L_y=ny * p.a, periodic_y=True)
     t_arr = trace['t']
     i_end = int(((len(t_arr) - 1) * cfg['t_pulse'])
                 // (cfg['n_drive'] * dt))

@@ -213,7 +213,7 @@ def _run_one_point(args):
     t_arr = trace['t']
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
-        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a)
+        L_x=cfg['nx'] * p.a, L_y=cfg['ny'] * p.a, periodic_y=True)
     win = (t_arr > 0.5e-9) & (t_arr < 1.5e-9)
     if np.any(win):
         v_steady = (

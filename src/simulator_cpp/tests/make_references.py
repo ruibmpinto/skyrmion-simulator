@@ -499,7 +499,7 @@ def main():
     refs['diag_cy_wrap'] = cy_wrap
     refs['diag_L_x'] = L_x
     refs['diag_L_y'] = L_y
-    cxu, cyu = unwrap_trajectory(cx_wrap, cy_wrap, L_x, L_y)
+    cxu, cyu = unwrap_trajectory(cx_wrap, cy_wrap, L_x, L_y, True)
     refs['diag_cx_unwrap'] = cxu
     refs['diag_cy_unwrap'] = cyu
     vx, vy, th = hall_angle(t_d, cxu, cyu, half=0.5)

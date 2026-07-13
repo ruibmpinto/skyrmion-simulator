@@ -58,7 +58,7 @@ def _vavg(trace, metadata):
     cx, cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
-    )
+    periodic_y=True)
     # Identify the +/- tail_sigmas * sigma window around t_center.
     FWHM = float(metadata['FWHM'])
     tail = (float(metadata['tail_sigmas'])
