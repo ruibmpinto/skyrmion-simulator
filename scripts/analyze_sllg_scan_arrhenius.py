@@ -41,6 +41,8 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def main():
+    """Load the Arrhenius aggregate, fit log(tau) against 1/T, and
+    write the Arrhenius figure and the fit NPZ."""
     # =========================== User Configuration =========================
     in_npz        = (
         'output/stochastic_llgs/scan_arrhenius/aggregate.npz')

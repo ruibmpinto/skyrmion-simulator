@@ -64,7 +64,7 @@ def _run_one_D(args):
         kernels = None
         step = step_deterministic()
         m_top0, m_bot0 = saf_skyrmion(
-            nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+            nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         print(f'  D={D*1e3:.3f}: relaxing with K_eff '
               f'(over-damped, no kernel)...', flush=True)
         _alpha_save = p.alpha
@@ -123,7 +123,7 @@ def _run_one_D(args):
             tol_conv=cfg['demag_newell_tol_conv'])
         step = step_demag_deterministic(kernels)
         m_top0, m_bot0 = saf_skyrmion(
-            nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+            nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         print(f'  D={D*1e3:.3f}: relaxing with {field_kind} '
               f'demag (convergence-stop)...', flush=True)
         (m_top_eq, m_bot_eq,
@@ -211,6 +211,12 @@ def _run_one_D(args):
 
 
 def main():
+    """Sweep the DMI constant `D` over the full grid locally.
+
+    Loops all of `D_values` (optional `multiprocessing.Pool` via
+    `SWEEP_NPROC`), writing one S41 trajectory per `D` to
+    `output/sweeps_S41_S49/S41_D_sweep`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Sweep grid: DMI values to scan. Same as sweep_D_S41.py.
     D_values = [

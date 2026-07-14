@@ -42,6 +42,9 @@ from src.simulator.demag import (
 from src.simulator.demag_newell import (
     _aharoni_demag_factor,
     _build_layer_pair_kernel,
+    _compute_one_pair_tensor,
+    _dipole_tensor,
+    _newell_tensor_closed,
 )
 from src.simulator.parameters import default_params, _precompute
 
@@ -95,6 +98,7 @@ def test_aharoni_single_prism_cube():
         nx=NX_TEST, ny=NY_TEST,
         dx=L, dy=L, t_layer=L,
         Z_separation=0.0, accuracy=4.0,
+        images_x=0, images_y=0,
     )
     N_xx = kernel['Nxx'][0, 0]
     N_yy = kernel['Nyy'][0, 0]
@@ -150,6 +154,7 @@ def test_aharoni_single_prism_saf_cell():
         nx=NX_TEST, ny=NY_TEST,
         dx=dx, dy=dy, t_layer=dz,
         Z_separation=0.0, accuracy=4.0,
+        images_x=0, images_y=0,
     )
     N_xx = kernel['Nxx'][0, 0]
     N_yy = kernel['Nyy'][0, 0]
@@ -312,6 +317,124 @@ def test_uniform_m_xhat_slab_limit():
             f'Hz_max={slab_z_max:.4e}).')
 
 
+# -----------------------------------------------------------------------------
+def test_slab_newell_interlayer_cross_terms():
+    """Slab N_xz/N_yz = i (k/|k|) S must match the Newell kernel
+    at long wavelength (sign and magnitude)."""
+    p = default_params()
+    p.nx = NX_TEST
+    p.ny = NY_TEST
+    _precompute(p)
+    k_slab = precompute_demag_kernels(p, kind='slab', accuracy=None,
+                                      tol_conv=None)
+    from src.simulator.demag_newell import \
+        precompute_demag_kernels_newell
+    k_newell = precompute_demag_kernels_newell(p, accuracy=4.0,
+                                               tol_conv=0.02)
+    # Continuum-slab vs finite-cell agreement degrades as (k a)^2;
+    # 5% covers the first few modes on the 64^2 test lattice.
+    rtol = 0.05
+    # Modes with a nonzero analytic cross term: kx != 0 for Nxz,
+    # ky != 0 for Nyz (the term is i k_axis/|k| S).
+    mode_idx = {'Nxz_inter': [(0, 1), (0, 2), (1, 1), (2, 1)],
+                'Nyz_inter': [(1, 0), (2, 0), (1, 1), (1, 2)]}
+    for comp in ('Nxz_inter', 'Nyz_inter'):
+        ks = k_slab[comp]
+        kn = k_newell[comp]
+        for iy, ix in mode_idx[comp]:
+            vs = complex(ks[iy, ix])
+            vn = complex(kn[iy, ix])
+            rel = abs(vs - vn) / abs(vn)
+            if rel > rtol:
+                raise RuntimeError(
+                    f'test_slab_newell_interlayer_cross_terms: '
+                    f'{comp}[{iy},{ix}] slab={vs:.4e} '
+                    f'newell={vn:.4e} rel={rel:.2e} > {rtol}.')
+        # Odd parity in the matching k component: N(-k) = -N(k).
+        v_pos = complex(ks[0, 1] if comp == 'Nxz_inter'
+                        else ks[1, 0])
+        v_neg = complex(ks[0, -1] if comp == 'Nxz_inter'
+                        else ks[-1, 0])
+        if abs(v_pos + v_neg) > 1e-12 * max(abs(v_pos), 1e-30):
+            raise RuntimeError(
+                f'test_slab_newell_interlayer_cross_terms: {comp} '
+                f'not odd in k: {v_pos} vs {v_neg}.')
+
+
+# -----------------------------------------------------------------------------
+def test_far_field_dipole_seam():
+    """Hybrid closed/dipole kernel: seam continuity, far-field
+    accuracy vs quadrature, and sign/decay regression."""
+    p = default_params()
+    a = p.a
+    t = p.t_Co
+    # Interlayer center-to-center z displacement.
+    z_inter = p.t_Co + p.d_Ru
+    # Crossover used by _build_layer_pair_kernel (40 cells).
+    r_c_cells = 40
+    # Dipole truncation at the seam is O((a/r_c)^2) ~ 6e-4; allow margin.
+    seam_rtol = 3e-3
+    # Quadrature is essentially exact far-field.
+    far_rtol = 1e-3
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Seam continuity: closed vs dipole on a ring around r_c.
+    for n_cells in (36, 38, 42, 44):
+        for ux, uy in ((1.0, 0.0), (0.0, 1.0),
+                       (0.6, 0.8), (0.8, -0.6)):
+            x = n_cells * a * ux
+            y = n_cells * a * uy
+            for z in (0.0, z_inter):
+                n_cl = _newell_tensor_closed(
+                    X=x, Y=y, Z=z, dx=a, dy=a, dz=t)
+                n_dp = _dipole_tensor(
+                    X=x, Y=y, Z=z, dx=a, dy=a, dz=t)
+                # Gauge on the largest component at this offset.
+                scale = np.max(np.abs(n_cl))
+                rel = np.max(np.abs(n_cl - n_dp)) / scale
+                if rel > seam_rtol:
+                    raise RuntimeError(
+                        f'test_far_field_dipole_seam: seam mismatch '
+                        f'closed vs dipole at {n_cells} cells '
+                        f'(u=({ux},{uy}), z={z:.2e}): rel={rel:.2e} '
+                        f'> {seam_rtol:.0e}.')
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Far field: dipole vs Gauss-Legendre quadrature (independent path).
+    for n_cells in (60, 100, 150):
+        x = n_cells * a
+        y = 0.4 * n_cells * a
+        for z in (0.0, z_inter):
+            n_qd = -_compute_one_pair_tensor(
+                X=x, Y=y, Z=z, cellsize=(a, a, t),
+                n_density=(2, 2, 1))
+            n_dp = _dipole_tensor(
+                X=x, Y=y, Z=z, dx=a, dy=a, dz=t)
+            scale = np.max(np.abs(n_qd))
+            rel = np.max(np.abs(n_qd - n_dp)) / scale
+            if rel > far_rtol:
+                raise RuntimeError(
+                    f'test_far_field_dipole_seam: far-field mismatch '
+                    f'dipole vs quadrature at {n_cells} cells '
+                    f'(z={z:.2e}): rel={rel:.2e} > {far_rtol:.0e}.')
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # B1 regression: production-size row must keep Nzz > 0 with
+    # monotone 1/r^3 decay (old closed form went wrong-sign ~700 cells).
+    nx_long = 1600
+    kernel = _build_layer_pair_kernel(
+        nx=nx_long, ny=2, dx=a, dy=a, t_layer=t,
+        Z_separation=0.0, accuracy=None,
+        images_x=0, images_y=0)
+    # In-plane +x offsets beyond the seam up to 790 cells.
+    row = kernel['Nzz'][0, r_c_cells + 5:nx_long // 2 - 10]
+    if np.any(row <= 0.0):
+        raise RuntimeError(
+            'test_far_field_dipole_seam: non-positive far-field '
+            'Nzz on the in-plane row (sign regression).')
+    if np.any(np.diff(row) >= 0.0):
+        raise RuntimeError(
+            'test_far_field_dipole_seam: far-field Nzz not '
+            'monotonically decreasing along x.')
+
+
 # =============================================================================
 def main():
     print('Test 1: Aharoni single-prism cube...')
@@ -330,6 +453,14 @@ def main():
     print('Test 4: Uniform m = x_hat -> H ~ 0 (Newell '
           'finite-cell + slab exact)...')
     test_uniform_m_xhat_slab_limit()
+    print('  OK')
+    print()
+    print('Test 5: slab vs Newell inter-layer cross terms...')
+    test_slab_newell_interlayer_cross_terms()
+    print('  OK')
+    print()
+    print('Test 6: far-field dipole seam + sign/decay regression...')
+    test_far_field_dipole_seam()
     print('  OK')
     print()
     print('All Newell demag tests passed.')

@@ -224,7 +224,7 @@ def _equilibrate(m_top, m_bot, p, kernels, dt, rng, sigma,
     n_used = 0
     converged = False
     while n_used < max_steps:
-        for _ in range(check_every):
+        for k in range(check_every):
             if sigma > 0.0:
                 h_top = sample_thermal_field(rng, (ny, nx), sigma, dt)
                 h_bot = sample_thermal_field(rng, (ny, nx), sigma, dt)
@@ -232,7 +232,8 @@ def _equilibrate(m_top, m_bot, p, kernels, dt, rng, sigma,
                 h_top = np.zeros((ny, nx, 3), dtype=float)
                 h_bot = np.zeros((ny, nx, 3), dtype=float)
             m_top, m_bot, _ = heun_stochastic_step(
-                m_top, m_bot, dt, p, kernels, h_top, h_bot, tol_norm)
+                m_top, m_bot, dt, p, kernels, h_top, h_bot, tol_norm,
+                t=(n_used + k) * dt)
         n_used += check_every
         diam_hist.append(float(skyrmion_diameter_lcc(
             m_top, p.a, core_polarity=+1)))
@@ -279,7 +280,7 @@ def trajectory_worker(config):
             tol_norm, use_demag, q_threshold,
             k_consecutive, dump_fields, snapshot_every,
             demag_kind, demag_accuracy, demag_tol_conv,
-            m_init_top, m_init_bot.
+            m_init_top, m_init_bot, equil.
         `demag_kind` is one of 'none'/'slab'/'newell';
         `m_init_top`/`m_init_bot` are a pre-relaxed starting
         field (both or neither), else None to seed a fresh SAF
@@ -354,7 +355,7 @@ def trajectory_worker(config):
         m_bot = np.array(m_init_bot, dtype=float)
     else:
         m_top, m_bot = saf_skyrmion(
-            p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+            p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
         )
     rng = np.random.default_rng(int(p.seed))
     sigma = float(p.sigma_noise)
@@ -370,10 +371,16 @@ def trajectory_worker(config):
     # Relaxation phase (J = 0): swap p.pulse to ConstantPulse(0)
     # so llgs_rhs sees J(t) = 0 at every substep; restore after.
     # `equil` selects fixed-duration (None) or equilibrate-to-plateau.
+    # The H_DL/H_FL diagnostic scalars are zeroed alongside for
+    # consistency with the other drivers (llgs_rhs never reads them).
     pulse_save = p.pulse
+    H_DL_save = p.H_DL
+    H_FL_save = p.H_FL
     p.pulse = ConstantPulse(0.0)
+    p.H_DL = 0.0
+    p.H_FL = 0.0
     if equil is None:
-        for _ in range(n_relax):
+        for step in range(n_relax):
             if sigma > 0.0:
                 h_top = sample_thermal_field(rng, (ny, nx), sigma, dt)
                 h_bot = sample_thermal_field(rng, (ny, nx), sigma, dt)
@@ -382,7 +389,7 @@ def trajectory_worker(config):
                 h_bot = np.zeros((ny, nx, 3), dtype=float)
             m_top, m_bot, _ = heun_stochastic_step(
                 m_top, m_bot, dt, p, kernels,
-                h_top, h_bot, tol_norm,
+                h_top, h_bot, tol_norm, t=step * dt,
             )
         n_relax_used = n_relax
         equil_converged = True
@@ -457,7 +464,8 @@ def trajectory_worker(config):
             h_top = np.zeros((ny, nx, 3), dtype=float)
             h_bot = np.zeros((ny, nx, 3), dtype=float)
         m_top, m_bot, drift = heun_stochastic_step(
-            m_top, m_bot, dt, p, kernels, h_top, h_bot, tol_norm)
+            m_top, m_bot, dt, p, kernels, h_top, h_bot, tol_norm,
+            t=(step - 1) * dt)
         if step % sample_every == 0:
             t_sample[s_idx] = step * dt
             # Top center: undefined if the core has collapsed.
@@ -631,6 +639,10 @@ def trajectory_worker(config):
         'equil_converged': bool(equil_converged),
         'alive_at_end': alive_at_end,
         'flip_index': int(flip_index),
+        # Final top-layer m_z snapshot: the per-realization
+        # survival criterion is the field classifier
+        # (src.stochastic_llgs.stability), applied at aggregation.
+        'mz_final_top': m_top[..., 2].astype(np.float32),
         # Drift / Hall fit, top
         'v_x': v_x, 'v_y': v_y,
         'velocity': float(np.sqrt(v_x ** 2 + v_y ** 2)) \

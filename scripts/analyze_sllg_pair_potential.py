@@ -45,6 +45,9 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def main():
+    """Load the pair-separation aggregate, bin dr/dt by current
+    separation, integrate to V(r)/mu, and write the pair-potential
+    figure and the V_of_r NPZ."""
     # =========================== User Configuration =========================
     in_npz   = (
         'output/stochastic_llgs/pair_potential/aggregate.npz')

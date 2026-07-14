@@ -75,7 +75,7 @@ def main():
     kernels = precompute_demag_kernels(
         p, kind='slab', accuracy=None, tol_conv=None)
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     m_top, m_bot, converged, n_steps, E, tau = relax(
         m_top, m_bot, p, kernels,

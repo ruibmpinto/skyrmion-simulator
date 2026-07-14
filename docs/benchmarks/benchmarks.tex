@@ -84,11 +84,11 @@ detailed in each section.}
 8b & Rohart 2016 Fig.\,5(b) $\Delta E(D)$ & rises with $D$
    & $5.7\!\to\!31.5$ meV & \PASS \\
 9a & Tomasello 2018 size vs $T$ (determ.) & $H{=}0$ ratio
-   ${\approx}3.3$ & $2.51$ (converged) & \PASS \\
+   ${\approx}3.3$ & $2.52$ (converged) & \PASS \\
 9b & Tomasello 2018 size vs $T$ (thermal) & ratio ${\approx}3.3$
    & $4.76$ (over-expansion) & \FAIL \\
 10 & Pham 2024 Fig.\,S49 Thiele $v_{SOT},v_{TSH}$ & closed forms
-   & analytic $2{\times}10^{-16}$; LLGS 1.5\% & \PASS \\
+   & analytic $2{\times}10^{-16}$; LLGS 9.9\% & \PASS \\
 11 & 1D domain-wall width & $\Delta=\sqrt{A/K_{\rm eff}}$
    & $12.637$ nm (0.10\%) & \PASS \\
 12 & Uniform-mode FMR frequency & $f=\gamma H_K/2\pi$
@@ -110,6 +110,19 @@ reported but not gated, with the mismatch stated explicitly.
 Supporting stochastic-infrastructure gates (N\'eel--Brown reversal,
 Langevin function, spin-wave equipartition, $T{=}0$
 deterministic-limit) underpin \#8 and all pass (\S\ref{sec:support}).
+
+\medskip
+\noindent
+\textbf{2026-07 re-validation.} Every benchmark in the table was
+re-run after a physics-audit fix campaign (standard unnormalised
+Slonczewski SOT torque; corrected SAF bottom-layer seed chirality;
+Newell kernel dipole asymptotics beyond 40 cells; periodic image
+sums in the periodic Newell/racetrack kernels; analytic slab
+inter-layer $N_{xz}/N_{yz}$ cross terms; mask/free-$y$-consistent
+total energy). All quoted values re-verified unchanged except \#10
+(LLGS spot $1.5\%\!\to\!9.9\%$; the old figure was an artefact of
+the nonstandard torque, see \S\ref{sec:thiele}) and the \#9a ratio
+($2.51\!\to\!2.52$, last-digit rounding).
 
 % ============================================================
 \clearpage
@@ -481,8 +494,19 @@ independently-derived closed form to $2\times10^{-16}$;
 $v_{SOT}$ monotone/saturating and quantitatively matching the
 paper's saturation speed; $v_{TSH}\propto\lambda^2$ exactly.
 A micromagnetic LLGS spot-check (relax one SAF skyrmion, drive with
-DC SOT) gives $v_{\rm meas}$ vs Thiele $1.5\%$ and drive-induced
-deformation $5\%$ (rigid). \textbf{Limitations:} (i) Fig.\,S49 is an
+DC SOT) gives $v_{\rm meas}$ vs Thiele $9.9\%$ (gate $15\%$) and
+drive-induced deformation $4\%$ (rigid). An earlier revision quoted
+$1.5\%$: that run used a nonstandard SOT torque with a normalised
+polarisation vector, whose ${\sim}{+}10\%$ drive inflation
+coincidentally cancelled the demag-geometry offset of the
+asymptotic closed form. With the corrected (standard Slonczewski)
+torque, a five-number decomposition on a demag-free profile shows
+the closed form within $1.7\%$ of the exact Thiele integral, the
+measured LLGS within $2.6\%$ of the closed form, and the
+legacy-to-standard velocity ratio $1.100$ in both the projected
+force and the measured speed; the residual $9.9\%$ on the
+Newell-demag geometry reflects that demag-dressed, still-creeping
+profile, not the torque. \textbf{Limitations:} (i) Fig.\,S49 is an
 analytic calculation (imposed $R/\Delta$, fixed $\Delta$). The spot
 runs at $1\times10^{11}$ (the DC-pulse current of Fig.\,S47 where
 the velocity plateaus), not the $8$--$8.9\times10^{11}$ of the
@@ -718,8 +742,8 @@ the reduced DMI climbing toward $d_c$ expands the skyrmion.}
 \textbf{9a (deterministic) --- \PASS}: $R_{sk}(T)$ reproduces the
 field-ordered expansion of Fig.\,1(b); $H{=}25/50$ mT track the
 analytical curves. The $H{=}0$ expansion ratio
-$R_{sk}(300)/R_{sk}(0)=2.51$ (converged: the $T{=}300$/$H{=}0$ point
-reaches convergence at 160k steps, $R_{sk}=33.4$ nm) vs the paper's
+$R_{sk}(300)/R_{sk}(0)=2.52$ (converged: the $T{=}300$/$H{=}0$ point
+reaches convergence at 156k steps, $R_{sk}=33.4$ nm) vs the paper's
 $3.29$ (23\%, within the 30\% gate). The deterministic relaxation
 stays in the small metastable minimum (our scaling gives
 $d=1.44<d_c=1.48$ at 300 K), so it slightly under-expands relative

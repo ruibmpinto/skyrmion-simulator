@@ -145,6 +145,21 @@ def _make_set_B_params(D, alpha, gamma, J0, nx, ny, a, dt,
 
 
 def main():
+    """Run the Pham 2024 S49 Thiele SOT+TSH velocity validation.
+
+    Evaluates the closed-form SOT+TSH Thiele speed over the imposed
+    R/Delta sweep of Pham Fig S49 and gates it against the analytic
+    expression, then optionally runs a micromagnetic LLGS
+    spot-check of the drive velocity and skyrmion rigidity, writing
+    the v-vs-R and IC figures. Passes when the closed form,
+    monotonicity/lambda ordering, and (if enabled) the spot-check
+    velocity and rigidity all fall within tolerance.
+
+    Returns
+    -------
+    all_ok : bool
+        True if every enabled acceptance check passes.
+    """
     # =========================== User Configuration =========================
     # S49 caption parameters (Pham 2024, Set B).
     Delta = 24.5e-9                  # m, FIXED wall width
@@ -275,7 +290,7 @@ def main():
         # closure can reach them without a closure variable.
         _rhs_saf_demag.kernels = kernels
         m_top, m_bot = saf_skyrmion(
-            pm.nx, pm.ny, pm.a, R=R_imp, dw=Delta)
+            pm.nx, pm.ny, a=pm.a, R=R_imp, dw=Delta)
         plot_ic_2d(
             m=m_top, a=spot_a, out_path=ic_png,
             title=(f'Thiele IC (R/Delta={spot_R_over_Delta}, '

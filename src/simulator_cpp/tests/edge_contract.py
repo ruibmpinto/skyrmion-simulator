@@ -97,9 +97,11 @@ def main():
     _expect_raise('pma_field_Keff_nonpositive', _bad_keff_pma, res)
     # ---- Initial conditions --------------------------------------------------
     _expect_raise('skyrmion_profile_polarity_0',
-                  lambda: skyrmion_profile(8, 8, 2e-9, 6e-9, 3e-9, 0), res)
+                  lambda: skyrmion_profile(
+                      8, 8, a=2e-9, R=6e-9, dw=3e-9, polarity=0), res)
     _expect_raise('skyrmion_profile_polarity_2',
-                  lambda: skyrmion_profile(8, 8, 2e-9, 6e-9, 3e-9, 2), res)
+                  lambda: skyrmion_profile(
+                      8, 8, a=2e-9, R=6e-9, dw=3e-9, polarity=2), res)
     _expect_raise('uniform_state_zero_direction',
                   lambda: uniform_state(8, 8, np.array([0.0, 0.0, 0.0])),
                   res)

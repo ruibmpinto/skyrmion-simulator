@@ -41,11 +41,11 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run configuration
     npz_path = 'src/simulator_cpp/build/output/snapshots.npz'
-    layer = 'top'              # 'top' or 'bot'
+    layer = 'top'          # 'top' or 'bot'
     # Choose ONE of frame_index, phase_filter.
-    frame_index = -1           # negative indices count from the end
-    phase_filter = None        # 0 or 1 to pick the last frame of a phase
-    save_path = None           # None => derived from npz_path stem + '_frame.png'
+    frame_index = -1       # negative indices count from the end
+    phase_filter = None    # 0 or 1 to pick the last frame of a phase
+    save_path = None       # None => derived from npz_path stem + '_frame.png'
     figsize = (6, 6)
     cmap = 'RdBu_r'
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

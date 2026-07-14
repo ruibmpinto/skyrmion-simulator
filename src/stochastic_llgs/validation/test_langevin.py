@@ -70,8 +70,11 @@ def langevin_function(x):
 
 # -----------------------------------------------------------------------------
 def main():
-    # Run the Langevin gate: sweep (T, B_z), average <m_z>, fit
-    # against L(x), and pass/fail on the RMS relative error.
+    """Run the Langevin gate.
+
+    Sweeps (T, B_z), averages <m_z>, fits against L(x), and
+    passes/fails on the RMS relative error.
+    """
     # =========================== User Configuration =========================
     # T capped to <350 K (constant-M_s validity bound).
     t_kelvin_list   = [

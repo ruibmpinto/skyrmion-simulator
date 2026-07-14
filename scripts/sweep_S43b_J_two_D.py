@@ -45,7 +45,7 @@ __status__ = 'Development'
 def _make_saf_skyrmion_ic(p):
     """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
 
 
 def _run_one_point(args):
@@ -146,6 +146,10 @@ def _run_one_point(args):
 
 
 def main():
+    """Sweep `(D, J)` — two DMI values times nine current
+    densities at fixed FWHM = 500 ps — writing one trace per
+    point to `output/sweeps_S41_S49/S43b`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run configuration (edit here).
     use_full_demag = True

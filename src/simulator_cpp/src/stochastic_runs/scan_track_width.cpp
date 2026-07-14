@@ -9,7 +9,7 @@
 // run_trajectory measures the loaded field's LCC ellipse as the pre-drive
 // finite-T equilibrium size.
 //
-// SLURM array dispatch is per TRAJECTORY: 6 J x 4 T x 100 ens = 2400;
+// SLURM array dispatch is per TRAJECTORY: 6 J x 6 T x 100 ens = 3600;
 // SLURM_ARRAY_TASK_ID picks one. The ens == 0 member of each cell dumps
 // the field-snapshot stream for animation.
 #include "skyrmion/lattice.hpp"
@@ -43,6 +43,9 @@ int fft_threads_from_env() {
 int main() {
     // ----- Run configuration (box must match stages 1-2) ---------------------
     const int nx = 350, ny = 500;
+    // Lattice constant for the dump grids, read from the same
+    // Params default the trajectories run with.
+    const double cell_a = make_default_params().a;
     const std::vector<double> j_list = {
         0.5e11, 1.0e11, 2.0e11, 3.0e11, 4.0e11, 5.0e11};
     const std::vector<double> t_sub_list = {
@@ -59,8 +62,8 @@ int main() {
     const int k_consecutive = 10;
     // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
     // over the full box; track width = transverse box extent L_y = ny*a.
-    // Exchange/DMI wrap (mask=None), matching the Python pipeline. D
-    // must match stages 1 & 2.
+    // Exchange/DMI use free-y ghost cells (mask = nullptr), matching
+    // the Python pipeline. D must match stages 1 & 2.
     const DemagKind demag_kind = DemagKind::Racetrack;
     const double dmi = 0.545e-3;
     const double demag_accuracy = 4.0;
@@ -70,8 +73,8 @@ int main() {
     std::filesystem::create_directories(out_dir);
     const int fft_threads = fft_threads_from_env();
 
-    Field3 pos_top = lattice_positions(nx, ny, 2.0e-9);
-    Field3 pos_bot = lattice_positions(nx, ny, 2.0e-9);
+    Field3 pos_top = lattice_positions(nx, ny, cell_a);
+    Field3 pos_bot = lattice_positions(nx, ny, cell_a);
 
     // ----- Flat per-trajectory grid: 24 cells x n_ens ------------------------
     struct Traj { double T_sub; double j; int cell_idx; int ens; };
@@ -109,7 +112,9 @@ int main() {
         cfg.n_drive = n_drive;
         cfg.sample_every = sample_every;
         // Decorrelated seed stride per ensemble member and cell.
-        cfg.seed = seed_base + 1000LL * tr.ens
+        // Stage offset 1e9 keeps the drive streams disjoint from the
+        // equilibrate-stage seeds (cell_idx overlaps t_idx there).
+        cfg.seed = 1000000000LL + seed_base + 1000LL * tr.ens
                    + 1000000LL * tr.cell_idx;
         cfg.tol_norm = tol_norm;
         cfg.D = dmi;

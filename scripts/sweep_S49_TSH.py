@@ -70,7 +70,7 @@ def _build_set_B_params(D, alpha, gamma, lambda_sq,
 def _make_saf_skyrmion_ic(p):
     """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
 
 
 def _run_analytic(R_over_Delta_values, Delta, lambda_sq_values,
@@ -228,6 +228,10 @@ def _run_one_point(args):
 
 
 def main():
+    """Run the S49 TSH study: analytic Thiele curves plus a
+    numerical LLGS grid over `(R/Delta, lambda_sq)`, writing both
+    to `output/sweeps_S41_S49/S49`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     use_full_demag = True
     # Demag formulation: 'slab' uses the analytic thin-film shape

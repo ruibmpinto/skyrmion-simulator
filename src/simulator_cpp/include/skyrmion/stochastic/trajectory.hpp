@@ -86,6 +86,10 @@ struct StochasticPayload {
     int    flip_index = -1;
     double v_x = 0, v_y = 0, velocity = 0, hall_deg = 0, sigma_y = 0;
     double v_x_bot = 0, v_y_bot = 0, velocity_bot = 0, hall_deg_bot = 0;
+    // Final top-layer m_z snapshot (row-major ny x nx, float32): input
+    // to the field-classifier survival criterion applied at aggregation.
+    std::vector<float> mz_final_top;
+    int ny = 0, nx = 0;
 };
 
 // Run one trajectory. If `snaps` is non-null it is filled with the

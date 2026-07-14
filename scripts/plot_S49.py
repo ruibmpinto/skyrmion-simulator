@@ -61,6 +61,8 @@ def _v_steady(trace, metadata):
 
 # Overlay analytic SOT/TSH speeds on the LLGS-measured speeds.
 def main():
+    """Load the analytic SOT/TSH curves and the LLGS-measured
+    speeds, overlay them, and write the v-vs-R figure."""
     in_dir = 'output/sweeps_S41_S49/S49'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

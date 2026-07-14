@@ -109,6 +109,12 @@ def _run_one_point(args):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Dispatch the skyrmion thermal-collapse scan.
+
+    Runs a (temperature x ensemble) grid of stochastic
+    trajectories at a fixed sub-critical field and writes
+    per-trajectory NPZ output for the Arrhenius fit.
+    """
     # =========================== User Configuration =========================
     # RT 2013 / Rohart-compatible micromagnetic parameters
     # (A from the J*sqrt(3)/2 atomistic mapping = 16 pJ/m).

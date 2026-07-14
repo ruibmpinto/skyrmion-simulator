@@ -43,6 +43,9 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def main():
+    """Load the (T_sub, j) aggregate, write the four heatmaps and the
+    survival-constrained Pareto-front figure, and save the Pareto
+    NPZ."""
     # =========================== User Configuration =========================
     in_npz      = 'output/stochastic_llgs/scan_tj/aggregate.npz'
     fig_dir     = 'output/figures_sllg'

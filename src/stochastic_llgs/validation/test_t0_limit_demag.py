@@ -110,7 +110,7 @@ def _rk4_step_demag(m_top, m_bot, t, dt, p, kernels):
 def run_deterministic_demag(p, kernels, n_relax, n_drive, dt):
     """relax (J=0) + drive (J=p.J_current) with demag RK4."""
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     H_DL_save = p.H_DL
     H_FL_save = p.H_FL
@@ -119,7 +119,7 @@ def run_deterministic_demag(p, kernels, n_relax, n_drive, dt):
     p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     t = 0.0
-    for _ in range(n_relax):
+    for step in range(n_relax):
         m_top, m_bot = _rk4_step_demag(
             m_top, m_bot, t, dt, p, kernels,
         )
@@ -147,7 +147,7 @@ def run_stochastic_t0_demag(p, kernels, n_relax, n_drive, dt,
             f'0, got {p.sigma_noise!r}.'
         )
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     H_DL_save = p.H_DL
     H_FL_save = p.H_FL
@@ -155,32 +155,36 @@ def run_stochastic_t0_demag(p, kernels, n_relax, n_drive, dt,
     p.H_DL = 0.0
     p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
-    for _ in range(n_relax):
+    for step in range(n_relax):
         h_top = np.zeros((p.ny, p.nx, 3), dtype=float)
         h_bot = np.zeros((p.ny, p.nx, 3), dtype=float)
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
     p.H_DL = H_DL_save
     p.H_FL = H_FL_save
     if pulse_save is not None:
         p.pulse = pulse_save
-    for _ in range(n_drive):
+    # Drive clock restarts at 0, matching the deterministic path.
+    for step in range(n_drive):
         h_top = np.zeros((p.ny, p.nx, 3), dtype=float)
         h_bot = np.zeros((p.ny, p.nx, 3), dtype=float)
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
     return m_top, m_bot
 
 
 # -----------------------------------------------------------------------------
 def main():
-    # Run the T=0 with-demag gate: same relax+drive via demag RK4
-    # and via zero-noise demag Heun, gate on diameter and Q
-    # (m-field deviation recorded but not gated).
+    """Run the T=0 with-demag gate.
+
+    Runs the same relax+drive via demag RK4 and via zero-noise
+    demag Heun, then gates on diameter and Q (the m-field
+    deviation is recorded but not gated).
+    """
     # =========================== User Configuration =========================
     # Stabilising perpendicular field. Default H_z = 0 yields
     # a stripe-favoured demag equilibrium; H_z = 0.2 T

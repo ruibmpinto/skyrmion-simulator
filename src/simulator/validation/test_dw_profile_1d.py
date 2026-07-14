@@ -91,6 +91,19 @@ def _make_dw_params(A_ex, K_eff, Ms, nx, ny, a, dt):
 
 
 def main():
+    """Run the 1D domain-wall profile validation.
+
+    Relaxes a tanh Neel/Bloch wall started with a deliberately wrong
+    width (pinned Dirichlet ends) using the production effective
+    field and single-spin RK4 integrator, then fits the wall width
+    and writes the IC figure. Passes when the fitted width matches
+    the analytic Delta = sqrt(A/K_eff) within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if the fitted wall width is within `rtol`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run configuration. Choose parameters so that
     # Delta = sqrt(A_ex / K_eff) is well-resolved on the lattice.

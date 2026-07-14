@@ -50,6 +50,18 @@ npy::tensor<double> arr(const std::vector<double>& v) {
     return t;
 }
 
+// 2-d float32 array (ny, nx) for field snapshots.
+npy::tensor<float> arr2f(const std::vector<float>& v,
+                         std::size_t ny, std::size_t nx) {
+    if (v.size() != ny * nx) {
+        throw std::runtime_error(
+            "save_trajectory: mz_final_top size does not match ny*nx.");
+    }
+    npy::tensor<float> t({ny, nx});
+    if (!v.empty()) t.copy_from(v.data(), v.size());
+    return t;
+}
+
 // 0-d scalar arrays (empty shape) so numpy loads them as Python
 // scalars, matching np.savez of a plain int/float (a 1-d (1,) array
 // would make int()/float() raise under numpy 2.x).
@@ -119,6 +131,10 @@ void save_trajectory(const std::string& path, const StochasticPayload& pl,
     w.write("sigma_noise",     sc(pl.sigma_noise));
     w.write("alive_at_end",    sc_i(pl.alive_at_end ? 1 : 0));
     w.write("flip_index",      sc_i(pl.flip_index));
+    w.write("mz_final_top",
+            arr2f(pl.mz_final_top,
+                  static_cast<std::size_t>(pl.ny),
+                  static_cast<std::size_t>(pl.nx)));
     w.write("v_x",             sc(pl.v_x));
     w.write("v_y",             sc(pl.v_y));
     w.write("velocity",        sc(pl.velocity));

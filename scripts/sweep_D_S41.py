@@ -52,6 +52,11 @@ __status__ = 'Development'
 
 
 def main():
+    """Run the S41 pulse protocol at one DMI value `D`.
+
+    The SLURM array index selects one `D` from `D_values`; the
+    trajectory is written to `output/sweeps_S41_S49/S41_D_sweep`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Sweep grid: DMI values to scan. Pham 2024 nominal is
     # 0.62 mJ/m^2 (in-plane PMA, sputter sample); we use
@@ -124,7 +129,7 @@ def main():
         kernels = None
         step = step_deterministic()
         m_top0, m_bot0 = saf_skyrmion(
-            nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+            nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         print(f'  relaxing with K_eff (over-damped quench, '
               f'no demag kernel) at D={D*1e3:.3f} mJ/m^2...',
               flush=True)
@@ -200,7 +205,7 @@ def main():
             tol_conv=demag_newell_tol_conv)
         step = step_demag_deterministic(kernels)
         m_top0, m_bot0 = saf_skyrmion(
-            nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+            nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         print(f'  relaxing with {field_kind} demag '
               f'(convergence-stop) at D={D*1e3:.3f} mJ/m^2...',
               flush=True)

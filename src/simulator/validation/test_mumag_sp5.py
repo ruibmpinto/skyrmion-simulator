@@ -285,6 +285,20 @@ def _vortex_core(m_top, a, mask, cx0, cy0):
 
 
 def main():
+    """Run the NIST muMAG Standard Problem 5 (STT) validation.
+
+    Relaxes a magnetic vortex in a single-layer permalloy square
+    (100 x 100 x 10 nm), drives it with spin-transfer torque
+    (xi = 0.05), tracks the vortex core trajectory, and writes IC,
+    relaxed-state and core-trajectory figures plus the trajectory
+    data. Passes when the steady-state core displacement matches
+    the Najafi 2009 reference (-1.2, -14.7) nm within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if the core displacement is within `core_tol`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Geometry (NIST SP5).
     Lx_mag = 100.0e-9

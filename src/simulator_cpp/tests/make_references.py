@@ -110,7 +110,7 @@ def main():
         'state_dw': float(dw),
     })
     # Canonical SAF state for most tests.
-    m_top, m_bot = saf_skyrmion(nx, ny, a, R, dw=dw)
+    m_top, m_bot = saf_skyrmion(nx, ny, a=a, R=R, dw=dw)
     refs['state_m_top'] = m_top
     refs['state_m_bot'] = m_bot
     # Non-normalized perturbed state for the normalize() test.
@@ -186,13 +186,13 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Initial conditions
     refs['init_skyrmion_pol_plus'] = skyrmion_profile(
-        nx, ny, a, R, dw=dw, polarity=+1)
+        nx, ny, a=a, R=R, dw=dw, polarity=+1)
     refs['init_skyrmion_pol_minus'] = skyrmion_profile(
-        nx, ny, a, R, dw=dw, polarity=-1)
+        nx, ny, a=a, R=R, dw=dw, polarity=-1)
     udir = np.array([0.3, -0.4, 0.5])
     refs['init_uniform_dir'] = udir
     refs['init_uniform'] = uniform_state(nx, ny, direction=udir)
-    saf_top, saf_bot = saf_skyrmion(nx, ny, a, R, dw=dw)
+    saf_top, saf_bot = saf_skyrmion(nx, ny, a=a, R=R, dw=dw)
     refs['init_saf_top'] = saf_top
     refs['init_saf_bot'] = saf_bot
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -218,6 +218,13 @@ def main():
     H_dt_n, H_db_n = demag_field(m_top, m_bot, K_newell)
     refs['demag_field_newell_H_top'] = H_dt_n
     refs['demag_field_newell_H_bot'] = H_db_n
+    # Isolated (zero-padded) Newell kernel: pins the free-BC padded
+    # convolution end-to-end (kernel build + pad/crop windowing).
+    K_freebc = precompute_demag_kernels(p, kind='newell_freebc',
+                                        accuracy=8.0, tol_conv=2.0e-2)
+    H_dt_f, H_db_f = demag_field(m_top, m_bot, K_freebc)
+    refs['demag_field_newell_freebc_H_top'] = H_dt_f
+    refs['demag_field_newell_freebc_H_bot'] = H_db_f
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Effective field (local-K_eff path).
     H_top_keff = effective_field(
@@ -234,9 +241,9 @@ def main():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Energy
     refs['energy_E_slab'] = float(
-        energy_mod.total_energy(m_top, m_bot, p, K_slab))
+        energy_mod.total_energy(m_top, m_bot, p, K_slab, mask=None))
     refs['energy_E_newell'] = float(
-        energy_mod.total_energy(m_top, m_bot, p, K_newell))
+        energy_mod.total_energy(m_top, m_bot, p, K_newell, mask=None))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Integrator
     refs['integrator_normalized'] = normalize(m_perturbed)
@@ -388,6 +395,14 @@ def main():
         m_top, m_bot, p, K_slab, mask=msk)
     refs['fields_H_top_demag_mask'] = Hmt_dem
     refs['fields_H_bot_demag_mask'] = Hmb_dem
+    # Masked energy (slab kernel): pins the mask-aware total_energy.
+    refs['energy_E_slab_mask'] = float(
+        energy_mod.total_energy(m_top, m_bot, p, K_slab, mask=msk))
+    # Racetrack energy: pins the free-y exchange/DMI assembly.
+    K_rt = precompute_demag_kernels(p, kind='racetrack',
+                                    accuracy=8.0, tol_conv=2.0e-2)
+    refs['energy_E_racetrack'] = float(
+        energy_mod.total_energy(m_top, m_bot, p, K_rt, mask=None))
     # rk4_step_single: one step of the single-layer local-K_eff RHS,
     # with and without the mask. Mirrors relaxation._rhs_single.
     def _rhs_single_nomask(m, pp, tt):
@@ -400,7 +415,9 @@ def main():
         H = effective_field(
             m, m, pp.C_ex, pp.C_dmi, pp.C_anis_top,
             pp.H_ext, pp.H_RKKY, mask=msk)
-        return llgs_rhs(m, H, pp, tt)
+        # Mask forwarded: vacuum sites get dm/dt = 0 (SOT does
+        # not depend on H), mirroring relaxation._rhs_single.
+        return llgs_rhs(m, H, pp, tt, mask=msk)
 
     refs['integrator_rk4_single'] = rk4_step_single(
         _rhs_single_nomask, m_top, 0.0, p.dt, p)
@@ -528,7 +545,8 @@ def main():
     # Single off-centre skyrmion: bit-exact parity target (no merge,
     # no tie-break amplification).
     refs['pair_ic_single_m'] = skyrmion_at_position(
-        p_nx, p_ny, a, p_R, p_dw, 1, c1p[0], c1p[1])
+        p_nx, p_ny, a=a, R=p_R, dw=p_dw, polarity=1,
+        cx=c1p[0], cy=c1p[1])
     pm_top, pm_bot = two_skyrmion_pair_ic(
         p_nx, p_ny, a, p_R, p_dw, polarity_top=1, c1=c1p, c2=c2p)
     refs['pair_ic_nx'] = np.int64(p_nx)

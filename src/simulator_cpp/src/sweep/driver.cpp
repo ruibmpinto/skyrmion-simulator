@@ -20,6 +20,8 @@ Trace run_trace(RunTraceArgs& args) {
     if (!args.step_drive || !args.step_relax)
         throw std::runtime_error("run_trace: step_drive/step_relax required.");
 
+    // The final state at n_drive * dt is sampled unconditionally, so
+    // the full drive window is reachable by the snapshot.
     const double drive_window = args.n_drive * p.dt;
     if (args.record_snapshot_at >= 0.0
         && args.record_snapshot_at > drive_window) {
@@ -100,6 +102,17 @@ Trace run_trace(RunTraceArgs& args) {
                 std::printf("    drive step %d/%d (%.1f ps)\n",
                             step + 1, args.n_drive, (step + 1) * p.dt * 1e12);
             }
+        }
+        // Final state at t = n_drive * dt: sampled unconditionally so
+        // the trace endpoint is the state the drive ends on.
+        const Observations o = observe_state(m_top, m_bot, p);
+        trace.push(t, o);
+        if (args.record_snapshot_at >= 0.0 && !trace.has_snapshot
+            && t >= args.record_snapshot_at) {
+            trace.snapshot_m_top = m_top;
+            trace.snapshot_m_bot = m_bot;
+            trace.snapshot_t = t;
+            trace.has_snapshot = true;
         }
         if (dump) {
             append_snapshot(*args.snapshots, m_top, m_bot, args.n_drive,

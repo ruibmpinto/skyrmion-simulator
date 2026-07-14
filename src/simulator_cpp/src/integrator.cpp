@@ -34,11 +34,20 @@ void normalize_inplace(Field3& m) {
 }
 
 void llgs_rhs(const Field3& m, const Field3& H_eff, const Params& p, Real t,
-              Field3& dmdt) {
+              Field3& dmdt, const std::uint8_t* mask) {
     const Real gp = p.gamma_p;
     const Real alpha = p.alpha;
     const Real J_t = (*p.pulse)(t);
     const bool sot_active = (J_t != 0.0);
+    // The TSH gradient stencil wraps periodically and would read
+    // vacuum spins; refuse loudly instead of computing silently
+    // wrong gradients at the mask boundary.
+    if (p.lambda_sq != 0.0 && mask) {
+        throw std::runtime_error(
+            "llgs_rhs: the TSH torque (lambda_sq != 0) does not "
+            "support a free-boundary mask; its gradient stencil "
+            "would read vacuum neighbors.");
+    }
     const Real H_DL_t = sot_active ? p.DL_SOT * J_t : 0.0;
     const Real H_FL_t = sot_active ? p.FL_SOT * J_t : 0.0;
     const Real c_dl = H_DL_t + alpha * H_FL_t;
@@ -57,6 +66,13 @@ void llgs_rhs(const Field3& m, const Field3& H_eff, const Params& p, Real t,
         int im, ip;
         pbc_pm(i, ny, im, ip);
         for (int j = 0; j < nx; ++j) {
+            // Vacuum sites must not move (SOT/TSH do not depend on H).
+            if (mask && !mask[static_cast<std::size_t>(i) * nx + j]) {
+                dmdt(i, j, 0) = 0.0;
+                dmdt(i, j, 1) = 0.0;
+                dmdt(i, j, 2) = 0.0;
+                continue;
+            }
             int jm, jp;
             pbc_pm(j, nx, jm, jp);
 
@@ -78,15 +94,19 @@ void llgs_rhs(const Field3& m, const Field3& H_eff, const Params& p, Real t,
             Real dz = -gp * (mxH_z + alpha * mxmxH_z);
 
             if (sot_active) {
-                // p_hat x m
-                const Real pxm_x = py * mz - pz * my;
-                const Real pxm_y = pz * mx - px * mz;
-                const Real pxm_z = px * my - py * mx;
-                Real norm = std::sqrt(pxm_x * pxm_x + pxm_y * pxm_y + pxm_z * pxm_z);
-                if (norm < 1e-30) norm = 1e-30;
-                const Real sx = pxm_x / norm;
-                const Real sy = pxm_y / norm;
-                const Real sz = pxm_z / norm;
+                // Legacy normalized form (nonstandard: torque magnitude
+                // lost the sin factor between m and p_hat; kept for
+                // reference):
+                // Real norm = std::sqrt(pxm_x * pxm_x + pxm_y * pxm_y
+                //                       + pxm_z * pxm_z);
+                // if (norm < 1e-30) norm = 1e-30;
+                // const Real sx = pxm_x / norm; ...
+                // s = p_hat x m (unnormalized, standard Slonczewski
+                // form): the torque carries the sin factor between m
+                // and p_hat and vanishes where m || p_hat.
+                const Real sx = py * mz - pz * my;
+                const Real sy = pz * mx - px * mz;
+                const Real sz = px * my - py * mx;
 
                 // m x s
                 const Real mxs_x = my * sz - mz * sy;
@@ -133,8 +153,8 @@ void RHSLocalKeff::operator()(const Field3& m_top, const Field3& m_bot, Real t,
                     p_.H_ext, p_.H_RKKY, H_top_, mask_, /*free_y=*/false);
     effective_field(m_bot, m_top, p_.C_ex, p_.C_dmi, p_.C_anis_bot,
                     p_.H_ext, p_.H_RKKY, H_bot_, mask_, /*free_y=*/false);
-    llgs_rhs(m_top, H_top_, p_, t, dmdt_top);
-    llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot);
+    llgs_rhs(m_top, H_top_, p_, t, dmdt_top, mask_);
+    llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot, mask_);
 }
 
 RHSDemag::RHSDemag(const Params& p, DemagState& demag,
@@ -145,8 +165,8 @@ RHSDemag::RHSDemag(const Params& p, DemagState& demag,
 void RHSDemag::operator()(const Field3& m_top, const Field3& m_bot, Real t,
                           Field3& dmdt_top, Field3& dmdt_bot) {
     effective_field_demag(m_top, m_bot, p_, demag_, H_top_, H_bot_, mask_);
-    llgs_rhs(m_top, H_top_, p_, t, dmdt_top);
-    llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot);
+    llgs_rhs(m_top, H_top_, p_, t, dmdt_top, mask_);
+    llgs_rhs(m_bot, H_bot_, p_, t, dmdt_bot, mask_);
 }
 
 RHSSingleKeff::RHSSingleKeff(const Params& p, const std::uint8_t* mask)
@@ -155,7 +175,7 @@ RHSSingleKeff::RHSSingleKeff(const Params& p, const std::uint8_t* mask)
 void RHSSingleKeff::operator()(const Field3& m, Real t, Field3& dmdt) {
     effective_field(m, m, p_.C_ex, p_.C_dmi, p_.C_anis_top,
                     p_.H_ext, p_.H_RKKY, H_, mask_, /*free_y=*/false);
-    llgs_rhs(m, H_, p_, t, dmdt);
+    llgs_rhs(m, H_, p_, t, dmdt, mask_);
 }
 
 namespace {

@@ -51,6 +51,9 @@ def _load_cell(in_dir, T, j):
 
 
 def main():
+    """Load the scan_tj aggregate and per-trajectory NPZs and write
+    the sigma_y-vs-j jitter figure and the jitter-envelope
+    schematics."""
     # =========================== User Configuration =========================
     in_dir   = 'output/stochastic_llgs/scan_tj'
     fig_dir  = 'output/figures_sllg'

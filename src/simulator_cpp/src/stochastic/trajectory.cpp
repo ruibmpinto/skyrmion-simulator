@@ -250,6 +250,18 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     P.sigma_noise = sigma;
     P.flip_index = detect_annihilation(P.Q, cfg.q_threshold, cfg.k_consecutive);
     P.alive_at_end = (P.flip_index == -1);
+    // Final top-layer m_z snapshot for the field-classifier survival
+    // criterion (applied at aggregation, not here).
+    P.ny = cfg.ny;
+    P.nx = cfg.nx;
+    P.mz_final_top.resize(
+        static_cast<std::size_t>(cfg.ny) * cfg.nx);
+    for (int i = 0; i < cfg.ny; ++i) {
+        for (int j = 0; j < cfg.nx; ++j) {
+            P.mz_final_top[static_cast<std::size_t>(i) * cfg.nx + j] =
+                static_cast<float>(m_top(i, j, 2));
+        }
+    }
     const int end = (P.flip_index == -1)
         ? n_samples : std::max(P.flip_index, 4);
     const Real L_x = cfg.nx * a;

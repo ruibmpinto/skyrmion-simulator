@@ -35,6 +35,8 @@ import os
 import sys
 # Third-party
 import numpy as np
+# Local
+from src.stochastic_llgs.stability import classify_field
 
 #
 #                                                          Authorship & Credits
@@ -57,11 +59,14 @@ _KNOWN_TYPES = (
 
 def _safe_mean_se(xs):
     """Mean and standard error of a 1D float sequence."""
+    # No samples: mean and error are both undefined.
     if xs.size == 0:
         return float('nan'), float('nan')
     m = float(np.nanmean(xs))
+    # A single sample has a defined mean but no standard error.
     if xs.size <= 1:
         return m, float('nan')
+    # Sample standard error: Bessel-corrected std over sqrt(n).
     se = float(np.nanstd(xs, ddof=1) / math.sqrt(xs.size))
     return m, se
 
@@ -77,25 +82,32 @@ def _aggregate_scan_tj(in_dir):
         Keys: Ts, Js, n_ens, P_surv, v_mean, v_se,
         theta_mean, theta_se, sigma_y_mean.
     """
+    # One dump per ensemble member; T-prefixed by the worker.
     files = sorted(glob.glob(os.path.join(in_dir, 'T*.npz')))
     if not files:
         raise RuntimeError(
             f'No T*.npz files in {in_dir!r}.'
         )
+    # Accumulate raw per-member samples keyed by (T_sub, j) cell.
     by_cell = {}
     for path in files:
+        # Never re-ingest a previously written aggregate.
         if os.path.basename(path) == 'aggregate.npz':
             continue
         d = np.load(path, allow_pickle=True)
         T_sub = float(d['T_sub'])
         j = float(d['j_current'])
         cell = (T_sub, j)
+        # First member of a cell seeds its accumulator.
         by_cell.setdefault(cell, {
             'alive': 0, 'n': 0,
             'v': [], 'theta': [], 'sigma_y': [],
         })
         rec = by_cell[cell]
+        # Every member counts toward the survival denominator.
         rec['n'] += 1
+        # Drive statistics are collected from survivors only; the
+        # finite guards drop NaN samples.
         if bool(d['alive_at_end']):
             rec['alive'] += 1
             v = float(d['velocity'])
@@ -107,11 +119,13 @@ def _aggregate_scan_tj(in_dir):
                 rec['theta'].append(th)
             if np.isfinite(sy):
                 rec['sigma_y'].append(sy)
+    # Sorted unique axis values define the output grid.
     Ts = np.array(
         sorted({c[0] for c in by_cell}), dtype=float)
     Js = np.array(
         sorted({c[1] for c in by_cell}), dtype=float)
     nT, nJ = Ts.size, Js.size
+    # Pre-allocate the (T, j) grids as NaN; empty cells stay NaN.
     P_surv = np.full((nT, nJ), np.nan)
     v_mean = np.full((nT, nJ), np.nan)
     v_se = np.full((nT, nJ), np.nan)
@@ -119,12 +133,15 @@ def _aggregate_scan_tj(in_dir):
     th_se = np.full((nT, nJ), np.nan)
     sy_mean = np.full((nT, nJ), np.nan)
     n_ens = np.zeros((nT, nJ), dtype=np.int64)
+    # Reduce each cell's samples to one grid entry.
     for i, T_sub in enumerate(Ts):
         for k, j in enumerate(Js):
             rec = by_cell.get((float(T_sub), float(j)))
+            # A grid cell with no member data stays NaN.
             if rec is None:
                 continue
             n_ens[i, k] = rec['n']
+            # Survival fraction plus reduced drive statistics.
             P_surv[i, k] = rec['alive'] / max(rec['n'], 1)
             v_mean[i, k], v_se[i, k] = _safe_mean_se(
                 np.array(rec['v']))
@@ -147,6 +164,15 @@ def _aggregate_track_width(in_dir):
     `(T_sub, j)` grid of ensemble statistics, carrying the
     elliptical axes D_1, D_2 alongside the scan_tj fields.
 
+    Survival is the per-realization field-classifier verdict
+    (`classify_field` on the final top-layer m_z snapshot): a
+    member survived iff its final configuration is a skyrmion
+    ('S' or 'E'). The |Q|-threshold flag `alive_at_end` is NOT
+    used -- a melted labyrinth keeps its winding and would count
+    as alive under |Q|. All drive statistics (velocity, Hall
+    vector, sigma_y, D_1, D_2) are restricted to surviving
+    members. Per-cell class counts are recorded.
+
     The `anim_*.npz` full-field dumps are skipped here; only the
     per-trajectory files are aggregated. The drive-phase second
     half is used as the steady-state window for D_1, D_2.
@@ -154,15 +180,18 @@ def _aggregate_track_width(in_dir):
     Returns
     -------
     payload : dict
-        Keys: Ts, Js, n_ens, P_surv, v_mean, v_se, theta_mean,
-        theta_se, sigma_y_mean, D1_mean, D1_se, D2_mean, D2_se,
+        Keys: Ts, Js, n_ens, P_surv, n_S, n_E, n_L, n_A, v_mean,
+        v_se, theta_mean, theta_se, sigma_y_mean, D1_mean, D1_se,
+        D2_mean, D2_se, D1r_mean, D1r_se, D2r_mean, D2r_se,
         L_x, L_y.
     """
+    # One dump per ensemble member; T-prefixed by the worker.
     files = sorted(glob.glob(os.path.join(in_dir, 'T*.npz')))
     if not files:
         raise RuntimeError(
             f'No T*.npz files in {in_dir!r}.'
         )
+    # Accumulate samples and class counts per (T_sub, j) cell.
     by_cell = {}
     L_x = float('nan')
     L_y = float('nan')
@@ -174,7 +203,7 @@ def _aggregate_track_width(in_dir):
         j = float(d['j_current'])
         cell = (T_sub, j)
         by_cell.setdefault(cell, {
-            'alive': 0, 'n': 0,
+            'n': 0, 'codes': {'S': 0, 'E': 0, 'L': 0, 'A': 0},
             'v': [], 'vx': [], 'vy': [], 'sigma_y': [],
             'D1': [], 'D2': [], 'D1r': [], 'D2r': [],
         })
@@ -193,9 +222,27 @@ def _aggregate_track_width(in_dir):
                 rec['D1r'].append(d1r)
             if np.isfinite(d2r):
                 rec['D2r'].append(d2r)
-        if not bool(d['alive_at_end']):
+        # Steady-state ellipse axes: mean over the drive-phase
+        # second half (skip the initial deformation transient).
+        d1 = d['D1_top']
+        d2 = d['D2_top']
+        half = max(1, d1.size // 2)
+        d1_m = float(np.nanmean(d1[half:]))
+        d2_m = float(np.nanmean(d2[half:]))
+        # Field-classifier survival verdict on the final snapshot.
+        if 'mz_final_top' not in d.files:
+            raise RuntimeError(
+                f'_aggregate_track_width: {path!r} lacks '
+                f'mz_final_top; the classifier-based survival '
+                f'criterion needs the final field snapshot '
+                f'(re-run the campaign with the updated driver).')
+        q_abs = abs(float(np.asarray(d['Q'])[-1]))
+        code, _m = classify_field(
+            np.asarray(d['mz_final_top'], dtype=float),
+            q_abs, d1_m, d2_m, L_x)
+        rec['codes'][code] += 1
+        if code not in ('S', 'E'):
             continue
-        rec['alive'] += 1
         v = float(d['velocity'])
         vx = float(d['v_x'])
         vy = float(d['v_y'])
@@ -209,22 +256,17 @@ def _aggregate_track_width(in_dir):
             rec['vy'].append(vy)
         if np.isfinite(sy):
             rec['sigma_y'].append(sy)
-        # Steady-state ellipse axes: mean over the drive-phase
-        # second half (skip the initial deformation transient).
-        d1 = d['D1_top']
-        d2 = d['D2_top']
-        half = max(1, d1.size // 2)
-        d1_m = float(np.nanmean(d1[half:]))
-        d2_m = float(np.nanmean(d2[half:]))
         if np.isfinite(d1_m):
             rec['D1'].append(d1_m)
         if np.isfinite(d2_m):
             rec['D2'].append(d2_m)
+    # Sorted unique axis values define the output grid.
     Ts = np.array(
         sorted({c[0] for c in by_cell}), dtype=float)
     Js = np.array(
         sorted({c[1] for c in by_cell}), dtype=float)
     nT, nJ = Ts.size, Js.size
+    # Pre-allocate the (T, j) grids as NaN; empty cells stay NaN.
     P_surv = np.full((nT, nJ), np.nan)
     v_mean = np.full((nT, nJ), np.nan)
     v_se = np.full((nT, nJ), np.nan)
@@ -240,13 +282,23 @@ def _aggregate_track_width(in_dir):
     D2r_mean = np.full((nT, nJ), np.nan)
     D2r_se = np.full((nT, nJ), np.nan)
     n_ens = np.zeros((nT, nJ), dtype=np.int64)
+    # Per-cell counts of each stability class (S/E/L/A).
+    n_cls = {c: np.zeros((nT, nJ), dtype=np.int64)
+             for c in ('S', 'E', 'L', 'A')}
+    # Reduce each cell's samples to one grid entry.
     for i, T_sub in enumerate(Ts):
         for k, j in enumerate(Js):
             rec = by_cell.get((float(T_sub), float(j)))
+            # A grid cell with no member data stays NaN.
             if rec is None:
                 continue
             n_ens[i, k] = rec['n']
-            P_surv[i, k] = rec['alive'] / max(rec['n'], 1)
+            for c in ('S', 'E', 'L', 'A'):
+                n_cls[c][i, k] = rec['codes'][c]
+            # Survival = fraction whose final configuration is a
+            # skyrmion (field classifier 'S' or 'E').
+            P_surv[i, k] = (rec['codes']['S'] + rec['codes']['E']) \
+                / max(rec['n'], 1)
             v_mean[i, k], v_se[i, k] = _safe_mean_se(
                 np.array(rec['v']))
             # Cell Hall angle: deflection of the ensemble-mean
@@ -273,6 +325,8 @@ def _aggregate_track_width(in_dir):
     return {
         'Ts': Ts, 'Js': Js, 'n_ens': n_ens,
         'P_surv': P_surv,
+        'n_S': n_cls['S'], 'n_E': n_cls['E'],
+        'n_L': n_cls['L'], 'n_A': n_cls['A'],
         'v_mean': v_mean, 'v_se': v_se,
         'theta_mean': th_mean, 'theta_se': th_se,
         'sigma_y_mean': sy_mean,
@@ -296,14 +350,17 @@ def _aggregate_scan_arrhenius(in_dir):
         (object array of variable-length flip-time arrays),
         t_max.
     """
+    # One dump per ensemble member; T-prefixed by the worker.
     files = sorted(glob.glob(os.path.join(in_dir, 'T*.npz')))
     if not files:
         raise RuntimeError(
             f'No T*.npz files in {in_dir!r}.'
         )
+    # Collect flip times (and censored counts) per temperature.
     by_T = {}
     t_max_seen = None
     for path in files:
+        # Never re-ingest a previously written aggregate.
         if os.path.basename(path) == 'aggregate.npz':
             continue
         d = np.load(path, allow_pickle=True)
@@ -314,6 +371,8 @@ def _aggregate_scan_arrhenius(in_dir):
             raise RuntimeError(
                 f'{path}: t_sample is empty.'
             )
+        # All members must share one observation horizon t_max,
+        # else the censoring correction below is inconsistent.
         t_max = float(t_sample[-1])
         if t_max_seen is None:
             t_max_seen = t_max
@@ -325,17 +384,21 @@ def _aggregate_scan_arrhenius(in_dir):
         by_T.setdefault(T_sub, {
             'flipped': [], 'n_censored': 0,
         })
+        # flip_index == -1 marks a right-censored (never-flipped)
+        # run; otherwise record its sampled flip time.
         if flip_idx == -1:
             by_T[T_sub]['n_censored'] += 1
         else:
             t_flip = float(t_sample[flip_idx])
             by_T[T_sub]['flipped'].append(t_flip)
+    # Sorted temperatures index the per-T output arrays.
     T_arr = np.array(sorted(by_T.keys()), dtype=float)
     n_T = T_arr.size
     tau_mle = np.full(n_T, np.nan)
     n_flipped = np.zeros(n_T, dtype=np.int64)
     n_ens = np.zeros(n_T, dtype=np.int64)
     t_obs_by_T = np.empty(n_T, dtype=object)
+    # One lifetime estimate per temperature.
     for i, T in enumerate(T_arr):
         rec = by_T[T]
         t_obs = np.array(rec['flipped'], dtype=float)
@@ -366,11 +429,14 @@ def _aggregate_scan_radius(in_dir):
     bot-layer diameter, the top-bot center offset (steady
     state), and Q_top + Q_bot (compensation residual).
     """
+    # One dump per ensemble member; D-prefixed by the worker.
     files = sorted(glob.glob(os.path.join(in_dir, 'D*.npz')))
     if not files:
         raise RuntimeError(f'No D*.npz files in {in_dir!r}.')
+    # Accumulate per-member samples keyed by (D, H_z) cell.
     by_cell = {}
     for path in files:
+        # Never re-ingest a previously written aggregate.
         if os.path.basename(path) == 'aggregate.npz':
             continue
         d = np.load(path, allow_pickle=True)
@@ -440,6 +506,7 @@ def _aggregate_scan_radius(in_dir):
                 Q_t[half:] + Q_b[half:]))
         if np.isfinite(q_tot):
             rec['q_total'].append(q_tot)
+    # Flat list of populated (D, H_z) cells indexes the outputs.
     cells = sorted(by_cell.keys())
     n_C = len(cells)
     D_arr = np.array([c[0] for c in cells], dtype=float)
@@ -458,6 +525,7 @@ def _aggregate_scan_radius(in_dir):
     offset_se = np.full(n_C, np.nan)
     q_total_mean = np.full(n_C, np.nan)
     q_total_se = np.full(n_C, np.nan)
+    # Reduce each cell's samples to one entry per output array.
     for i, cell in enumerate(cells):
         rec = by_cell[cell]
         n_ens[i] = rec['n']
@@ -492,19 +560,24 @@ def _aggregate_pair_potential(in_dir):
     """Group `r{r_init}_ens{idx}.npz` files into per-r_init
     ensemble-averaged r(t) traces.
     """
+    # One dump per member; r-prefixed by the initial separation.
     files = sorted(glob.glob(os.path.join(in_dir, 'r*.npz')))
     if not files:
         raise RuntimeError(
             f'No r*.npz files in {in_dir!r}.'
         )
+    # Group the r(t) traces by initial separation r_init.
     by_r0 = {}
     t_sample_ref = None
     for path in files:
+        # Never re-ingest a previously written aggregate.
         if os.path.basename(path) == 'aggregate.npz':
             continue
         d = np.load(path, allow_pickle=True)
         r_init = float(d['r_init'])
         t_sample = d['t_sample']
+        # Traces must share a common time base to be averaged;
+        # the first file sets the reference grid.
         if t_sample_ref is None:
             t_sample_ref = np.asarray(t_sample, dtype=float)
         elif (t_sample.shape != t_sample_ref.shape
@@ -517,18 +590,22 @@ def _aggregate_pair_potential(in_dir):
             'r_pair': np.asarray(d['r_pair'], dtype=float),
             'alive_both': bool(d['alive_both']),
         })
+    # Sorted initial separations index the (r_init, t) grid.
     r0_arr = np.array(sorted(by_r0.keys()), dtype=float)
     n_R = r0_arr.size
     n_T = t_sample_ref.size
     r_mean_grid = np.full((n_R, n_T), np.nan)
     n_alive = np.zeros(n_R, dtype=np.int64)
     n_ens = np.zeros(n_R, dtype=np.int64)
+    # Ensemble-average r(t) at each initial separation.
     for i, r_init in enumerate(r0_arr):
         recs = by_r0[float(r_init)]
         n_ens[i] = len(recs)
         n_alive[i] = int(sum(int(r['alive_both']) for r in recs))
+        # No surviving pair at this r_init: leave the trace NaN.
         if n_alive[i] == 0:
             continue
+        # Average over surviving pairs only.
         stack = np.array(
             [r['r_pair'] for r in recs], dtype=float)
         with np.errstate(invalid='ignore'):
@@ -543,6 +620,11 @@ def _aggregate_pair_potential(in_dir):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Dispatch to the scan-specific aggregator named on the
+    command line, print a per-cell summary, and write the single
+    `aggregate.npz` its analysis script reads back.
+    """
+    # Exactly one positional argument: the analysis type.
     if len(sys.argv) != 2:
         raise RuntimeError(
             'aggregate_sllg: pass the analysis type as the '
@@ -550,11 +632,13 @@ def main():
             f'{_KNOWN_TYPES}. Got: {sys.argv[1:]!r}.'
         )
     analysis = sys.argv[1].strip()
+    # Reject unknown scan names loudly rather than guessing.
     if analysis not in _KNOWN_TYPES:
         raise RuntimeError(
             f'aggregate_sllg: unknown analysis type '
             f'{analysis!r}. Must be one of {_KNOWN_TYPES}.'
         )
+    # Inputs live under output/stochastic_llgs/<scan>/.
     in_dir = os.path.join(
         'output', 'stochastic_llgs', analysis)
     if not os.path.isdir(in_dir):
@@ -563,6 +647,7 @@ def main():
             f'does not exist; run the production script '
             f'and pull its outputs first.'
         )
+    # Single file the matching analysis script will read back.
     out_path = os.path.join(in_dir, 'aggregate.npz')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Dispatch to the scan-specific aggregator and echo a

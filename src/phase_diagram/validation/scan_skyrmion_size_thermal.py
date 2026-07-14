@@ -98,7 +98,7 @@ def _run_one_trajectory(args):
     # Broadcastable mask used to zero the noise outside the dot.
     m3 = mask[..., np.newaxis]
     m_top = skyrmion_profile(
-        nx, ny, a, R=float(cfg['R_init']),
+        nx, ny, a=a, R=float(cfg['R_init']),
         dw=math.sqrt(p.A_ex / K_eff), polarity=+1)
     m_top[~mask, :] = np.array([0.0, 0.0, 1.0])
     rng = np.random.default_rng(int(p.seed))

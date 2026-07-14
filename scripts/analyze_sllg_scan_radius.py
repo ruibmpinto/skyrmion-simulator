@@ -49,6 +49,9 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def main():
+    """Load the (D, H_z) radius aggregate and write the four-panel
+    velocity / Hall-angle / inter-layer figure versus skyrmion
+    size."""
     # =========================== User Configuration =========================
     in_npz   = 'output/stochastic_llgs/scan_radius/aggregate.npz'
     fig_dir  = 'output/figures_sllg'

@@ -47,7 +47,7 @@ DemagKernels precompute_demag_slab(const Params& p) {
     K.Nyy_inter.assign(n, Complex{0, 0});
     K.Nxy_inter.assign(n, Complex{0, 0});
     K.Nzz_inter.assign(n, Complex{0, 0});
-    K.Nxz_inter.assign(n, Complex{0, 0});  // identically zero for slab
+    K.Nxz_inter.assign(n, Complex{0, 0});
     K.Nyz_inter.assign(n, Complex{0, 0});
 
     const Real dkx = 2.0 * kPi / (nx * p.a);
@@ -64,6 +64,7 @@ DemagKernels precompute_demag_slab(const Params& p) {
 
             Real Nxx_s, Nyy_s, Nxy_s, Nzz_s;
             Real Nxx_i, Nyy_i, Nxy_i, Nzz_i;
+            Real Nxz_i_im, Nyz_i_im;
 
             if (k2 > 0.0) {
                 const Real inv_k2 = 1.0 / k2;
@@ -83,9 +84,17 @@ DemagKernels precompute_demag_slab(const Params& p) {
                 Nyy_i = S * ky * ky * inv_k2;
                 Nxy_i = S * kx * ky * inv_k2;
                 Nzz_i = -S;
+                // Analytic inter-layer cross terms N_xz = i (kx/k) S,
+                // N_yz = i (ky/k) S: same magnitude S as the retained
+                // terms, imaginary (lateral-shift kernel), built for
+                // the +Z (bot -> top) direction like the Newell kernel.
+                const Real inv_k = 1.0 / k;
+                Nxz_i_im = kx * inv_k * S;
+                Nyz_i_im = ky * inv_k * S;
             } else {
                 Nxx_s = 0.0; Nyy_s = 0.0; Nxy_s = 0.0; Nzz_s = 1.0;
                 Nxx_i = 0.0; Nyy_i = 0.0; Nxy_i = 0.0; Nzz_i = 0.0;
+                Nxz_i_im = 0.0; Nyz_i_im = 0.0;
             }
 
             const std::size_t idx = static_cast<std::size_t>(i) * nx + j;
@@ -97,6 +106,8 @@ DemagKernels precompute_demag_slab(const Params& p) {
             K.Nyy_inter[idx] = Complex{Nyy_i * norm, 0.0};
             K.Nxy_inter[idx] = Complex{Nxy_i * norm, 0.0};
             K.Nzz_inter[idx] = Complex{Nzz_i * norm, 0.0};
+            K.Nxz_inter[idx] = Complex{0.0, Nxz_i_im * norm};
+            K.Nyz_inter[idx] = Complex{0.0, Nyz_i_im * norm};
         }
     }
     return K;

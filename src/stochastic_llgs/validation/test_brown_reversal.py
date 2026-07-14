@@ -127,7 +127,7 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
         )
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
         # Record first-passage step for trajectories crossing
         # the threshold this step; stop once all have reversed.
@@ -143,9 +143,12 @@ def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
 
 # -----------------------------------------------------------------------------
 def main():
-    # Run the Brown gate: at each barrier Delta set T accordingly,
-    # run the ensemble to reversal, estimate tau, compare to
-    # Brown's formula via |log10(tau_sim/tau_brown)|.
+    """Run the Brown macrospin reversal gate.
+
+    At each barrier Delta sets T accordingly, runs the ensemble
+    to reversal, estimates tau, and compares to Brown's formula
+    via |log10(tau_sim/tau_brown)|.
+    """
     # =========================== User Configuration =========================
     # Default trims Delta=8 (it costs ~100 min wall on its
     # own at dt=5e-14, vectorized 256 traj). Enable by adding

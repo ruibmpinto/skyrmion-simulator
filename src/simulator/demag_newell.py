@@ -414,6 +414,65 @@ def _newell_tensor_closed(X, Y, Z, dx, dy, dz):
 
 
 # -----------------------------------------------------------------------------
+def _dipole_tensor(X, Y, Z, dx, dy, dz):
+    """Point-dipole (far-field) demag tensor between two cells.
+
+    Cell-averaged tensor to leading order in (cell size / r):
+
+        N_ab = V / (4 pi r^3) * (delta_ab - 3 r_hat_a r_hat_b)
+
+    with V = dx*dy*dz and r = (X, Y, Z). Same depolarizing sign
+    convention as `_newell_tensor_closed` (H = -mu_0 M_s N m);
+    relative truncation error is O((cell/r)^2).
+
+    Parameters
+    ----------
+    X, Y, Z : float
+        Center-to-center separation (m). Must be nonzero.
+    dx, dy, dz : float
+        Cell dimensions (m).
+
+    Returns
+    -------
+    N : numpy.ndarray(2d)
+        3x3 demag tensor.
+    """
+    r2 = X * X + Y * Y + Z * Z
+    if r2 == 0.0:
+        raise RuntimeError(
+            '_dipole_tensor: zero separation; the dipole '
+            'asymptote is undefined at the self-cell.')
+    r = math.sqrt(r2)
+    pref = dx * dy * dz / (4.0 * math.pi * r2 * r)
+    rh = np.array([X, Y, Z]) / r
+    return pref * (np.eye(3) - 3.0 * np.outer(rh, rh))
+
+
+# -----------------------------------------------------------------------------
+def _tensor_closed_or_dipole(X, Y, Z, dx, dy, dz, r_c):
+    """Closed-form Newell tensor near, dipole asymptote far.
+
+    Parameters
+    ----------
+    X, Y, Z : float
+        Center-to-center separation (m).
+    dx, dy, dz : float
+        Cell dimensions (m).
+    r_c : float
+        Crossover radius (m).
+
+    Returns
+    -------
+    N : numpy.ndarray(2d)
+        3x3 demag tensor.
+    """
+    # Beyond r_c the 27-corner difference cancels catastrophically.
+    if math.sqrt(X * X + Y * Y + Z * Z) > r_c:
+        return _dipole_tensor(X=X, Y=Y, Z=Z, dx=dx, dy=dy, dz=dz)
+    return _newell_tensor_closed(X=X, Y=Y, Z=Z, dx=dx, dy=dy, dz=dz)
+
+
+# -----------------------------------------------------------------------------
 def _delta_lat(idx):
     """Closest edge-to-edge cell distance in lattice units.
 
@@ -634,7 +693,8 @@ def _compute_one_pair_tensor(X, Y, Z, cellsize, n_density):
 
 # -----------------------------------------------------------------------------
 def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
-                             Z_separation, accuracy):
+                             Z_separation, accuracy,
+                             images_x, images_y):
     """Build the six unique demag tensor components for one
     layer pair on the (nx, ny) FFT lattice via mumax3-style
     variable-density Gauss-Legendre numerical integration.
@@ -662,6 +722,13 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
         edge-to-edge distance between cells (with d = L = min
         cell dimension for touching/coincident cells). Higher
         accuracy -> more integration points per cell pair.
+    images_x : int
+        Periodic image wraps summed along x: the tensor at
+        each offset accumulates the +/- images_x box copies
+        (0 = minimum-image truncation). Residual truncation
+        scales as ((images_x + 1) * L_x)^-3.
+    images_y : int
+        Same along y.
 
     Returns
     -------
@@ -678,6 +745,11 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     are zero by symmetry. For Z != 0 (inter-layer), no self-
     cell exists in the cell-cell sense and all components are
     obtained from the quadrature.
+
+    Periodic image contributions (w != 0) are always evaluated
+    with the closed/dipole hybrid regardless of `_METHOD`: they
+    sit at >= one box length, where the dipole truncation error
+    is far below the quadrature accuracy.
     """
     cellsize = (dx, dy, t_layer)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -718,6 +790,8 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
     # 'closed' (faster, no accuracy knob, matches OOMMF and
     # Aharoni self-cell exactly).
     if _METHOD == 'closed':
+        # Far-field crossover radius: 40 cells.
+        r_c = 40.0 * max(dx, dy, t_layer)
         for j_idx in range(ny):
             iy_s = int(Y1d_signed[j_idx])
             for i_idx in range(nx):
@@ -725,8 +799,8 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
                 X = ix_s * dx
                 Y = iy_s * dy
                 Z = Z_separation
-                tensor = _newell_tensor_closed(
-                    X=X, Y=Y, Z=Z, dx=dx, dy=dy, dz=t_layer)
+                tensor = _tensor_closed_or_dipole(
+                    X, Y, Z, dx, dy, t_layer, r_c)
                 Nxx[j_idx, i_idx] = tensor[0, 0]
                 Nyy[j_idx, i_idx] = tensor[1, 1]
                 Nzz[j_idx, i_idx] = tensor[2, 2]
@@ -785,6 +859,33 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
         Nxy[0, 0] = 0.0
         Nxz[0, 0] = 0.0
         Nyz[0, 0] = 0.0
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Periodic image sum: K(off) += sum_{w != 0} N(off + w L) over
+    # the periodic direction(s). Runs after the Aharoni override so
+    # the (0, 0) entry gets its image contributions on top of the
+    # exact isolated self-term. Images sit at >= one box length,
+    # so the closed/dipole hybrid is accurate for every method.
+    if images_x > 0 or images_y > 0:
+        r_c_img = 40.0 * max(dx, dy, t_layer)
+        for j_idx in range(ny):
+            iy_s = int(Y1d_signed[j_idx])
+            for i_idx in range(nx):
+                ix_s = int(X1d_signed[i_idx])
+                for wy in range(-images_y, images_y + 1):
+                    for wx in range(-images_x, images_x + 1):
+                        if wx == 0 and wy == 0:
+                            continue
+                        X = (ix_s + wx * nx) * dx
+                        Y = (iy_s + wy * ny) * dy
+                        tensor = _tensor_closed_or_dipole(
+                            X, Y, Z_separation, dx, dy,
+                            t_layer, r_c_img)
+                        Nxx[j_idx, i_idx] += tensor[0, 0]
+                        Nyy[j_idx, i_idx] += tensor[1, 1]
+                        Nzz[j_idx, i_idx] += tensor[2, 2]
+                        Nxy[j_idx, i_idx] += tensor[0, 1]
+                        Nxz[j_idx, i_idx] += tensor[0, 2]
+                        Nyz[j_idx, i_idx] += tensor[1, 2]
     return {
         'Nxx': Nxx, 'Nyy': Nyy, 'Nzz': Nzz,
         'Nxy': Nxy, 'Nxz': Nxz, 'Nyz': Nyz,
@@ -792,17 +893,20 @@ def _build_layer_pair_kernel(nx, ny, dx, dy, t_layer,
 
 
 # -----------------------------------------------------------------------------
-def _assemble_kernel_dict(p, accuracy):
+def _assemble_kernel_dict(p, accuracy, images_x, images_y):
     """Build self- and inter-layer real-space kernels and FFT
     them. Helper shared between the main entry point and the
-    convergence check.
+    convergence check. `images_x`/`images_y` are the periodic
+    image wraps summed per direction (0 = minimum image).
     """
     self_real = _build_layer_pair_kernel(
         nx=p.nx, ny=p.ny, dx=p.a, dy=p.a, t_layer=p.t_Co,
-        Z_separation=0.0, accuracy=accuracy)
+        Z_separation=0.0, accuracy=accuracy,
+        images_x=images_x, images_y=images_y)
     inter_real = _build_layer_pair_kernel(
         nx=p.nx, ny=p.ny, dx=p.a, dy=p.a, t_layer=p.t_Co,
-        Z_separation=(p.t_Co + p.d_Ru), accuracy=accuracy)
+        Z_separation=(p.t_Co + p.d_Ru), accuracy=accuracy,
+        images_x=images_x, images_y=images_y)
     return {
         'Nxx_self':  sfft.fft2(self_real['Nxx'], workers=-1),
         'Nyy_self':  sfft.fft2(self_real['Nyy'], workers=-1),
@@ -819,6 +923,86 @@ def _assemble_kernel_dict(p, accuracy):
         'd_Ru': p.d_Ru,
         'shape': (p.ny, p.nx),
     }
+
+
+# -----------------------------------------------------------------------------
+def _validate_kernel_inputs(p, accuracy, tol_conv, who):
+    """Shared input validation for the Newell kernel builders.
+
+    Parameters
+    ----------
+    p : SimpleNamespace
+        Parameters namespace; `t_Co`, `d_Ru`, `nx`, `ny` are
+        read.
+    accuracy : float
+        Mumax3 accuracy parameter; must be positive.
+    tol_conv : float
+        Convergence tolerance; must lie in (0, 1).
+    who : str
+        Calling builder name, embedded in the error messages.
+    """
+    # Positive accuracy sets the Gauss-Legendre order; <= 0 is
+    # meaningless.
+    if accuracy <= 0.0:
+        raise RuntimeError(
+            f'{who}: accuracy must be positive, got {accuracy}.')
+    # A relative tolerance only makes sense strictly inside (0, 1).
+    if tol_conv <= 0.0 or tol_conv >= 1.0:
+        raise RuntimeError(
+            f'{who}: tol_conv must lie in (0, 1), got {tol_conv}.')
+    # Zero magnetic thickness would collapse the self-demag term.
+    if p.t_Co <= 0.0:
+        raise RuntimeError(
+            f'{who}: p.t_Co must be positive, got {p.t_Co}.')
+    # Negative spacer thickness is unphysical.
+    if p.d_Ru < 0.0:
+        raise RuntimeError(
+            f'{who}: p.d_Ru must be non-negative, got {p.d_Ru}.')
+    # A stencil needs at least two cells per in-plane direction.
+    if p.nx < 2 or p.ny < 2:
+        raise RuntimeError(
+            f'{who}: nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+
+
+# -----------------------------------------------------------------------------
+def _check_kernel_convergence(k_lo, k_hi, accuracy, tol_conv, who):
+    """Assert the two accuracy levels agree per k-space component.
+
+    Compares the `accuracy` and `2 * accuracy` kernels
+    component-by-component and raises if any relative difference
+    exceeds `tol_conv`.
+
+    Parameters
+    ----------
+    k_lo, k_hi : dict
+        Kernel dicts built at `accuracy` and `2 * accuracy`.
+    accuracy : float
+        Lower accuracy level, reported in the error message.
+    tol_conv : float
+        Maximum allowed relative difference per component.
+    who : str
+        Calling builder name, embedded in the error message.
+    """
+    comp_keys = [
+        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
+        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
+        'Nxz_inter', 'Nyz_inter',
+    ]
+    for key in comp_keys:
+        diff = np.abs(k_hi[key] - k_lo[key])
+        denom = np.abs(k_hi[key]).max()
+        # Component identically zero at both accuracies; skip the
+        # relative test for this key.
+        if denom < 1e-30:
+            continue
+        rel_err = diff.max() / denom
+        if rel_err > tol_conv:
+            raise RuntimeError(
+                f'{who}: kernel did not converge for component '
+                f'{key!r} between accuracy={accuracy} and '
+                f'accuracy={2.0 * accuracy} (max relative '
+                f'difference {rel_err:.4e} exceeds '
+                f'tol_conv={tol_conv:.4e}).')
 
 
 # -----------------------------------------------------------------------------
@@ -859,26 +1043,9 @@ def precompute_demag_kernels_newell_freebc(p, accuracy, tol_conv):
     of shape (2 ny, 2 nx); 4x the work of the PBC variant.
     The kernels themselves are also 4x larger in memory.
     """
-    if accuracy <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell_freebc: '
-            f'accuracy must be positive, got {accuracy}.')
-    if tol_conv <= 0.0 or tol_conv >= 1.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell_freebc: '
-            f'tol_conv must lie in (0, 1), got {tol_conv}.')
-    if p.t_Co <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell_freebc: '
-            f'p.t_Co must be positive, got {p.t_Co}.')
-    if p.d_Ru < 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell_freebc: '
-            f'p.d_Ru must be non-negative, got {p.d_Ru}.')
-    if p.nx < 2 or p.ny < 2:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell_freebc: '
-            f'nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+    _validate_kernel_inputs(
+        p, accuracy, tol_conv,
+        'precompute_demag_kernels_newell_freebc')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Doubled-grid namespace: nx, ny are 2x; all other material
     # and geometry attributes are inherited. The Newell builder
@@ -887,28 +1054,14 @@ def precompute_demag_kernels_newell_freebc(p, accuracy, tol_conv):
         nx=int(2 * p.nx), ny=int(2 * p.ny),
         a=float(p.a), t_Co=float(p.t_Co), d_Ru=float(p.d_Ru),
         Ms=float(p.Ms), mu0=float(p.mu0))
-    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy)
-    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy)
-    # Component-by-component convergence check.
-    comp_keys = [
-        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
-        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
-        'Nxz_inter', 'Nyz_inter',
-    ]
-    for key in comp_keys:
-        diff = np.abs(K_hi[key] - K_lo[key])
-        denom = np.abs(K_hi[key]).max()
-        if denom < 1e-30:
-            continue
-        rel_err = diff.max() / denom
-        if rel_err > tol_conv:
-            raise RuntimeError(
-                f'precompute_demag_kernels_newell_freebc: '
-                f'kernel did not converge for component '
-                f'{key!r} between accuracy={accuracy} and '
-                f'accuracy={2.0*accuracy} (max relative '
-                f'difference {rel_err:.4e} exceeds '
-                f'tol_conv={tol_conv:.4e}).')
+    # Isolated (free) boundary: no periodic images.
+    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy,
+                                 images_x=0, images_y=0)
+    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy,
+                                 images_x=0, images_y=0)
+    _check_kernel_convergence(
+        K_lo, K_hi, accuracy, tol_conv,
+        'precompute_demag_kernels_newell_freebc')
     K_hi['kind'] = 'newell_freebc'
     K_hi['shape_phys'] = (int(p.ny), int(p.nx))
     return K_hi
@@ -942,26 +1095,9 @@ def precompute_demag_kernels_racetrack(p, accuracy, tol_conv):
         Same schema as the PBC Newell kernel plus
         'kind' = 'racetrack' and 'shape_phys' = (ny, nx).
     """
-    if accuracy <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_racetrack: '
-            f'accuracy must be positive, got {accuracy}.')
-    if tol_conv <= 0.0 or tol_conv >= 1.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_racetrack: '
-            f'tol_conv must lie in (0, 1), got {tol_conv}.')
-    if p.t_Co <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_racetrack: '
-            f'p.t_Co must be positive, got {p.t_Co}.')
-    if p.d_Ru < 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_racetrack: '
-            f'p.d_Ru must be non-negative, got {p.d_Ru}.')
-    if p.nx < 2 or p.ny < 2:
-        raise RuntimeError(
-            f'precompute_demag_kernels_racetrack: '
-            f'nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+    _validate_kernel_inputs(
+        p, accuracy, tol_conv,
+        'precompute_demag_kernels_racetrack')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # y-doubled namespace: ny is 2x (free top/bottom), nx is kept
     # (periodic along the strip length).
@@ -969,27 +1105,17 @@ def precompute_demag_kernels_racetrack(p, accuracy, tol_conv):
         nx=int(p.nx), ny=int(2 * p.ny),
         a=float(p.a), t_Co=float(p.t_Co), d_Ru=float(p.d_Ru),
         Ms=float(p.Ms), mu0=float(p.mu0))
-    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy)
-    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy)
-    comp_keys = [
-        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
-        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
-        'Nxz_inter', 'Nyz_inter',
-    ]
-    for key in comp_keys:
-        diff = np.abs(K_hi[key] - K_lo[key])
-        denom = np.abs(K_hi[key]).max()
-        if denom < 1e-30:
-            continue
-        rel_err = diff.max() / denom
-        if rel_err > tol_conv:
-            raise RuntimeError(
-                f'precompute_demag_kernels_racetrack: '
-                f'kernel did not converge for component '
-                f'{key!r} between accuracy={accuracy} and '
-                f'accuracy={2.0*accuracy} (max relative '
-                f'difference {rel_err:.4e} exceeds '
-                f'tol_conv={tol_conv:.4e}).')
+    # Images along the periodic x direction only; y is free
+    # (zero-padded). p.pbc_images is a required attribute.
+    K_lo = _assemble_kernel_dict(p_pad, accuracy=accuracy,
+                                 images_x=int(p.pbc_images),
+                                 images_y=0)
+    K_hi = _assemble_kernel_dict(p_pad, accuracy=2.0 * accuracy,
+                                 images_x=int(p.pbc_images),
+                                 images_y=0)
+    _check_kernel_convergence(
+        K_lo, K_hi, accuracy, tol_conv,
+        'precompute_demag_kernels_racetrack')
     K_hi['kind'] = 'racetrack'
     K_hi['shape_phys'] = (int(p.ny), int(p.nx))
     return K_hi
@@ -1029,54 +1155,20 @@ def precompute_demag_kernels_newell(p, accuracy, tol_conv):
         slab formula treats as zero. The dict returned is the
         higher-accuracy (2 * accuracy) one.
     """
-    if accuracy <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell: '
-            f'accuracy must be positive, got {accuracy}.')
-    if tol_conv <= 0.0 or tol_conv >= 1.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell: '
-            f'tol_conv must lie in (0, 1), got {tol_conv}.')
-    if p.t_Co <= 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell: '
-            f'p.t_Co must be positive, got {p.t_Co}.')
-    if p.d_Ru < 0.0:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell: '
-            f'p.d_Ru must be non-negative, got {p.d_Ru}.')
-    if p.nx < 2 or p.ny < 2:
-        raise RuntimeError(
-            f'precompute_demag_kernels_newell: '
-            f'nx, ny must be >= 2, got ({p.nx}, {p.ny}).')
+    _validate_kernel_inputs(
+        p, accuracy, tol_conv, 'precompute_demag_kernels_newell')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Build kernels at requested accuracy and at 2x for the
     # convergence comparison. The 2x kernel is the one we
     # return so the caller gets the better-converged result.
-    K_lo = _assemble_kernel_dict(p, accuracy=accuracy)
-    K_hi = _assemble_kernel_dict(p, accuracy=2.0 * accuracy)
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Component-by-component relative-difference check on the
-    # k-space arrays (real parts; imaginary residuals are
-    # numerical FFT noise).
-    comp_keys = [
-        'Nxx_self', 'Nyy_self', 'Nzz_self', 'Nxy_self',
-        'Nxx_inter', 'Nyy_inter', 'Nzz_inter', 'Nxy_inter',
-        'Nxz_inter', 'Nyz_inter',
-    ]
-    for key in comp_keys:
-        diff = np.abs(K_hi[key] - K_lo[key])
-        denom = np.abs(K_hi[key]).max()
-        if denom < 1e-30:
-            # Component identically zero at both accuracies;
-            # skip the relative test for this key.
-            continue
-        rel_err = diff.max() / denom
-        if rel_err > tol_conv:
-            raise RuntimeError(
-                f'precompute_demag_kernels_newell: '
-                f'kernel did not converge for component '
-                f'{key!r} between accuracy={accuracy} and '
-                f'accuracy={2.0*accuracy} (max relative '
-                f'difference {rel_err:.4e} exceeds tol_conv={tol_conv:.4e}).')
+    # Doubly periodic: image sums along both directions.
+    K_lo = _assemble_kernel_dict(p, accuracy=accuracy,
+                                 images_x=int(p.pbc_images),
+                                 images_y=int(p.pbc_images))
+    K_hi = _assemble_kernel_dict(p, accuracy=2.0 * accuracy,
+                                 images_x=int(p.pbc_images),
+                                 images_y=int(p.pbc_images))
+    _check_kernel_convergence(
+        K_lo, K_hi, accuracy, tol_conv,
+        'precompute_demag_kernels_newell')
     return K_hi

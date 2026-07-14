@@ -8,7 +8,7 @@
 // Each task loads the shared T=0 equilibrium m_eq.npz (relax_track_width),
 // thermally equilibrates at its temperature until the LCC size plateaus,
 // and writes the equilibrated field. SLURM array dispatch is per
-// (T_sub, ens): 4 T x 100 ens = 400 tasks.
+// (T_sub, ens): 6 T x 100 ens = 600 tasks.
 #include "skyrmion/lattice.hpp"
 #include "skyrmion/parameters.hpp"
 #include "skyrmion/pulses.hpp"
@@ -35,6 +35,9 @@ using namespace skyrmion::stochastic;
 int main() {
     // ----- Run configuration (box must match stages 1 & 3) -------------------
     const int nx = 350, ny = 500;
+    // Lattice constant for the dump grids, read from the same
+    // Params default the trajectories run with.
+    const double cell_a = make_default_params().a;
     const std::vector<double> t_sub_list = {
         10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
     const int n_ens = 100;
@@ -44,8 +47,8 @@ int main() {
     const double tol_norm = 5.0e-3;
     // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
     // over the full box; the track width is the transverse box extent
-    // L_y = ny*a. Exchange/DMI wrap (mask=None), matching the Python
-    // pipeline. D must match stages 1 & 3.
+    // L_y = ny*a. Exchange/DMI use free-y ghost cells (mask = nullptr),
+    // matching the Python pipeline. D must match stages 1 & 3.
     const DemagKind demag_kind = DemagKind::Racetrack;
     const double dmi = 0.545e-3;
     const double demag_accuracy = 4.0;
@@ -74,7 +77,7 @@ int main() {
     }
     const SAFPair m_eq = load_saf_npz(m_eq_path);
 
-    Field3 pos = lattice_positions(nx, ny, 2.0e-9);
+    Field3 pos = lattice_positions(nx, ny, cell_a);
 
     // ----- Grid: one entry per (T_sub, ens) ----------------------------------
     struct Cell { double T_sub; int t_idx; int ens; };

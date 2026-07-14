@@ -36,13 +36,18 @@ int fft_threads_from_env() {
 int main() {
     // ----- Run configuration -------------------------------------------------
     struct Box { int nx; int ny; };
-    const std::vector<Box> boxes = {{256, 256}, {350, 350}};
-    const std::vector<double> d_list = {
-        0.47e-3, 0.52e-3, 0.57e-3, 0.62e-3, 0.66e-3};
+    // 350x500 is the production track geometry; 256^2 provides the
+    // box-independence gate.
+    const std::vector<Box> boxes = {{256, 256}, {350, 500}};
+    // Recalibration around the post-kernel-fix target (D=0.545 gave
+    // a still-shrinking 166 nm at 250k steps).
+    const std::vector<double> d_list = {0.56e-3, 0.58e-3, 0.62e-3};
     const double dt = 5.0e-14;
     const double alpha_relax = 1.0;
     const int chunk = 2000;          // steps between samples
-    const int n_chunks = 125;        // 250000 steps, no early stop
+    // 500k steps: the D=0.545 box study had not plateaued at 250k;
+    // judge the plateau from the per-chunk D1 series in the NPZ.
+    const int n_chunks = 250;
     // Seed at the periodic equilibrium diameter (radius 103 nm = 206 nm);
     // relaxation finds each D's equilibrium from there.
     const double skyrmion_radius = 103.0e-9;
@@ -51,6 +56,20 @@ int main() {
     const std::string root =
         "output/stochastic_llgs/validation/dmi_sweep_racetrack";
     // -------------------------------------------------------------------------
+    // Optional SLURM array dispatch: task i runs d_list[i] alone
+    // (one job per D). Without SLURM_ARRAY_TASK_ID (e.g. a local
+    // run) the whole list runs serially, unchanged.
+    std::vector<double> d_run = d_list;
+    if (const char* tid = std::getenv("SLURM_ARRAY_TASK_ID")) {
+        const int idx = std::atoi(tid);
+        if (idx < 0 || idx >= static_cast<int>(d_list.size())) {
+            std::fprintf(stderr,
+                "sweep_dmi_racetrack: SLURM_ARRAY_TASK_ID=%d out of "
+                "range [0, %zu].\n", idx, d_list.size() - 1);
+            return 1;
+        }
+        d_run = {d_list[idx]};
+    }
     const int fft_threads = fft_threads_from_env();
 
     std::printf("DMI sweep, racetrack BC (free-y demag + free-y "
@@ -58,7 +77,7 @@ int main() {
                 n_chunks, chunk, fft_threads);
     relax_torque_probe_header();
 
-    for (double dmi : d_list) {
+    for (double dmi : d_run) {
         const std::string out_dir = root + "/" + dmi_dir_tag(dmi);
         std::filesystem::create_directories(out_dir);
         ProbeResult pr[2];

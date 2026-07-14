@@ -83,6 +83,15 @@ std::vector<double> masked_values(const std::vector<double>& f,
 
 struct TorqueStats { double max; double p99; double median; double rms; };
 
+// numpy 'linear' quantile: rank = q * (n - 1), interpolated.
+double quantile_linear(const std::vector<double>& sorted, double q) {
+    const double rank = q * (sorted.size() - 1);
+    const std::size_t lo = static_cast<std::size_t>(rank);
+    if (lo + 1 >= sorted.size()) return sorted.back();
+    const double frac = rank - lo;
+    return sorted[lo] * (1.0 - frac) + sorted[lo + 1] * frac;
+}
+
 TorqueStats torque_stats(const std::vector<double>& f) {
     TorqueStats s{0.0, 0.0, 0.0, 0.0};
     if (f.empty()) return s;
@@ -92,8 +101,9 @@ TorqueStats torque_stats(const std::vector<double>& f) {
     std::vector<double> g = f;
     std::sort(g.begin(), g.end());
     s.max = g.back();
-    s.median = g[g.size() / 2];
-    s.p99 = g[static_cast<std::size_t>(0.99 * (g.size() - 1))];
+    // Matches np.median / np.percentile(..., 99) in the Python plotter.
+    s.median = quantile_linear(g, 0.5);
+    s.p99 = quantile_linear(g, 0.99);
     return s;
 }
 
@@ -137,7 +147,7 @@ ProbeResult relax_torque_probe(Params& p, DemagState& demag,
             ? torque_stats(masked_values(tfield, mask))
             : torque_stats(tfield);
         const Ellipse e = skyrmion_ellipse_lcc(m_top, p.a, +1);
-        const double E = total_energy(m_top, m_bot, p, demag);
+        const double E = total_energy(m_top, m_bot, p, demag, mask);
         // Distance of the max-torque site from the skyrmion core.
         std::size_t kmax = 0;
         for (std::size_t k = 1; k < tfield.size(); ++k)
@@ -154,6 +164,12 @@ ProbeResult relax_torque_probe(Params& p, DemagState& demag,
         s_tmed.push_back(ts.median); s_trms.push_back(ts.rms);
         s_d1.push_back(e.D1); s_d2.push_back(e.D2);
         s_E.push_back(E); s_rmax.push_back(rmax);
+        // Per-chunk progress row, flushed so logs track the run live.
+        std::printf("%4dx%-4d %8d %10.2e %10.2e %10.2e %10.2e "
+                    "%8.1f %8.1f %12.4e\n",
+                    p.nx, p.ny, step, ts.max, ts.p99, ts.median,
+                    ts.rms, e.D1 * 1e9, e.D2 * 1e9, E);
+        std::fflush(stdout);
     }
     // Per-box NPZ: convergence series + final torque field + m_z.
     std::vector<double> mz(static_cast<std::size_t>(p.ny) * p.nx);

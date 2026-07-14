@@ -74,14 +74,35 @@ def _diagnose_box(cfg, nx, ny):
         Convergence series and the final torque field / m_z, matching
         the C++ validator NPZ schema.
     """
-    p = make_params(nx=int(nx), ny=int(ny))
+    p = make_params(nx=int(nx), ny=int(ny),
+                    D=float(cfg['dmi']),
+                    skyrmion_R=float(cfg['skyrmion_R']))
     p.dt = float(cfg['dt'])
+    # bc mirrors the C++ validator CLI: newell | newell_freebc |
+    # racetrack | masked_band (racetrack demag + centred band mask).
+    bc = str(cfg['bc'])
+    if bc in ('newell', 'newell_freebc'):
+        demag_kind = bc
+        mask = None
+    elif bc in ('racetrack', 'masked_band'):
+        demag_kind = 'racetrack'
+        if bc == 'masked_band':
+            width_cells = int(round(float(cfg['track_width']) / p.a))
+            lo = (p.ny - width_cells) // 2
+            mask = np.zeros((p.ny, p.nx), dtype=bool)
+            mask[lo:lo + width_cells, :] = True
+        else:
+            mask = None
+    else:
+        raise RuntimeError(
+            f'_diagnose_box: unknown bc {bc!r}; expected newell, '
+            f'newell_freebc, racetrack, or masked_band.')
     kernels = precompute_demag_kernels(
-        p, kind=str(cfg['demag_kind']),
+        p, kind=demag_kind,
         accuracy=float(cfg['demag_accuracy']),
         tol_conv=float(cfg['demag_tol_conv']))
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     chunk = int(cfg['chunk'])
     n_chunks = int(cfg['n_chunks'])
     steps, t_max, t_p99, t_med, t_rms = [], [], [], [], []
@@ -94,12 +115,14 @@ def _diagnose_box(cfg, nx, ny):
             m_top, m_bot, p, kernels, max_steps=chunk,
             alpha_relax=float(cfg['alpha_relax']),
             tol_torque=0.0, tol_dE=0.0, check_every=chunk,
-            print_every=0, mask=None)
+            print_every=0, mask=mask)
         step += chunk
         h_top, _h_bot = effective_field_demag_pair(
-            m_top, m_bot, p, kernels, mask=None)
+            m_top, m_bot, p, kernels, mask=mask)
         tfield = _torque_field(m_top, h_top)
-        flat = tfield.ravel()
+        # Torque statistics over the magnetic region only; the
+        # zeroed vacuum cells would otherwise swamp the median.
+        flat = tfield[mask] if mask is not None else tfield.ravel()
         t_max.append(float(flat.max()))
         t_p99.append(float(np.percentile(flat, 99.0)))
         t_med.append(float(np.median(flat)))
@@ -107,7 +130,8 @@ def _diagnose_box(cfg, nx, ny):
         d1, d2, _th = skyrmion_ellipse_lcc(m_top, p.a, core_polarity=1)
         d1s.append(float(d1))
         d2s.append(float(d2))
-        energies.append(float(total_energy(m_top, m_bot, p, kernels)))
+        energies.append(float(
+            total_energy(m_top, m_bot, p, kernels, mask=mask)))
         # Distance of the max-torque site from the skyrmion core.
         k = int(np.argmax(flat))
         cx, cy = skyrmion_center_lcc_pbc(m_top, p.a, core_polarity=1)
@@ -237,15 +261,20 @@ def _plot_scaling(dicts, out_path):
 def main():
     """Run the Python diagnostics (optional) and render the plots."""
     # =========================== User Configuration =========================
-    # Boundary condition: 'newell' (periodic) or 'newell_freebc' (isolated
-    # zero-padded). Each writes/reads its own subdirectory so the two never
-    # overwrite each other; matches the C++ validate_relax_torque <bc> flag.
-    demag_kind = 'newell'
+    # Boundary condition, mirroring the C++ validate_relax_torque CLI:
+    # 'newell' | 'newell_freebc' | 'racetrack' | 'masked_band'.
+    bc = 'newell'
+    # Campaign physics, matching the C++ validator (Set-A, D-tagged).
+    dmi = 0.545e-3
+    skyrmion_radius = 103.0e-9
+    track_width = 400.0e-9
     # Boxes to relax in PYTHON (slow with newell; keep modest). Set to []
     # to skip running and only plot existing NPZ (e.g. from the C++ tool).
     boxes_to_run = [(160, 140), (200, 200)]
     chunk = 2000
-    n_chunks = 20
+    # 125 chunks = 250k steps matches the C++ validator; the plateau is
+    # not reached before ~100k steps on the larger boxes.
+    n_chunks = 125
     alpha_relax = 1.0
     dt = 5.0e-14
     demag_accuracy = 4.0
@@ -253,15 +282,22 @@ def main():
     # Box to use for the map + convergence panels (prefix match on
     # filename, e.g. '350x500'); falls back to the largest available.
     map_box = '350x500'
+    # Same layout as the C++ tool: relax_torque/<Dtag>/<bc>, with
+    # Dtag = D in mJ/m^2, '.' -> 'p' (e.g. D0p545), so the shared
+    # plotter reads Python and C++ NPZ from one directory.
+    dmi_tag = 'D' + f'{dmi * 1e3:g}'.replace('.', 'p')
     out_dir = os.path.join(
-        'output/stochastic_llgs/validation/relax_torque', demag_kind)
-    fig_dir = os.path.join('output/figures_sllg/relax_torque', demag_kind)
+        'output/stochastic_llgs/validation/relax_torque', dmi_tag, bc)
+    fig_dir = os.path.join(
+        'output/figures_sllg/relax_torque', dmi_tag, bc)
     # ======================= End User Configuration =========================
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(fig_dir, exist_ok=True)
     cfg = {
         'dt': dt, 'chunk': chunk, 'n_chunks': n_chunks,
-        'alpha_relax': alpha_relax, 'demag_kind': demag_kind,
+        'alpha_relax': alpha_relax, 'bc': bc,
+        'dmi': dmi, 'skyrmion_R': skyrmion_radius,
+        'track_width': track_width,
         'demag_accuracy': demag_accuracy, 'demag_tol_conv': demag_tol_conv,
     }
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

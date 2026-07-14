@@ -147,6 +147,19 @@ def _measure_rsk_along_radius(m, mask, a):
 
 
 def main():
+    """Run the Cortes-Ortuno 2018 DMI standard-problem validation.
+
+    Relaxes an isolated Neel skyrmion in a 50 nm-radius disk with
+    interfacial DMI (sub-problem 2) via over-damped descent, then
+    compares the equilibrium radius and azimuthal profile against
+    the MuMax3 reference and writes the IC figure. Passes when both
+    the radius and the profile RMS residual are within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if both the r_sk and profile checks pass.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Cortes-Ortuno 2D problem (Table 2 + Sec. 5).
     A_ex = 13.0e-12          # J/m

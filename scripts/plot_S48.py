@@ -1,21 +1,28 @@
 """Plotter for Pham et al. (2024) Figure S48.
 
-Reads `output/sweeps_S41_S49/S48/HRKKY_*.npz` and emits:
+Reads `output/sweeps_S41_S49/S48/*.npz` and emits:
 
 S48_A_vt_rise.png
     Skyrmion velocity v(t) zoom on the rising edge of the
     2 ns square pulse, one trace per H_RKKY.
 S48_B_vt_fall.png
     Same but on the falling edge.
+S48_D_vt_full.png
+    Complete v(t) trace for every H_RKKY with the DC pulse
+    window shaded.
 S48_C_invtau.png
-    Inverse time constant 1/tau extracted by exponential fit
+    Inverse time constant 1/tau_d from a damped-sinusoid fit
     of the rising and falling edges, averaged over the
-    {top, bot} layers and the {rise, fall} edges (4 values
-    per H_RKKY) plotted with the standard deviation as the
+    {top, bot} layers and the {rise, fall} edges (up to 4
+    values per H_RKKY) with the standard deviation as the
     error bar.
+S48_E_freq.png
+    Inertial oscillation frequency f from the same fit, with
+    std-dev error bars.
 
-The exponential fits use scipy.optimize.curve_fit when
-available; otherwise a closed-form 3-point estimate is used.
+The fits use scipy.optimize.curve_fit when available;
+without scipy the fit is skipped and 1/tau_d and f are
+reported as NaN.
 """
 #
 #                                                                       Modules
@@ -59,14 +66,15 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 
 def _v_inst(t, cx, cy):
-    # Centred-difference velocity components and magnitude.
+    """Centred-difference velocity components and magnitude."""
     vx = np.gradient(cx, t)
     vy = np.gradient(cy, t)
     return np.sqrt(vx * vx + vy * vy), vx, vy
 
 
 def _load_sweep(in_dir):
-    # Collect every NPZ in the sweep directory.
+    """Collect every NPZ in the sweep directory, sorted by
+    H_RKKY."""
     paths = sorted(glob.glob(os.path.join(in_dir, '*.npz')))
     if not paths:
         raise RuntimeError(
@@ -279,7 +287,7 @@ def _collect_fits(items):
 
 
 def _plot_invtau(H_arr, mean_invtau, std_invtau, out_path):
-    # Inverse damping time with std-dev error bars.
+    """Inverse damping time with std-dev error bars."""
     fig, ax = plt.subplots()
     ax.errorbar(H_arr, mean_invtau, yerr=std_invtau,
                 fmt='o-', color='C0', capsize=4)
@@ -292,7 +300,7 @@ def _plot_invtau(H_arr, mean_invtau, std_invtau, out_path):
 
 
 def _plot_freq(H_arr, mean_f, std_f, out_path):
-    # Inertial oscillation frequency with std-dev error bars.
+    """Inertial oscillation frequency with std-dev error bars."""
     fig, ax = plt.subplots()
     ax.errorbar(H_arr, mean_f, yerr=std_f,
                 fmt='s-', color='C3', capsize=4)
@@ -304,8 +312,9 @@ def _plot_freq(H_arr, mean_f, std_f, out_path):
     print(f'Saved {out_path}')
 
 
-# Render S48 transient panels and the fitted 1/tau and f panels.
 def main():
+    """Load the S48 sweep and write the rise/fall/full v(t) panels
+    plus the fitted 1/tau and inertial-frequency panels."""
     in_dir = 'output/sweeps_S41_S49/S48'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

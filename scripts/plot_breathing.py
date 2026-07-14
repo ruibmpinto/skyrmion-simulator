@@ -135,6 +135,8 @@ def _fit_one(t_ps, d_nm, d_eq_nm):
 
 # Build the 3-panel breathing/drift diagnostic figure.
 def main():
+    """Load the breathing sweep, extract per-D drift metrics, and
+    write the three-panel perturbation-recovery figure."""
     in_dir = 'output/sweeps_S41_S49/S41_breathing'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

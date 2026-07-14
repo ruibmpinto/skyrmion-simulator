@@ -84,7 +84,7 @@ def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t,
         H_top = effective_field(
             m_top, m_top, p.C_ex, p.C_dmi, p.C_anis_top,
             p.H_ext, p.H_RKKY, mask=mask)
-        dmdt_top = llgs_rhs(m_top, H_top + h_top, p, t)
+        dmdt_top = llgs_rhs(m_top, H_top + h_top, p, t, mask=mask)
         return dmdt_top, None
     # Assemble H_eff from m only (no noise inside field assembly).
     if kernels is None:
@@ -106,14 +106,14 @@ def _rhs_with_noise(m_top, m_bot, h_top, h_bot, p, kernels, t,
     H_bot_total = H_bot + h_bot
     # Evaluate dm/dt for each layer at substage time t; the SOT
     # term reads p.pulse(t) for time-varying drives.
-    dmdt_top = llgs_rhs(m_top, H_top_total, p, t)
-    dmdt_bot = llgs_rhs(m_bot, H_bot_total, p, t)
+    dmdt_top = llgs_rhs(m_top, H_top_total, p, t, mask=mask)
+    dmdt_bot = llgs_rhs(m_bot, H_bot_total, p, t, mask=mask)
     return dmdt_top, dmdt_bot
 
 
 # -----------------------------------------------------------------------------
 def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
-                         h_top, h_bot, tol_norm, *, t=0.0,
+                         h_top, h_bot, tol_norm, *, t,
                          mask=None):
     """One Stratonovich-Heun step of the stochastic LLGS.
 
@@ -159,12 +159,11 @@ def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
         exceeded, a `RuntimeError` is raised so a too-coarse
         `dt` or too-large noise is surfaced loudly rather
         than masked by the renormalization.
-    t : float, default=0.0
-        Time in seconds at the start of the step (keyword-only).
-        Forwarded to `llgs_rhs` so the SOT term reads
-        `p.pulse(t)`. Callers with constant drives can leave
-        this at the default; callers with time-varying pulses
-        should pass `t = step * dt` explicitly.
+    t : float
+        Time in seconds at the start of the step (keyword-only,
+        required). Forwarded to `llgs_rhs` so the SOT term reads
+        `p.pulse(t)`; every caller passes its loop time so a
+        time-varying pulse can never be silently sampled at 0.
     mask : numpy.ndarray(2d, bool) or None, default=None
         Free-boundary magnetic-region mask, forwarded to the
         field assembly. Cells outside the mask receive no field;

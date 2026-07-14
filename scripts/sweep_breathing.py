@@ -120,7 +120,7 @@ def _run_one_D(args):
     print(f'D = {D*1e3:.3f} mJ/m^2 ({field_kind}): start',
           flush=True)
     m_top, m_bot = saf_skyrmion(
-        nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Relax to equilibrium. K_eff path uses the local inline
     # relax (no FFT kernel); newell/slab path uses the
@@ -241,6 +241,10 @@ def _run_one_D(args):
 
 
 def main():
+    """Sweep the DMI constant `D`, perturbing each relaxed
+    skyrmion and integrating free LLG to record the breathing
+    trace `d_top(t)` to `output/sweeps_S41_S49/S41_breathing`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     D_values = [
         0.62e-3, 0.72e-3, 0.80e-3,

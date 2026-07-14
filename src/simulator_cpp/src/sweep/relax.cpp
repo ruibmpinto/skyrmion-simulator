@@ -97,6 +97,13 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
     p.H_DL = 0.0;
     p.H_FL = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
+    // alpha_relax < 0 means "no override" (mirrors Python's None);
+    // exactly 0 is rejected: zero damping cannot relax anything.
+    if (alpha_relax == 0.0) {
+        throw std::runtime_error(
+            "relax: alpha_relax = 0 cannot relax (zero damping); "
+            "pass a negative value for no override.");
+    }
     if (alpha_relax > 0.0) {
         p.alpha = alpha_relax;
         p.gamma_p = p.gamma_ / (1.0 + p.alpha * p.alpha);
@@ -140,7 +147,7 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
             else       stepper.reset(new RK4LocalKeffStepper(p, mask));
 
             double E_prev =
-                demag ? total_energy(m_top, m_bot, p, *demag) : 0.0;
+                demag ? total_energy(m_top, m_bot, p, *demag, mask) : 0.0;
             Real t = 0.0;
             for (int step = 1; step <= max_steps; ++step) {
                 stepper->step(m_top, m_bot, t, p.dt, p);
@@ -159,7 +166,7 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
                     bool energy_ok = true;
                     if (demag) {
                         const double E_now =
-                            total_energy(m_top, m_bot, p, *demag);
+                            total_energy(m_top, m_bot, p, *demag, mask);
                         const double dE = (E_now != 0.0)
                             ? std::abs((E_now - E_prev) / E_now)
                             : std::abs(E_now - E_prev);
@@ -172,7 +179,7 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
                     }
                 }
             }
-            if (demag) res.E_final = total_energy(m_top, m_bot, p, *demag);
+            if (demag) res.E_final = total_energy(m_top, m_bot, p, *demag, mask);
         }
     } catch (...) {
         p.alpha = alpha_save;

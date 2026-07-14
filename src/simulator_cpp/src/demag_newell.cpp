@@ -300,6 +300,27 @@ Real newell_27_corner(Real X, Real Y, Real Z, Real dx, Real dy, Real dz,
     return val / (4.0 * kPi * dx * dy * dz);
 }
 
+// Point-dipole far-field tensor: N_ab = V/(4 pi r^3)(d_ab - 3 rh_a rh_b).
+// Depolarizing-positive convention; relative error O((cell/r)^2).
+void dipole_tensor(Real X, Real Y, Real Z, Real dx, Real dy, Real dz,
+                   Real out[3][3]) {
+    const Real r2 = X * X + Y * Y + Z * Z;
+    if (r2 == 0.0) {
+        throw std::runtime_error(
+            "dipole_tensor: zero separation; the dipole asymptote is "
+            "undefined at the self-cell.");
+    }
+    const Real r = std::sqrt(r2);
+    const Real pref = dx * dy * dz / (4.0 * kPi * r2 * r);
+    const Real rh[3] = {X / r, Y / r, Z / r};
+    for (int a = 0; a < 3; ++a) {
+        for (int b = 0; b < 3; ++b) {
+            const Real delta = (a == b) ? 1.0 : 0.0;
+            out[a][b] = pref * (delta - 3.0 * rh[a] * rh[b]);
+        }
+    }
+}
+
 void newell_tensor_closed(Real X, Real Y, Real Z, Real dx, Real dy, Real dz,
                           Real out[3][3]) {
     out[0][0] = newell_27_corner(X, Y, Z, dx, dy, dz, newell_f);
@@ -318,9 +339,12 @@ struct LayerPairKernel {
     std::vector<Real> Nxx, Nyy, Nzz, Nxy, Nxz, Nyz;  // (ny * nx) real-space
 };
 
+// images_x/images_y: periodic image wraps per direction (0 = min image).
+// Image terms always use the closed/dipole hybrid (far-field accurate).
 LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
                                         Real t_layer, Real Z_separation,
-                                        Real accuracy, DemagMethod method) {
+                                        Real accuracy, DemagMethod method,
+                                        int images_x, int images_y) {
     const Real cs[3] = {dx, dy, t_layer};
     const Real L = std::min({dx, dy, t_layer});
     LayerPairKernel K;
@@ -338,6 +362,9 @@ LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
     // into the same convention as it is stored.
     const Real sign = (method == DemagMethod::Closed) ? 1.0 : -1.0;
 
+    // Far-field crossover radius: 40 cells.
+    const Real r_c = 40.0 * std::max({dx, dy, t_layer});
+
 #ifdef SKYRMION_OPENMP
     #pragma omp parallel for schedule(dynamic)
 #endif
@@ -350,7 +377,13 @@ LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
             const Real Z = Z_separation;
             Real tensor[3][3];
             if (method == DemagMethod::Closed) {
-                newell_tensor_closed(X, Y, Z, dx, dy, t_layer, tensor);
+                // Beyond r_c the 27-corner difference cancels catastrophically.
+                if (std::sqrt(X * X + Y * Y + Z * Z) > r_c) {
+                    // Dipole asymptote: O((cell/r)^2) relative error.
+                    dipole_tensor(X, Y, Z, dx, dy, t_layer, tensor);
+                } else {
+                    newell_tensor_closed(X, Y, Z, dx, dy, t_layer, tensor);
+                }
             } else {
                 const Real dxe = delta_lat(ix_s) * dx;
                 const Real dye = delta_lat(iy_s) * dy;
@@ -390,6 +423,46 @@ LayerPairKernel build_layer_pair_kernel(int nx, int ny, Real dx, Real dy,
         K.Nxz[0] = 0.0;
         K.Nyz[0] = 0.0;
     }
+
+    // Periodic image sum K(off) += sum_{w != 0} N(off + w L); after the
+    // Aharoni override so (0, 0) keeps the exact isolated self-term.
+    if (images_x > 0 || images_y > 0) {
+        const Real r_c_img = 40.0 * std::max({dx, dy, t_layer});
+#ifdef SKYRMION_OPENMP
+        #pragma omp parallel for schedule(dynamic)
+#endif
+        for (int j_idx = 0; j_idx < ny; ++j_idx) {
+            const int iy_s = signed_idx(j_idx, ny);
+            for (int i_idx = 0; i_idx < nx; ++i_idx) {
+                const int ix_s = signed_idx(i_idx, nx);
+                const std::size_t idx =
+                    static_cast<std::size_t>(j_idx) * nx + i_idx;
+                for (int wy = -images_y; wy <= images_y; ++wy) {
+                    for (int wx = -images_x; wx <= images_x; ++wx) {
+                        if (wx == 0 && wy == 0) continue;
+                        const Real X = (ix_s + wx * nx) * dx;
+                        const Real Y = (iy_s + wy * ny) * dy;
+                        Real tensor[3][3];
+                        if (std::sqrt(X * X + Y * Y
+                                      + Z_separation * Z_separation)
+                            > r_c_img) {
+                            dipole_tensor(X, Y, Z_separation,
+                                          dx, dy, t_layer, tensor);
+                        } else {
+                            newell_tensor_closed(X, Y, Z_separation,
+                                                 dx, dy, t_layer, tensor);
+                        }
+                        K.Nxx[idx] += tensor[0][0];
+                        K.Nyy[idx] += tensor[1][1];
+                        K.Nzz[idx] += tensor[2][2];
+                        K.Nxy[idx] += tensor[0][1];
+                        K.Nxz[idx] += tensor[0][2];
+                        K.Nyz[idx] += tensor[1][2];
+                    }
+                }
+            }
+        }
+    }
     return K;
 }
 
@@ -418,12 +491,14 @@ void fft_real_kernel(const std::vector<Real>& real_kernel,
 // kinds gny/gnx == p.ny/p.nx; for free-BC they are the doubled (2*phys)
 // grid and `freebc` records the physical size for pad/crop at apply time.
 DemagKernels assemble_kernel_dict(const Params& p, Real accuracy,
-                                  int gny, int gnx, bool freebc) {
+                                  int gny, int gnx, bool freebc,
+                                  int images_x, int images_y) {
     LayerPairKernel self_k = build_layer_pair_kernel(
-        gnx, gny, p.a, p.a, p.t_Co, 0.0, accuracy, p.demag_method);
+        gnx, gny, p.a, p.a, p.t_Co, 0.0, accuracy, p.demag_method,
+        images_x, images_y);
     LayerPairKernel inter_k = build_layer_pair_kernel(
         gnx, gny, p.a, p.a, p.t_Co, p.t_Co + p.d_Ru, accuracy,
-        p.demag_method);
+        p.demag_method, images_x, images_y);
 
     FFT2D fft(gny, gnx, 0);
     DemagKernels K;
@@ -507,12 +582,15 @@ DemagKernels precompute_demag_newell(const Params& p,
                                      Real accuracy, Real tol_conv) {
     validate_newell_params(p, accuracy, tol_conv);
     // Closed form is exact and accuracy-independent: build once, no check.
+    // Doubly periodic: image sums along both directions.
+    const int w = p.pbc_images;
     if (p.demag_method == DemagMethod::Closed) {
-        return assemble_kernel_dict(p, accuracy, p.ny, p.nx, false);
+        return assemble_kernel_dict(p, accuracy, p.ny, p.nx, false, w, w);
     }
-    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, p.ny, p.nx, false);
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, p.ny, p.nx, false,
+                                             w, w);
     DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
-                                             p.ny, p.nx, false);
+                                             p.ny, p.nx, false, w, w);
     check_all_components(K_lo, K_hi, tol_conv);
     return K_hi;
 }
@@ -522,12 +600,14 @@ DemagKernels precompute_demag_newell_freebc(const Params& p,
     validate_newell_params(p, accuracy, tol_conv);
     // 2N zero-padded grid -> isolated (no periodic image) convolution.
     const int gny = 2 * p.ny, gnx = 2 * p.nx;
+    // Isolated (free) boundary: no periodic images.
     if (p.demag_method == DemagMethod::Closed) {
-        return assemble_kernel_dict(p, accuracy, gny, gnx, true);
+        return assemble_kernel_dict(p, accuracy, gny, gnx, true, 0, 0);
     }
-    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true,
+                                             0, 0);
     DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
-                                             gny, gnx, true);
+                                             gny, gnx, true, 0, 0);
     check_all_components(K_lo, K_hi, tol_conv);
     return K_hi;
 }
@@ -540,12 +620,15 @@ DemagKernels precompute_demag_racetrack(const Params& p,
     // top-left pad/crop in DemagState; since gnx == nx the field fills all
     // columns (circular x) while the doubled rows give linear-conv y.
     const int gny = 2 * p.ny, gnx = p.nx;
+    // Images along the periodic x direction only; y is free (padded).
+    const int w = p.pbc_images;
     if (p.demag_method == DemagMethod::Closed) {
-        return assemble_kernel_dict(p, accuracy, gny, gnx, true);
+        return assemble_kernel_dict(p, accuracy, gny, gnx, true, w, 0);
     }
-    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true);
+    DemagKernels K_lo = assemble_kernel_dict(p, accuracy, gny, gnx, true,
+                                             w, 0);
     DemagKernels K_hi = assemble_kernel_dict(p, 2.0 * accuracy,
-                                             gny, gnx, true);
+                                             gny, gnx, true, w, 0);
     check_all_components(K_lo, K_hi, tol_conv);
     return K_hi;
 }

@@ -211,59 +211,6 @@ def exchange_field(m, C_ex, mask=None, neighbors_eff=None):
     return (C_ex * lapl) * mask[..., np.newaxis]
 
 
-# ---------------------------------------------------------------------
-def _dmi_edge_correction_mumax3(m, mask, C_dmi):
-    """mumax3 / Cnv-extension RT 2013 boundary correction.
-
-    At every boundary cell (a cell whose neighbour in some
-    direction is outside the magnetic mask), adds the term
-
-        H_BC = (2D / (mu_0 M_s a)) sum_n_missing
-                   (zhat x n_out) x m_center
-
-    discretised here in Tesla as `2*C_dmi*(zhat x n_out) x m`.
-    Returned values are zero in the interior (no missing
-    neighbour) and inside-the-mask cells with all neighbours
-    present.
-
-    Per-direction (ẑ × n̂_out) × m components:
-        +x edge (n_out = +xhat):  (m_z, 0, -m_x)
-        -x edge (n_out = -xhat): (-m_z, 0,  m_x)
-        +y edge (n_out = +yhat): (0, m_z, -m_y) since
-                                    (zhat x yhat) x m
-                                    = -xhat x m
-                                    = (0,  m_z, -m_y)
-        -y edge (n_out = -yhat): (0, -m_z,  m_y)
-    """
-    # Each mask_* indicates whether the *neighbour* in that
-    # direction is inside the magnetic region (Boolean (ny, nx)).
-    mask_px = np.roll(mask, -1, axis=1)
-    mask_mx = np.roll(mask, +1, axis=1)
-    mask_py = np.roll(mask, -1, axis=0)
-    mask_my = np.roll(mask, +1, axis=0)
-    # Boundary cells: cell is inside the mask AND the
-    # respective neighbour is outside.
-    bx_px = mask & (~mask_px)
-    bx_mx = mask & (~mask_mx)
-    bx_py = mask & (~mask_py)
-    bx_my = mask & (~mask_my)
-    two_C = 2.0 * float(C_dmi)
-    H = np.zeros_like(m)
-    # +x edge contribution: (m_z, 0, -m_x).
-    H[..., 0] += two_C * (m[..., 2] * bx_px)
-    H[..., 2] += two_C * (-m[..., 0] * bx_px)
-    # -x edge contribution: (-m_z, 0, m_x).
-    H[..., 0] += two_C * (-m[..., 2] * bx_mx)
-    H[..., 2] += two_C * (m[..., 0] * bx_mx)
-    # +y edge contribution: (0, m_z, -m_y).
-    H[..., 1] += two_C * (m[..., 2] * bx_py)
-    H[..., 2] += two_C * (-m[..., 1] * bx_py)
-    # -y edge contribution: (0, -m_z, m_y).
-    H[..., 1] += two_C * (-m[..., 2] * bx_my)
-    H[..., 2] += two_C * (m[..., 1] * bx_my)
-    return H
-
-
 def dmi_field(m, C_dmi, mask=None, neighbors_eff=None):
     """Compute the interfacial DMI effective field.
 

@@ -55,9 +55,6 @@ SAFPair two_skyrmion_pair_ic(int nx, int ny, Real a, Real R, Real dw,
                              Real c1x, Real c1y, Real c2x, Real c2y) {
     const Field3 t1 = skyrmion_at_position(nx, ny, a, R, dw, polarity_top, c1x, c1y);
     const Field3 t2 = skyrmion_at_position(nx, ny, a, R, dw, polarity_top, c2x, c2y);
-    const int pol_bot = -polarity_top;
-    const Field3 b1 = skyrmion_at_position(nx, ny, a, R, dw, pol_bot, c1x, c1y);
-    const Field3 b2 = skyrmion_at_position(nx, ny, a, R, dw, pol_bot, c2x, c2y);
 
     SAFPair out;
     out.m_top = Field3(ny, nx);
@@ -67,12 +64,14 @@ SAFPair two_skyrmion_pair_ic(int nx, int ny, Real a, Real R, Real dw,
             // Top: keep the field with the lower (more core-like) m_z.
             const bool pick1_top = t1(i, j, 2) <= t2(i, j, 2);
             const Field3& st = pick1_top ? t1 : t2;
-            // Bot: opposite polarity, keep the higher m_z.
-            const bool pick1_bot = b1(i, j, 2) >= b2(i, j, 2);
-            const Field3& sb = pick1_bot ? b1 : b2;
             for (int k = 0; k < 3; ++k) {
                 out.m_top(i, j, k) = st(i, j, k);
-                out.m_bot(i, j, k) = sb(i, j, k);
+                // AF partner is the full flip -m_top (cores
+                // reversed, INWARD radial in-plane): DMI-favored
+                // chirality in both layers, antiparallel wall
+                // rings. The old seed merged opposite-polarity
+                // profiles, flipping only m_z.
+                out.m_bot(i, j, k) = -st(i, j, k);
             }
         }
     }

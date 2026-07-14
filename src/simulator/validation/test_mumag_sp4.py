@@ -282,6 +282,20 @@ def _relax_single_layer(m_top, p, kernels, mask, H_ext,
 
 
 def main():
+    """Run the NIST muMAG Standard Problem 4 (Field 1) validation.
+
+    Prepares the S-state in a single-layer permalloy rectangle
+    (500 x 125 x 3 nm) with free-BC Newell demag, applies the
+    Field-1 reversal drive over the 1 ns NIST window, tracks the
+    spatially averaged magnetisation, and writes IC, S-state and
+    <m> vs t figures. Passes when the <m_x> = 0 crossing time
+    matches the 0.136 ns NIST reference within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if the crossing time is within `rtol_t_cross`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Geometry (NIST SP4).
     Lx_mag = 500.0e-9

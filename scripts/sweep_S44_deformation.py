@@ -45,7 +45,7 @@ __status__ = 'Development'
 def _make_saf_skyrmion_ic(p):
     """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
 
 
 def _run_one_point(args):
@@ -151,6 +151,10 @@ def _run_one_point(args):
 
 
 def main():
+    """Run the S44 deformation sweeps: one fine-time panel-A run
+    at J=8.9e11 plus a coarser `J` sweep (panels B, C), writing
+    traces to `output/sweeps_S41_S49/S44`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run configuration (edit here).
     use_full_demag = True

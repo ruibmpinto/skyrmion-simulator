@@ -30,8 +30,12 @@ __status__ = 'Development'
 # =====================================================================
 
 
-def skyrmion_profile(nx, ny, a, R, dw=27e-9, polarity=1):
+def skyrmion_profile(nx, ny, *, a, R, dw, polarity):
     """Generate a single Neel skyrmion at the lattice center.
+
+    All physical arguments are keyword-only: `a`, `R`, and `dw`
+    are same-unit lengths (meters), so positional calls could be
+    silently transposed.
 
     Parameters
     ----------
@@ -43,11 +47,10 @@ def skyrmion_profile(nx, ny, a, R, dw=27e-9, polarity=1):
         Lattice constant in meters.
     R : float
         Skyrmion radius in meters (mz=0 contour).
-    dw : float, default=27e-9
+    dw : float
         Domain wall width in meters. From the 1D
         Euler-Lagrange solution: dw = sqrt(A / K_eff).
-        Paper value: 27 nm.
-    polarity : {1, -1}, default=1
+    polarity : {1, -1}
         Core polarity. +1 means core points down (m_z=-1),
         background points up (m_z=+1).
 
@@ -150,13 +153,14 @@ def uniform_state(nx, ny, direction=None):
 
 
 # ---------------------------------------------------------------------
-def saf_skyrmion(nx, ny, a, R, dw=27e-9):
+def saf_skyrmion(nx, ny, *, a, R, dw):
     """Generate a SAF skyrmion pair.
 
     Top layer has a skyrmion with core down (m_z=-1),
     bottom layer has a skyrmion with core up (m_z=+1).
     This is the ground state for antiferromagnetic RKKY
-    coupling.
+    coupling. Physical arguments are keyword-only (see
+    `skyrmion_profile`).
 
     Parameters
     ----------
@@ -168,7 +172,7 @@ def saf_skyrmion(nx, ny, a, R, dw=27e-9):
         Lattice constant in meters.
     R : float
         Skyrmion radius in meters.
-    dw : float, default=27e-9
+    dw : float
         Domain wall width in meters.
 
     Returns
@@ -178,9 +182,13 @@ def saf_skyrmion(nx, ny, a, R, dw=27e-9):
     m_bot : numpy.ndarray(3d)
         Bottom layer spins, shape (ny, nx, 3).
     """
-    # Opposite polarities make m_top antiparallel to m_bot, which is
-    # the ground state of the antiferromagnetic RKKY coupling.
-    m_top = skyrmion_profile(nx, ny, a, R, dw=dw, polarity=1,)
-    
-    m_bot = skyrmion_profile(nx, ny, a, R, dw=dw, polarity=-1,)
+    m_top = skyrmion_profile(nx, ny, a=a, R=R, dw=dw, polarity=1)
+    # AF partner is the full flip -m_top (core up, INWARD radial
+    # in-plane): the DMI energy is even under m -> -m, so both
+    # layers carry the DMI-favored chirality and the wall rings
+    # are antiparallel (RKKY ground state). The old seed
+    # # m_bot = skyrmion_profile(nx, ny, a, R, dw=dw, polarity=-1,)
+    # flipped only m_z, which is DMI-maximizing and
+    # RKKY-frustrated in the wall ring.
+    m_bot = -m_top
     return m_top, m_bot

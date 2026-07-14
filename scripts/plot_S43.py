@@ -181,6 +181,8 @@ def _plot_panel_b(in_dir, out_path):
 
 # Render whichever of the two S43 sweeps exist on disk.
 def main():
+    """Render panel (a) v_avg vs FWHM and panel (b) v_avg vs J from
+    the S43a and S43b sweeps, skipping whichever sweep is absent."""
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration.
     in_dir_a = 'output/sweeps_S41_S49/S43a'

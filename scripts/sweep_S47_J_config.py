@@ -45,7 +45,7 @@ __status__ = 'Development'
 def _make_saf_skyrmion_ic(p):
     """Module-level IC factory so worker processes can pickle it."""
     return saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
 
 
 def _run_one_point(args):
@@ -168,6 +168,11 @@ def _run_one_point(args):
 
 
 def main():
+    """Sweep `J` (10 points) across three drive configurations,
+    plus a spin snapshot at the pulse peak for each
+    configuration's highest `J`; traces written to
+    `output/sweeps_S41_S49/S47`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     use_full_demag = True
     # Demag formulation: 'slab' uses the analytic thin-film shape

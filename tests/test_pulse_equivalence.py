@@ -80,7 +80,7 @@ def _run_trajectory(pulse_factory, n_steps=200, seed=0):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Initial condition: a SAF skyrmion pair on the small lattice.
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     t = 0.0
@@ -146,7 +146,7 @@ def test_zero_pulse_does_not_diverge():
     p.H_DL = 0.0
     p.H_FL = 0.0
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     t = 0.0
     for _ in range(50):

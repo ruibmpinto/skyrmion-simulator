@@ -42,11 +42,11 @@ int fft_threads_from_env() {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main() {
     // ----- Run configuration -------------------------------------------------
     struct Box { int nx; int ny; };
     const std::vector<Box> boxes = {
-        {350, 500}, {256, 256}, {350, 350}, {500, 500}};
+        {350, 500}, {256, 256}, {350, 350},};
     const double dt = 5.0e-14;
     const double alpha_relax = 1.0;
     const int chunk = 2000;          // steps between samples
@@ -65,31 +65,20 @@ int main(int argc, char** argv) {
     const double skyrmion_radius = 103.0e-9;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
-    // Racetrack width (physical, along the free y direction), used only
-    // for racetrack. The magnetic strip spans the full periodic x
-    // and a centred band of this height in y; vacuum margins above and
-    // below carry the Rohart-Thiaville free edge (xia = D/2A). Fixed
-    // across boxes so the confinement-set size is separated from box
-    // size; the margin grows with the box. Must leave >=1 vacuum row,
-    // i.e. fit inside the smallest box (256 cells x 2 nm = 512 nm).
+    // Band width (physical, along the free y direction), used only
+    // for masked_band; plain racetrack has no mask and its track
+    // width is the full box height ny*a. The magnetic strip spans
+    // the full periodic x and a centred band of this height in y;
+    // vacuum margins above and below carry the Rohart-Thiaville
+    // free edge (xia = D/2A). Fixed across boxes so the
+    // confinement-set size is separated from box size; the margin
+    // grows with the box. Must leave >=1 vacuum row, i.e. fit
+    // inside the smallest box (256 cells x 2 nm = 512 nm).
     const double track_width_m = 400e-9;
-    // Boundary condition is an explicit required flag so periodic and
-    // free-BC runs never overwrite each other (each writes its own
-    // subdirectory). No silent default.
-    if (argc != 2) {
-        std::fprintf(stderr,
-            "usage: %s <newell|newell_freebc|racetrack|masked_band>\n"
-            "  newell        periodic (circular-convolution) demag\n"
-            "  newell_freebc isolated (zero-padded 2N) demag\n"
-            "  racetrack     periodic x, free top/bottom (y) for BOTH\n"
-            "                demag and exchange/DMI over the FULL box\n"
-            "                (track width = box, no mask)\n"
-            "  masked_band   racetrack demag + a centred width-W magnetic\n"
-            "                band (free edge at the band, vacuum margins)\n",
-            argv[0]);
-        return 1;
-    }
-    const std::string bc = argv[1];
+    // Boundary condition: newell | newell_freebc | racetrack |
+    // masked_band. Each writes its own subdirectory so runs never
+    // overwrite each other.
+    const std::string bc = "racetrack";
     DemagKind demag_kind;
     if (bc == "newell") demag_kind = DemagKind::Newell;
     else if (bc == "newell_freebc") demag_kind = DemagKind::NewellFreeBC;

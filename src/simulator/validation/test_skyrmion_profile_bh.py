@@ -70,6 +70,20 @@ __status__ = 'Development'
 
 
 def main():
+    """Run the Rohart-Thiaville 2013 isolated-skyrmion validation.
+
+    Relaxes an isolated Neel skyrmion in a large PBC film (infinite-
+    film limit) via over-damped descent, then compares the
+    equilibrium radius against the RT Eq. (18) prediction
+    R_s = Delta / sqrt(2(1 - D/D_c)) and inspects the 360-degree
+    profile, writing the IC figure. Passes when the relaxed radius
+    matches Eq. (18) within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if the relaxed skyrmion radius is within `rtol`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Rohart-Thiaville 2013 canonical parameters (Sec. II).
     A_ex = 16.0e-12          # J/m

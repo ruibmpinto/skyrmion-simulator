@@ -43,6 +43,19 @@ __status__ = 'Development'
 
 
 def main():
+    """Run the uniform-mode FMR frequency validation.
+
+    Drives a small uniform PMA film (no DMI, no field) from a
+    slightly tilted IC, integrates the free precession, extracts the
+    dominant k = 0 mode frequency, and writes the IC figure. Passes
+    when the measured frequency matches the analytic
+    f = gamma H_K / 2 pi (H_K = 2 K_eff / Ms) within tolerance.
+
+    Returns
+    -------
+    passed : bool
+        True if the measured FMR frequency is within `rtol_freq`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Material parameters. K_eff and Ms set H_K and hence f_FMR.
     A_ex = 16.0e-12

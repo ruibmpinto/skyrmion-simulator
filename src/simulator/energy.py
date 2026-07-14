@@ -34,6 +34,7 @@ import numpy as np
 # Local
 from src.simulator.demag import demag_field
 from src.simulator.fields import (
+    _neighbors_with_bc,
     anisotropy_field,
     bare_anis_prefactors,
     dmi_field,
@@ -152,10 +153,16 @@ def pma_anisotropy_field(p):
 
 
 # ---------------------------------------------------------------------
-def total_energy(m_top, m_bot, p, kernels):
+def total_energy(m_top, m_bot, p, kernels, mask):
     """Compute the total magnetic energy of the SAF state.
 
-    Used by the phase diagram sweep.
+    Used by the phase diagram sweep and as the relax dE
+    convergence gate. Every term is assembled exactly like the
+    RHS (`fields.effective_field_demag_pair`): ghost-cell
+    exchange/DMI at free boundaries, free-y for the racetrack
+    kernel kind, masked local terms, and demag sourced by the
+    mask-zeroed magnetization -- so E is the Lyapunov function
+    of the damped dynamics.
 
     Parameters
     ----------
@@ -167,6 +174,9 @@ def total_energy(m_top, m_bot, p, kernels):
         Parameters namespace.
     kernels : dict
         Demag kernels from `precompute_demag_kernels(p)`.
+    mask : {numpy.ndarray(2d), None}
+        Boolean (ny, nx) array, True inside the magnetic
+        region; None is the fully periodic path.
 
     Returns
     -------
@@ -186,19 +196,54 @@ def total_energy(m_top, m_bot, p, kernels):
     C_top, C_bot = bare_anis_prefactors(p)
     shape = m_top.shape[:2]
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Boundary conditions, identical to the RHS assembly.
+    # Racetrack kernel kind opens the y edges (free-y ghosts).
+    free_y = (kernels.get('kind') == 'racetrack')
+    # Shared RT 2013 Eq. (6) ghost cells for exchange + DMI.
+    if (mask is not None or free_y) and float(p.C_ex) > 0.0:
+        # xi_inv_a = a/xi = C_dmi/C_ex (Bogdanov-Roesler tilt).
+        xi_inv_a = float(p.C_dmi) / float(p.C_ex)
+        nbrs_top = _neighbors_with_bc(
+            m_top, mask=mask, xi_inv_a=xi_inv_a, free_y=free_y)
+        nbrs_bot = _neighbors_with_bc(
+            m_bot, mask=mask, xi_inv_a=xi_inv_a, free_y=free_y)
+    else:
+        nbrs_top = None
+        nbrs_bot = None
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Internal (bilinear) fields, both layers
-    H_int_top = exchange_field(m_top, p.C_ex)
-    H_int_top += dmi_field(m_top, p.C_dmi)
-    H_int_top += anisotropy_field(m_top, C_top)
+    H_int_top = exchange_field(
+        m_top, p.C_ex, mask=mask, neighbors_eff=nbrs_top)
+    H_int_top += dmi_field(
+        m_top, p.C_dmi, mask=mask, neighbors_eff=nbrs_top)
+    H_int_top += anisotropy_field(m_top, C_top, mask=mask)
     # RKKY on top is driven by m_bot.
-    H_int_top += rkky_field(m_bot, p.H_RKKY)
-    H_int_bot = exchange_field(m_bot, p.C_ex)
-    H_int_bot += dmi_field(m_bot, p.C_dmi)
-    H_int_bot += anisotropy_field(m_bot, C_bot)
+    H_rk_top = rkky_field(m_bot, p.H_RKKY)
+    H_int_bot = exchange_field(
+        m_bot, p.C_ex, mask=mask, neighbors_eff=nbrs_bot)
+    H_int_bot += dmi_field(
+        m_bot, p.C_dmi, mask=mask, neighbors_eff=nbrs_bot)
+    H_int_bot += anisotropy_field(m_bot, C_bot, mask=mask)
     # RKKY on bottom is driven by m_top.
-    H_int_bot += rkky_field(m_top, p.H_RKKY)
-    # Demag: self + inter-layer via FFT kernels.
-    H_dem_top, H_dem_bot = demag_field(m_top, m_bot, kernels)
+    H_rk_bot = rkky_field(m_top, p.H_RKKY)
+    if mask is not None:
+        # Vacuum cells carry no RKKY coupling.
+        H_rk_top = H_rk_top * mask[..., np.newaxis]
+        H_rk_bot = H_rk_bot * mask[..., np.newaxis]
+    H_int_top += H_rk_top
+    H_int_bot += H_rk_bot
+    # Demag: self + inter-layer via FFT kernels, sourced by the
+    # mask-zeroed magnetization (vacuum contributes no charge).
+    if mask is not None:
+        m_top_dem = m_top * mask[..., np.newaxis]
+        m_bot_dem = m_bot * mask[..., np.newaxis]
+    else:
+        m_top_dem = m_top
+        m_bot_dem = m_bot
+    H_dem_top, H_dem_bot = demag_field(m_top_dem, m_bot_dem, kernels)
+    if mask is not None:
+        H_dem_top = H_dem_top * mask[..., np.newaxis]
+        H_dem_bot = H_dem_bot * mask[..., np.newaxis]
     H_int_top += H_dem_top
     H_int_bot += H_dem_bot
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,6 +254,9 @@ def total_energy(m_top, m_bot, p, kernels):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Zeeman energy (no 0.5; field is external)
     H_zee = zeeman_field(p.H_ext, shape)
+    if mask is not None:
+        # Vacuum cells see no Zeeman energy.
+        H_zee = H_zee * mask[..., np.newaxis]
     dot_zee = (np.sum(m_top * H_zee) + np.sum(m_bot * H_zee))
     # No 0.5: external field is independent of m, so no double counting.
     E_zeeman = -V_cell * Ms * dot_zee

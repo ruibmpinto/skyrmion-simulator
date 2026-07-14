@@ -43,17 +43,39 @@ __status__ = 'Development'
 # =====================================================================
 
 
+def _pair_fields(m_top, m_bot, p, kernels, mask=None):
+    """Effective fields for both layers, demag-aware or K_eff.
+
+    `kernels=None` selects the no-demag local-K_eff assembly
+    (uniform thin-film demag folded into `p.C_anis_*`),
+    mirroring the C++ `RK4LocalKeffStepper` used by `relax`
+    when no demag state is supplied. Otherwise the bare-K +
+    explicit-demag pair assembly is used.
+    """
+    if kernels is None:
+        # K_eff convention: no explicit demag, no free-y.
+        H_t = effective_field(
+            m_top, m_bot, p.C_ex, p.C_dmi, p.C_anis_top,
+            p.H_ext, p.H_RKKY, mask=mask)
+        H_b = effective_field(
+            m_bot, m_top, p.C_ex, p.C_dmi, p.C_anis_bot,
+            p.H_ext, p.H_RKKY, mask=mask)
+        return H_t, H_b
+    return effective_field_demag_pair(
+        m_top, m_bot, p, kernels, mask=mask)
+
+
+# ---------------------------------------------------------------------
 def _rhs_pair(m_top, m_bot, p, kernels, t, mask=None):
     """Compute LLGS RHS for both layers using demag-aware H.
 
-    `mask` (if given) is forwarded to
-    `effective_field_demag_pair` for free-boundary geometries.
+    `mask` (if given) is forwarded to the field assembly for
+    free-boundary geometries.
     """
-    H_t, H_b = effective_field_demag_pair(
-        m_top, m_bot, p, kernels, mask=mask)
+    H_t, H_b = _pair_fields(m_top, m_bot, p, kernels, mask=mask)
     return (
-        llgs_rhs(m_top, H_t, p, t),
-        llgs_rhs(m_bot, H_b, p, t),
+        llgs_rhs(m_top, H_t, p, t, mask=mask),
+        llgs_rhs(m_bot, H_b, p, t, mask=mask),
     )
 
 
@@ -75,7 +97,7 @@ def _rhs_single(m, p, t):
     H = effective_field(
         m, m, p.C_ex, p.C_dmi, p.C_anis_top,
         p.H_ext, p.H_RKKY, mask=mask)
-    return llgs_rhs(m, H, p, t)
+    return llgs_rhs(m, H, p, t, mask=mask)
 
 
 # ---------------------------------------------------------------------
@@ -125,8 +147,7 @@ def _rk4_step(m_top, m_bot, t, dt, p, kernels, mask=None):
 # ---------------------------------------------------------------------
 def _max_tangential_torque(m_top, m_bot, p, kernels, mask=None):
     """Return max |m x (m x H)| across both layers (Tesla)."""
-    H_t, H_b = effective_field_demag_pair(
-        m_top, m_bot, p, kernels, mask=mask)
+    H_t, H_b = _pair_fields(m_top, m_bot, p, kernels, mask=mask)
     tau_t = np.cross(m_top, np.cross(m_top, H_t))
     tau_b = np.cross(m_bot, np.cross(m_bot, H_b))
     if mask is not None:
@@ -157,10 +178,16 @@ def relax(m_top, m_bot, p, kernels,
           print_every=0, mask=None):
     """Relax a spin configuration to a (meta)stable state.
 
-    Two modes:
+    Three modes:
 
-    - SAF pair (default): `m_bot` is an array; both layers
-      relax together with demag from `kernels`.
+    - SAF pair with demag (default): `m_bot` is an array and
+      `kernels` a dict; both layers relax together with
+      explicit demag, converging on torque + energy drift.
+    - SAF pair, no demag: `m_bot` is an array and
+      `kernels=None`; both layers relax on the local-K_eff
+      field (mirrors the C++ `RK4LocalKeffStepper` path),
+      converging on the tangential torque alone. `E_final`
+      is NaN.
     - Single layer: `m_bot=None` relaxes a lone ferromagnet
       via the no-demag `effective_field` + `rk4_step_single`.
       Requires `kernels=None` (a single layer has no interlayer
@@ -256,6 +283,11 @@ def relax(m_top, m_bot, p, kernels,
     # removed in the `finally` block.
     p.relax_mask = mask
     if alpha_relax is not None:
+        # Zero damping cannot relax anything; reject loudly.
+        if float(alpha_relax) == 0.0:
+            raise RuntimeError(
+                'relax: alpha_relax = 0 cannot relax (zero '
+                'damping); pass None for no override.')
         p.alpha = float(alpha_relax)
         p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -263,9 +295,12 @@ def relax(m_top, m_bot, p, kernels,
     n_steps = 0
     tau_max = np.inf
     try:
-        # Pair mode tracks the two-layer energy for the dE test;
-        # single-layer mode converges on the torque alone.
-        E_prev = None if single else total_energy(m_top, m_bot, p, kernels)
+        # Pair mode with demag tracks the two-layer energy for the
+        # dE test; single-layer and no-demag pair modes converge on
+        # the torque alone (mirrors the C++ relax semantics).
+        use_energy = (not single) and (kernels is not None)
+        E_prev = (total_energy(m_top, m_bot, p, kernels, mask=mask)
+                  if use_energy else None)
         # Internal pulse time; the pulse is zero so the exact value
         # does not affect dynamics, only kept consistent with the
         # pulse-aware integrator signature.
@@ -296,18 +331,23 @@ def relax(m_top, m_bot, p, kernels,
                 else:
                     tau_max = _max_tangential_torque(
                         m_top, m_bot, p, kernels, mask=mask)
-                    E_now = total_energy(m_top, m_bot, p, kernels)
-                    dE_rel = (abs((E_now - E_prev) / E_now)
-                              if E_now != 0.0
-                              else abs(E_now - E_prev))
-                    E_prev = E_now
-                    if tau_max < tol_torque and dE_rel < tol_dE:
+                    torque_ok = tau_max < tol_torque
+                    energy_ok = True
+                    if use_energy:
+                        E_now = total_energy(
+                            m_top, m_bot, p, kernels, mask=mask)
+                        dE_rel = (abs((E_now - E_prev) / E_now)
+                                  if E_now != 0.0
+                                  else abs(E_now - E_prev))
+                        E_prev = E_now
+                        energy_ok = dE_rel < tol_dE
+                    if torque_ok and energy_ok:
                         converged = True
                         break
-        if single:
-            E_final = float('nan')
+        if use_energy:
+            E_final = total_energy(m_top, m_bot, p, kernels, mask=mask)
         else:
-            E_final = total_energy(m_top, m_bot, p, kernels)
+            E_final = float('nan')
     finally:
         p.alpha = alpha_save
         p.gamma_p = gamma_p_save

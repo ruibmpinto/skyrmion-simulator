@@ -35,8 +35,8 @@ int main() {
                         p.H_ext, p.H_RKKY, H_bot, nullptr, /*free_y=*/false);
         Field3 dt_top(p.ny, p.nx), dt_bot(p.ny, p.nx);
         const double t = ref.scalar<double>("integrator_t_eval");
-        llgs_rhs(m_top, H_top, p, t, dt_top);
-        llgs_rhs(m_bot, H_bot, p, t, dt_bot);
+        llgs_rhs(m_top, H_top, p, t, dt_top, nullptr);
+        llgs_rhs(m_bot, H_bot, p, t, dt_bot, nullptr);
         Field3 exp_t = ref.field3("integrator_dmdt_top_keff");
         Field3 exp_b = ref.field3("integrator_dmdt_bot_keff");
         r.check("llgs_rhs_top",

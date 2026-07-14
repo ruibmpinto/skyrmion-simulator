@@ -47,8 +47,9 @@ plt.rcParams['figure.figsize'] = (6, 6)
 plt.rcParams['lines.linewidth'] = 1.5
 
 
-# Net displacement over the +/- 3 sigma window / FWHM (m/s).
 def _vavg(trace, metadata):
+    """Net displacement over the +/- 3 sigma window divided by the
+    FWHM (m/s)."""
     # Time stamps and box dimensions from metadata.
     t = trace['t']
     nx = int(metadata['nx'])
@@ -73,8 +74,8 @@ def _vavg(trace, metadata):
     return float(np.sqrt(dx * dx + dy * dy) / FWHM)
 
 
-# Load all NPZ traces bucketed by config index, J0-sorted.
 def _load_sweep(in_dir):
+    """Load all NPZ traces bucketed by config index, J0-sorted."""
     # All NPZ traces in the sweep directory.
     paths = sorted(glob.glob(os.path.join(in_dir, '*.npz')))
     if not paths:
@@ -92,8 +93,8 @@ def _load_sweep(in_dir):
     return bucket
 
 
-# Legend label for one configuration.
 def _config_label(metadata):
+    """Legend label for one configuration."""
     # Short label encoding the config's FWHM and H_RKKY.
     return (f'cfg {int(metadata["cfg_idx"])}: '
             f'FWHM={float(metadata["FWHM"])*1e12:.0f} ps, '
@@ -101,8 +102,8 @@ def _config_label(metadata):
             f'{float(metadata["H_RKKY"])*1e3:.0f} mT')
 
 
-# Panel A: v_avg vs J, one curve per config.
 def _plot_v(bucket, out_path):
+    """Panel A: v_avg vs J, one curve per config."""
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
     # One curve per configuration index.
@@ -212,7 +213,8 @@ def _plot_snapshots(bucket, out_dir):
                   f'spin field for cfg {cfg_idx}.')
             continue
         m, t = snap_item
-        a = float(m['nx'])  # not used directly here; nx kept for sanity
+        # not used directly here; nx kept for sanity
+        a = float(m['nx'])  
         # The simulator's lattice spacing is in the trace
         # implicitly via metadata: every sweep uses Set A's
         # default `p.a`. Re-import default_params to recover it
@@ -235,8 +237,9 @@ def _plot_snapshots(bucket, out_dir):
         print(f'Saved {out_path}')
 
 
-# Render all S47 panels (A-D curves, E-G snapshots) from sweep.
 def main():
+    """Load the S47 sweep and render all panels: A-D curves plus the
+    E-G m_z snapshots at the pulse peak."""
     in_dir = 'output/sweeps_S41_S49/S47'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

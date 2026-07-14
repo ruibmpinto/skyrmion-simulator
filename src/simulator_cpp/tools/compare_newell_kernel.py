@@ -65,6 +65,8 @@ def main():
     p.d_Ru = d_Ru
     p.Ms = mu0_Ms_cpp / (4.0 * np.pi * 1e-7)
     p.mu0 = 4.0 * np.pi * 1e-7
+    # Image count recorded by the C++ dump; parity requires it.
+    p.pbc_images = int(z['pbc_images'][0])
     print(f'Building Python kernel (accuracy={accuracy}, '
           f'tol_conv={tol_conv}) ...')
     K_py = precompute_demag_kernels_newell(p,

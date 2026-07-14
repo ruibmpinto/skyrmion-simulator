@@ -86,6 +86,9 @@ struct Params {
     DemagMethod demag_method = DemagMethod::Closed;
     Real      demag_accuracy = 8.0;          // Newell quadrature only
     Real      demag_tol_conv = 2.0e-2;       // Newell (typical floor at 32x32)
+    // Periodic image wraps per periodic direction (0 = minimum image);
+    // truncation residual ~ ((pbc_images + 1) * L)^-3.
+    int       pbc_images     = 2;
 
     // -------- Thermal (stochastic LLG); filled by attach_thermal --------
     Real      T           = 0.0;             // bath temperature (K)

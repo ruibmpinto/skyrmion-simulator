@@ -69,7 +69,7 @@ def normalize(m):
 
 
 # ---------------------------------------------------------------------
-def llgs_rhs(m, H_eff, p, t):
+def llgs_rhs(m, H_eff, p, t, mask=None):
     """Compute dm/dt from the explicit LLGS equation.
 
     Parameters
@@ -84,6 +84,11 @@ def llgs_rhs(m, H_eff, p, t):
         SOT coefficients `p.DL_SOT` and `p.FL_SOT`.
     t : float
         Time in seconds, used to evaluate `p.pulse(t)`.
+    mask : {numpy.ndarray(2d), None}, default=None
+        Boolean (ny, nx) array, True inside the magnetic region.
+        Vacuum sites get dm/dt = 0 exactly: the effective field
+        is already zero there, but the SOT (and TSH) torques do
+        not depend on H and would otherwise rotate vacuum spins.
 
     Returns
     -------
@@ -100,7 +105,8 @@ def llgs_rhs(m, H_eff, p, t):
         + (tau_FL - alpha*tau_DL) s
     ]
 
-    where s = (p_hat x m) / |p_hat x m|. The SOT effective fields
+    where s = p_hat x m (unnormalized, standard Slonczewski
+    form). The SOT effective fields
     H_DL(t) = DL_SOT * J(t) and H_FL(t) = FL_SOT * J(t) are
     recomputed every call from `p.pulse(t)`, so the integrator
     follows arbitrary time-varying drives.
@@ -126,16 +132,20 @@ def llgs_rhs(m, H_eff, p, t):
         # SOT effective fields at time t (Tesla).
         H_DL_t = p.DL_SOT * J_t
         H_FL_t = p.FL_SOT * J_t
-        # p_hat x m
-        p_cross_m = np.cross(p.p_hat[np.newaxis, np.newaxis, :], m)
-        # |p_hat x m|
-        p_cross_m_norm = np.sqrt(
-            np.sum(p_cross_m ** 2, axis=-1, keepdims=True,))
-        # Avoid division by zero where p_hat || m
-        # Floor prevents NaN when m aligns with the polarization axis.
-        safe = np.maximum(p_cross_m_norm, 1e-30)
-        # s = (p_hat x m) / |p_hat x m| is the SOT spin polarization direction.
-        s = p_cross_m / safe
+        # Legacy normalized form (nonstandard: torque magnitude lost
+        # the sin factor between m and p_hat; kept for reference):
+        # # p_hat x m
+        # p_cross_m = np.cross(p.p_hat[np.newaxis, np.newaxis, :], m)
+        # # |p_hat x m|
+        # p_cross_m_norm = np.sqrt(
+        #     np.sum(p_cross_m ** 2, axis=-1, keepdims=True,))
+        # # Avoid division by zero where p_hat || m
+        # safe = np.maximum(p_cross_m_norm, 1e-30)
+        # s = p_cross_m / safe
+        # s = p_hat x m (unnormalized, standard Slonczewski form):
+        # the torque carries the sin factor between m and p_hat and
+        # vanishes where m || p_hat.
+        s = np.cross(p.p_hat[np.newaxis, np.newaxis, :], m)
         # m x s
         m_cross_s = np.cross(m, s)
         # Effective SOT coefficients (in Tesla)
@@ -147,6 +157,14 @@ def llgs_rhs(m, H_eff, p, t):
     # Topological spin Hall torque
     # Off by default (p.lambda_sq = 0); the entire block is skipped.
     if p.lambda_sq != 0.0:
+        # The TSH gradient stencil wraps periodically and would
+        # read vacuum spins; refuse loudly instead of computing
+        # silently wrong gradients at the mask boundary.
+        if mask is not None:
+            raise RuntimeError(
+                'llgs_rhs: the TSH torque (lambda_sq != 0) does '
+                'not support a free-boundary mask; its gradient '
+                'stencil would read vacuum neighbors.')
         # Read the substage current density once.
         J_t_tsh = p.pulse(t)
         # If the pulse is zero there is no TSH contribution either.
@@ -174,6 +192,9 @@ def llgs_rhs(m, H_eff, p, t):
             # The newaxis broadcasts the scalar N_xy onto the
             # 3-vector dm/dy without an explicit loop.
             dmdt += (-b_j * p.lambda_sq * N_xy[..., np.newaxis] * dmdy)
+    # Vacuum sites must not move (SOT/TSH do not depend on H_eff).
+    if mask is not None:
+        dmdt = dmdt * mask[..., np.newaxis]
     return dmdt
 
 

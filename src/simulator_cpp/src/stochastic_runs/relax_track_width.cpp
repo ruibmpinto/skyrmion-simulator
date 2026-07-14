@@ -24,8 +24,8 @@ int main() {
     const double dt = 5.0e-14;
     // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
     // over the full box; the track width is the transverse box extent
-    // L_y = ny*a. Exchange/DMI wrap (mask=None), matching the Python
-    // pipeline.
+    // L_y = ny*a. Exchange/DMI use free-y ghost cells (mask = nullptr),
+    // matching the Python pipeline.
     const DemagKind demag_kind = DemagKind::Racetrack;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;

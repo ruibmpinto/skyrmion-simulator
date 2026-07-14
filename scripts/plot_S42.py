@@ -93,6 +93,8 @@ def _v_inst(t, cx, cy):
 
 # Build both S42 panels: v_inst(t) traces and v_max/v_avg vs J.
 def main():
+    """Load the S42 J sweep and write the v_inst(t) traces figure and
+    the v_max / v_avg vs J summary figure."""
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration.
     in_dir = 'output/sweeps_S41_S49/S42'

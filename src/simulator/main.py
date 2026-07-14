@@ -123,7 +123,8 @@ def run(p=None):
     pos_bot[..., 2] = -p.t_Co
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Initial conditions: SAF skyrmion pair
-    m_top, m_bot = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,)
+    m_top, m_bot = saf_skyrmion(
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Header
     print('SAF Skyrmion Simulator')
@@ -161,7 +162,7 @@ def run(p=None):
         for step in range(1, p.n_relax + 1):
             m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
             t += p.dt
-            if step % (p.n_relax // 5) == 0:
+            if step % max(p.n_relax // 5, 1) == 0:
                 Q = topological_charge(m_top, p.a)
                 t_ps = step * p.dt * 1e12
                 print(f'  t={t_ps:.0f} ps  Q={Q:+.4f}')

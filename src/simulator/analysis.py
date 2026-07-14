@@ -68,7 +68,7 @@ def skyrmion_center(m, a, core_polarity):
             f'got {core_polarity!r}.')
     # Extract number of grid points per direction
     ny, nx = m.shape[:2]
-    # Create grid of lattic sites in units of a. jj, ii have shape (ny, nx).
+    # Create grid of lattice sites in units of a. jj, ii have shape (ny, nx).
     jj, ii = np.meshgrid(
         np.arange(nx, dtype=float),
         np.arange(ny, dtype=float),)
@@ -340,12 +340,14 @@ def run_analysis():
     p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    m_top, m_bot = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R)
+    m_top, m_bot = saf_skyrmion(
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     # Top layer: core at m_z = -1 → core_polarity = +1.
     d0 = skyrmion_diameter(m_top, p.a, core_polarity=+1)
     print(f'Initial diameter: {d0 * 1e9:.1f} nm')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    n_relax = 10000  # 10000 * 50 fs = 500 ps
+    # 10000 * 50 fs = 500 ps
+    n_relax = 10000  
     t = 0.0
     for step in range(1, n_relax + 1):
         m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)

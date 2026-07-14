@@ -50,7 +50,20 @@ Field3 uniform_state(int nx, int ny, const Vec3& dir) {
 SAFPair saf_skyrmion(int nx, int ny, Real a, Real R, Real dw) {
     SAFPair pair;
     pair.m_top = skyrmion_profile(nx, ny, a, R, dw, +1);
-    pair.m_bot = skyrmion_profile(nx, ny, a, R, dw, -1);
+    // AF partner is the full flip -m_top (core up, INWARD radial
+    // in-plane): the DMI energy is even under m -> -m, so both
+    // layers carry the DMI-favored chirality and the wall rings
+    // are antiparallel (RKKY ground state). The old seed
+    // // pair.m_bot = skyrmion_profile(nx, ny, a, R, dw, -1);
+    // flipped only m_z (DMI-maximizing, RKKY-frustrated ring).
+    pair.m_bot = Field3(ny, nx);
+    for (int i = 0; i < ny; ++i) {
+        for (int j = 0; j < nx; ++j) {
+            pair.m_bot(i, j, 0) = -pair.m_top(i, j, 0);
+            pair.m_bot(i, j, 1) = -pair.m_top(i, j, 1);
+            pair.m_bot(i, j, 2) = -pair.m_top(i, j, 2);
+        }
+    }
     return pair;
 }
 

@@ -258,7 +258,7 @@ def run_macrospin_ensemble(p, m0_top, dt, n_steps,
         )
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
         if step % sample_every == 0:
             times[sample_idx] = step * dt

@@ -257,7 +257,8 @@ def _build_ic(ic_name, ic_seed, p):
         m_bot = uniform_state(p.nx, p.ny, np.array([0.0, 0.0, sign]),)
         return m_top, m_bot
     if ic_name == 'skyrmion':
-        return saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,)
+        return saf_skyrmion(
+            p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     if ic_name == 'stripe':
         return stripe_state(p.nx, p.ny, _helix_period(p), p.a, axis='x',)
     if ic_name == 'stripe_y':

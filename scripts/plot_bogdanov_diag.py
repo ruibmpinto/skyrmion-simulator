@@ -104,6 +104,8 @@ def _analytical_Dc(p=None):
 
 # Build the 2-panel d_eq(D) and residual-torque(D) diagnostic.
 def main():
+    """Load the S41_D_sweep records, compute the analytical D_c, and
+    write the three-panel Bogdanov-Hubert / soft-mode figure."""
     in_dir = 'output/sweeps_S41_S49/S41_D_sweep'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

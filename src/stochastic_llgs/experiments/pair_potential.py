@@ -49,12 +49,14 @@ __status__ = 'Development'
 # =============================================================================
 
 
-def skyrmion_at_position(nx, ny, a, R, dw, polarity, cx, cy):
+def skyrmion_at_position(nx, ny, *, a, R, dw, polarity, cx, cy):
     """Single Neel skyrmion placed at `(cx, cy)`.
 
     Mirrors `src.simulator.initial_conditions.skyrmion_profile`
     but the core position is configurable (the original centers
-    at the lattice midpoint).
+    at the lattice midpoint). Physical arguments are
+    keyword-only: `a`, `R`, `dw`, `cx`, `cy` are all lengths in
+    meters, so positional calls could be silently transposed.
     """
     jj, ii = np.meshgrid(
         np.arange(nx, dtype=float),
@@ -82,25 +84,33 @@ def two_skyrmion_pair_ic(nx, ny, a, R, dw, polarity_top,
     """Build a SAF magnetization pair containing two skyrmions
     at positions `c1` and `c2`."""
     m_top_1 = skyrmion_at_position(
-        nx, ny, a, R, dw, polarity_top, c1[0], c1[1])
+        nx, ny, a=a, R=R, dw=dw, polarity=polarity_top,
+        cx=c1[0], cy=c1[1])
     m_top_2 = skyrmion_at_position(
-        nx, ny, a, R, dw, polarity_top, c2[0], c2[1])
+        nx, ny, a=a, R=R, dw=dw, polarity=polarity_top,
+        cx=c2[0], cy=c2[1])
     # Overlay the two single-skyrmion fields by keeping, per cell,
     # whichever has the deeper core (lower m_z for the top layer).
     pick1 = (
         m_top_1[..., 2] <= m_top_2[..., 2]
     )[..., np.newaxis]
     m_top = np.where(pick1, m_top_1, m_top_2)
-    pol_bot = -int(polarity_top)
-    m_bot_1 = skyrmion_at_position(
-        nx, ny, a, R, dw, pol_bot, c1[0], c1[1])
-    m_bot_2 = skyrmion_at_position(
-        nx, ny, a, R, dw, pol_bot, c2[0], c2[1])
-    # Bottom layer has opposite polarity: keep the higher-m_z core.
-    pick1b = (
-        m_bot_1[..., 2] >= m_bot_2[..., 2]
-    )[..., np.newaxis]
-    m_bot = np.where(pick1b, m_bot_1, m_bot_2)
+    # AF partner is the full flip -m_top (cores reversed, INWARD
+    # radial in-plane): both layers carry the DMI-favored
+    # chirality and the wall rings are antiparallel (RKKY ground
+    # state). The old seed built the bottom layer from
+    # opposite-polarity profiles, which flipped only m_z
+    # (DMI-maximizing, RKKY-frustrated wall rings):
+    # # pol_bot = -int(polarity_top)
+    # # m_bot_1 = skyrmion_at_position(
+    # #     nx, ny, a, R, dw, pol_bot, c1[0], c1[1])
+    # # m_bot_2 = skyrmion_at_position(
+    # #     nx, ny, a, R, dw, pol_bot, c2[0], c2[1])
+    # # pick1b = (
+    # #     m_bot_1[..., 2] >= m_bot_2[..., 2]
+    # # )[..., np.newaxis]
+    # # m_bot = np.where(pick1b, m_bot_1, m_bot_2)
+    m_bot = -m_top
     return m_top, m_bot
 
 
@@ -147,7 +157,7 @@ def _run_one_point(args):
     rng = np.random.default_rng(int(p.seed))
     sigma = float(p.sigma_noise)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    for _ in range(n_relax):
+    for step in range(n_relax):
         h_top = sample_thermal_field(rng, (ny, nx), sigma, dt) \
             if sigma > 0.0 \
             else np.zeros((ny, nx, 3), dtype=float)
@@ -156,7 +166,7 @@ def _run_one_point(args):
             else np.zeros((ny, nx, 3), dtype=float)
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     n_samples = (n_drive + sample_every - 1) // sample_every
@@ -174,7 +184,7 @@ def _run_one_point(args):
             else np.zeros((ny, nx, 3), dtype=float)
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, kernels,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=(step - 1) * dt,
         )
         if step % sample_every == 0:
             # Split the lattice into left/right halves and locate

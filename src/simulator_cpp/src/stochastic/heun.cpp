@@ -105,8 +105,8 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
 
     // Predictor: f1 = LLGS(m, H(m) + h); m~ = m + dt*f1 (no renorm).
     field_plus_noise(m_top, m_bot, p, single);
-    llgs_rhs(m_top, H_top_, p, t, f1_top_);
-    if (!single) llgs_rhs(m_bot, H_bot_, p, t, f1_bot_);
+    llgs_rhs(m_top, H_top_, p, t, f1_top_, mask_);
+    if (!single) llgs_rhs(m_bot, H_bot_, p, t, f1_bot_, mask_);
     const std::size_t n = m_top.data.size();
 #ifdef SKYRMION_OPENMP
     #pragma omp parallel for schedule(static)
@@ -125,8 +125,8 @@ void HeunStochasticStepper::step(Field3& m_top, Field3& m_bot,
 
     // Corrector: f2 = LLGS(m~, H(m~) + h) with the SAME noise h.
     field_plus_noise(mp_top_, mp_bot_, p, single);
-    llgs_rhs(mp_top_, H_top_, p, t + dt, f2_top_);
-    if (!single) llgs_rhs(mp_bot_, H_bot_, p, t + dt, f2_bot_);
+    llgs_rhs(mp_top_, H_top_, p, t + dt, f2_top_, mask_);
+    if (!single) llgs_rhs(mp_bot_, H_bot_, p, t + dt, f2_bot_, mask_);
 
     // Heun average, then end-of-step norm-drift check + renorm.
     const int ny = m_top.ny, nx = m_top.nx;

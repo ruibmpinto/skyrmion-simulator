@@ -146,7 +146,7 @@ def run_collapse_trajectory(config):
     attach_thermal(p, T=T_sub, R_th=0.0, seed=seed)
     # IC: single Neel skyrmion, core m_z = -1 (polarity = +1).
     m = skyrmion_profile(
-        nx, ny, p.a, p.skyrmion_R, dw=p.skyrmion_dw, polarity=1)
+        nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw, polarity=1)
     rng = np.random.default_rng(int(p.seed))
     sigma = float(p.sigma_noise)
     zero_h = np.zeros((ny, nx, 3), dtype=float)

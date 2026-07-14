@@ -557,7 +557,8 @@ def detect_annihilation(Q_history, q_threshold, k_consecutive):
     if below.size < k_consecutive:
         return -1
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Sliding-window "all True" via cumulative product
+    # Run-length counter over consecutive below-threshold steps;
+    # first index whose run reaches k_consecutive marks collapse.
     run_length = np.zeros_like(below, dtype=np.int64)
     run_length[0] = int(below[0])
     for i in range(1, below.size):

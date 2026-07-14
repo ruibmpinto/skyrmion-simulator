@@ -102,6 +102,12 @@ def _run_one_point(args):
 
 # -----------------------------------------------------------------------------
 def main():
+    """Dispatch the DMI-swept skyrmion thermal-collapse scan.
+
+    Runs a (D x temperature x ensemble) grid of stochastic
+    trajectories at a fixed sub-critical field and writes
+    per-trajectory NPZ output for the Delta_E(D) trend.
+    """
     # =========================== User Configuration =========================
     A_ex            = 16.0e-12       # J/m
     K_eff           = 0.50e6         # J/m^3

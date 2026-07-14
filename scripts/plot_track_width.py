@@ -28,14 +28,15 @@ import glob
 import os
 # Third-party
 import numpy as np
-import scipy.ndimage as ndi
-from scipy.spatial import ConvexHull
 import matplotlib.animation as manim
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 # Local
 from src.plots.plot_snapshot_mz import plot_snapshot_mz
+from src.stochastic_llgs.diagnostics import hall_angle, \
+    unwrap_trajectory
+from src.stochastic_llgs.stability import classify_field
 
 #
 #                                                          Authorship & Credits
@@ -100,226 +101,6 @@ def _plot_axes_vs_j(agg, out_path):
     plt.close(fig)
 
 
-# -----------------------------------------------------------------------------
-def _periodic_x_components(mask, min_cells):
-    """Connected components of a Boolean field with periodic x, free y.
-
-    Labels the 4-connected components of `mask`, merges labels that touch
-    across the periodic seam (column 0 <-> column nx-1) via a union-find,
-    and DROPS components smaller than `min_cells` -- at finite T the
-    reversed-domain mask is peppered with single-cell thermal speckles
-    that would otherwise be counted as domains. Returns the retained
-    component count, the largest-component area fraction, whether any
-    retained component wraps the x seam (connects to its own periodic
-    image -> spanning stripe), and the total retained area (cells).
-
-    Parameters
-    ----------
-    mask : numpy.ndarray(2d, bool)
-        Reversed-domain mask, shape (ny, nx). x is the periodic axis.
-    min_cells : int
-        Minimum component size (cells) to count as a real domain.
-
-    Returns
-    -------
-    n_comp : int
-        Number of retained components after the seam merge + size filter.
-    f_max : float
-        Largest retained component cell count / total cells.
-    x_percolates : bool
-        True if a retained component spans the periodic-x seam.
-    area : int
-        Total retained (domain) area in cells.
-    dx_cells : int
-        Periodic-aware x-extent (columns) of the largest retained
-        component -- the span along the periodic axis, used for the
-        loss-of-periodicity gate (this is D_x, not the ellipse major
-        axis D_1 which may lie along free-y).
-    solidity : float
-        Area / convex-hull-area of the largest retained component
-        (periodic-unwrapped in x). Near 1 for a convex blob or stripe
-        (skyrmion); low for a serpentine, hull-underfilling labyrinth.
-    """
-    lab, n = ndi.label(mask)
-    if n == 0:
-        return 0, 0.0, False, 0, 0, 1.0
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Union-find over labels; merge across the periodic-x seam.
-    parent = list(range(n + 1))
-
-    def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[max(ra, rb)] = min(ra, rb)
-    left = lab[:, 0]
-    right = lab[:, -1]
-    for a, b in zip(left, right):
-        if a > 0 and b > 0:
-            union(int(a), int(b))
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Merged sizes; drop speckles below min_cells; seam-wrap test on the
-    # retained (large) components only.
-    roots = np.array([find(i) for i in range(n + 1)])
-    sizes = np.bincount(lab.ravel(), minlength=n + 1)
-    merged = {}
-    for label in range(1, n + 1):
-        r = roots[label]
-        merged[r] = merged.get(r, 0) + int(sizes[label])
-    big = {r: s for r, s in merged.items() if s >= min_cells}
-    if not big:
-        return 0, 0.0, False, 0, 0, 1.0
-    n_comp = len(big)
-    area = int(sum(big.values()))
-    f_max = max(big.values()) / float(mask.size)
-    seam = ({roots[int(a)] for a in left if a > 0}
-            & {roots[int(b)] for b in right if b > 0})
-    x_percolates = any(r in big for r in seam)
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Largest retained component; its periodic x-extent (D_x) = nx minus
-    # the largest cyclic gap of empty columns, and its solidity on the
-    # x-unwrapped mask (rolled so the gap sits at the seam).
-    r_max = max(big, key=big.get)
-    comp = (roots[lab] == r_max)
-    occ = np.any(comp, axis=0)
-    nx = mask.shape[1]
-    if occ.all():
-        dx_cells = nx
-        comp_uw = comp
-    else:
-        idx = np.flatnonzero(occ)
-        gaps = np.diff(idx) - 1
-        wrap_gap = idx[0] + nx - idx[-1] - 1
-        max_gap = int(max(gaps.max() if gaps.size else 0, wrap_gap))
-        dx_cells = nx - max_gap
-        if gaps.size and gaps.max() >= wrap_gap:
-            g = int(gaps.argmax())
-            comp_uw = np.roll(comp, nx - int(idx[g + 1]), axis=1)
-        else:
-            comp_uw = comp
-    pts = np.column_stack(np.nonzero(comp_uw))
-    try:
-        solidity = comp_uw.sum() / float(ConvexHull(pts).volume)
-    except Exception:
-        solidity = 1.0
-    return n_comp, f_max, x_percolates, area, dx_cells, solidity
-
-
-def _classify_field(mz, q_abs, D1, D2, L_x):
-    """Classify one relaxed/driven configuration from the raw field.
-
-    Combines the three physical signals: the topological charge |Q|
-    (skyrmion present vs collapsed vs multi-domain), the periodic-x
-    connected-component / percolation structure of the reversed domain
-    (single vs fragmented vs spanning), and the D_1 / L_x periodic gate
-    (a domain longer than half the track can bridge its own x-image, so
-    the single-skyrmion ellipse is invalid).
-
-    The loss-of-periodicity gate uses D_x, the field-measured x-extent
-    of the reversed domain (periodic axis), NOT the ellipse major axis
-    D_1 -- a skyrmion elongated along free-y has large D_1 but small
-    D_x and does not bridge its periodic-x image.
-
-    Parameters
-    ----------
-    mz : numpy.ndarray(2d)
-        Top-layer m_z of the final drive frame, shape (ny, nx).
-    q_abs : float
-        |Q| (absolute topological charge) of that frame.
-    D1, D2 : float
-        LCC ellipse major / minor axes (m), ensemble mean for the cell
-        (used only for the D_1/D_2 elongation ratio).
-    L_x : float
-        Track length along the periodic axis (m).
-
-    Returns
-    -------
-    code : str
-        'S' compact skyrmion, 'E' elongated / spanning skyrmion,
-        'L' labyrinth / multi-domain, 'A' annihilated (ferromagnetic).
-    metrics : dict
-        Diagnostic values used by the decision (for the report table).
-    """
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Field-analysis thresholds (physical; local, not global state).
-    core_thresh = -0.5  # m_z below this = reversed domain (not T noise)
-    min_frac = 0.002    # component size below this frac of box = speckle
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Reversed domain, de-speckled: threshold hard (m_z < -0.5) and drop
-    # components below min_frac of the box, so thermal fluctuations near
-    # m_z = 0 are not counted as domains.
-    core = mz < core_thresh
-    min_cells = max(20, int(min_frac * mz.size))
-    n_comp, f_max, x_perc, area, dx_cells, solidity = \
-        _periodic_x_components(core, min_cells)
-    core_frac = area / float(mz.size)
-    # Loss-of-periodicity uses the field x-extent D_x (= dx_cells / nx),
-    # not the ellipse major axis. D1/L_x is kept only for reference.
-    dx_lx = dx_cells / float(mz.shape[1])
-    d1_lx = D1 / L_x if (L_x > 0.0 and np.isfinite(D1)) else 0.0
-    ratio = D1 / D2 if (D2 > 0.0 and np.isfinite(D1)
-                        and np.isfinite(D2)) else 1.0
-    metrics = {
-        'q_abs': q_abs, 'core_frac': core_frac, 'n_comp': n_comp,
-        'f_max': f_max, 'x_perc': bool(x_perc), 'dx_lx': dx_lx,
-        'd1_lx': d1_lx, 'ratio': ratio, 'solidity': solidity,
-    }
-    return _decide_class(metrics), metrics
-
-
-def _decide_class(m):
-    """Decide the stability class from the per-cell metrics.
-
-    Topology first, then shape. A single-winding reversed domain
-    ($\\Q\\approx1$) is a skyrmion (compact or elongated) only if it is
-    convex-like (high solidity); a serpentine, hull-underfilling domain
-    is a labyrinth however its charge integrates. Neither the reversed
-    fraction nor a lone satellite domain demotes a genuine skyrmion.
-
-    Parameters
-    ----------
-    m : dict
-        Metrics from `_classify_field`: q_abs, n_comp, core_frac,
-        x_perc, dx_lx, ratio, solidity.
-
-    Returns
-    -------
-    code : str
-        'S', 'E', 'L', or 'A'.
-    """
-    q_sk = 0.5          # |Q| above -> a topological skyrmion is present
-    q_multi = 1.6       # |Q| above -> more than one skyrmion
-    core_min = 0.005    # domain-area frac below -> no domain (FM)
-    x_gate = 0.5        # D_x/L_x above -> periodic-image break (index p)
-    r_elong = 1.7       # D1/D2 above -> elongated
-    n_dom = 3           # this many domains -> labyrinth (multi-domain)
-    s_min = 0.7         # solidity below -> serpentine labyrinth
-    q = m['q_abs']
-    n_comp = m['n_comp']
-    # No reversed domain (and no sub-floor winding): ferromagnetic.
-    if n_comp == 0 or (m['core_frac'] < core_min and q < q_sk):
-        return 'A'
-    # Genuine labyrinth: more than one winding, or many domains.
-    if q >= q_multi or n_comp >= n_dom:
-        return 'L'
-    # Chargeless texture (|Q| ~ 0): not a skyrmion -> stripe / labyrinth.
-    if q < q_sk:
-        return 'L'
-    # One winding: a convex-like blob/stripe is a skyrmion; a serpentine,
-    # hull-underfilling domain is a labyrinth.
-    if m['solidity'] < s_min:
-        return 'L'
-    # Skyrmion: elongated/spanning (E) vs compact (S).
-    if m['x_perc'] or m['dx_lx'] >= x_gate or m['ratio'] >= r_elong:
-        return 'E'
-    return 'S'
-
-
 def _save_classes(path, Ts, Js, cls, rows):
     """Persist the class grid and per-cell decision metrics.
 
@@ -337,7 +118,7 @@ def _save_classes(path, Ts, Js, cls, rows):
     cls : numpy.ndarray(2d)
         Class-code grid.
     rows : list[dict]
-        Per-cell metrics from `_classify_field`.
+        Per-cell metrics from `classify_field`.
     """
     def grid(key):
         g = np.full((Ts.size, Js.size), np.nan)
@@ -438,7 +219,7 @@ def _plot_velocity_vs_j(agg, cls, out_path):
     agg : dict
         Aggregate payload (keys Ts, Js, v_mean, v_se).
     cls : numpy.ndarray(2d)
-        Per-cell class codes from `_classify_grid`.
+        Per-cell class codes from the field classifier.
     out_path : str
         Output PNG path.
     """
@@ -596,36 +377,47 @@ def _plot_ratio_heatmaps(agg, out_path):
 
 
 # -----------------------------------------------------------------------------
-def _plot_survival(agg, cls, out_path):
-    """Survival probability and Hall-angle maps.
+def _plot_survival(agg, cls, theta_ens0, out_path):
+    """Skyrmion survival and Hall-angle maps.
+
+    Survival is the field-classifier verdict (a member survived iff
+    its final configuration classifies as a skyrmion, 'S' or 'E'),
+    NOT the |Q|-threshold criterion -- a melted labyrinth keeps its
+    winding and would count as alive under |Q|. With only the ens0
+    dumps on disk the panel is the binary ens0 verdict; a
+    re-aggregated campaign (per-realization `mz_final_top`) turns it
+    into the ensemble fraction.
 
     Parameters
     ----------
     agg : dict
-        Aggregate payload (keys Ts, Js, P_surv, theta_mean).
+        Aggregate payload (keys Ts, Js).
     cls : numpy.ndarray(2d)
         Per-cell class codes from the field classifier. The Hall
         angle is only meaningful for a tracked skyrmion, so cells
         that are not 'S'/'E' (labyrinth, annihilated, unknown) are
         masked in the theta panel.
+    theta_ens0 : numpy.ndarray(2d)
+        Per-cell Hall angle (deg) from the ens0 dump trajectories
+        (`_hall_from_dump`), range (-90, 90].
     out_path : str
         Output PNG path.
     """
     Ts = agg['Ts']
     Js = agg['Js']
+    surv = np.isin(cls, ('S', 'E')).astype(float)
     fig, axes = plt.subplots(1, 2, figsize=(13.0, 5.0))
     im0 = _imshow_grid(
-        axes[0], Ts, Js, agg['P_surv'],
-        r'survival probability $P_{\mathrm{surv}}$',
+        axes[0], Ts, Js, surv,
+        'skyrmion survival (field classifier, ens0)',
         'magma', 0.0, 1.0)
     fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
-    theta = np.where(
-        np.isin(cls, ('S', 'E')), agg['theta_mean'], np.nan)
+    theta = np.where(surv > 0.0, theta_ens0, np.nan)
     tmax = float(np.nanmax(np.abs(theta))) if np.any(
         np.isfinite(theta)) else 1.0
     im1 = _imshow_grid(
         axes[1], Ts, Js, theta,
-        r'skyrmion Hall angle $\theta_H$ (deg), S/E cells only',
+        r'skyrmion Hall angle $\theta_H$ (deg), ens0, S/E only',
         'coolwarm', -tmax, tmax)
     fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
     fig.tight_layout()
@@ -654,7 +446,9 @@ def _load_anim(path):
         Keys `mi_top`/`mi_bot`, `mr_top`/`mr_bot`, `mf_top`/`mf_bot`
         (initial / relaxed / final (ny, nx, 3) fields per layer),
         `mz_top` (drive-phase m_z stack, shape (n_frames, ny, nx))
-        and `t` (frame times).
+        and `t` (frame times). C++ dumps additionally carry
+        `mm_top` (mid-drive frame, start of the Hall fit window),
+        `q_final` and the tracked centre series `cx`, `cy`.
     """
     d = np.load(path, allow_pickle=True)
     if 'anim_mz_top' in d.files:
@@ -685,10 +479,18 @@ def _load_anim(path):
             raise RuntimeError(
                 f'_load_anim: {path!r} lacks the Q_top array needed '
                 f'for |Q| stability classification.')
+        if 'cx_top' not in d.files or 'cy_top' not in d.files:
+            raise RuntimeError(
+                f'_load_anim: {path!r} lacks the cx_top/cy_top '
+                f'series needed for the dump-based Hall fit.')
         q_final = float(np.asarray(d['Q_top'])[drive_idx[-1]])
+        # Mid-drive frame: the start of the last-half Hall fit window
+        # (hall_angle uses i0 = int(0.5 * n)).
+        mid = drive_idx[int(0.5 * drive_idx.size)]
         return {
             'mi_top': m_top[relax_idx[0]],
             'mr_top': m_top[relax_idx[-1]],
+            'mm_top': m_top[mid],
             'mf_top': m_top[drive_idx[-1]],
             'mi_bot': m_bot[relax_idx[0]],
             'mr_bot': m_bot[relax_idx[-1]],
@@ -696,10 +498,130 @@ def _load_anim(path):
             'mz_top': m_top[drive_idx][..., 2],
             't': t[drive_idx],
             'q_final': q_final,
+            'cx': np.asarray(d['cx_top'], dtype=float)[drive_idx],
+            'cy': np.asarray(d['cy_top'], dtype=float)[drive_idx],
         }
     raise RuntimeError(
         f'_load_anim: unrecognised dump layout in {path!r}; '
         f'keys={list(d.files)}.')
+
+
+# -----------------------------------------------------------------------------
+def _hall_from_dump(na, L_x, L_y, periodic_y):
+    """Hall angle of one ens0 dump trajectory.
+
+    Same dump-based route as the stability classification: the
+    (T, j) cell is characterised directly from its `anim_*.npz`
+    realization instead of the aggregate, using the identical
+    unwrap + last-half linear fit as the production diagnostics.
+
+    Parameters
+    ----------
+    na : dict
+        `_load_anim` payload; requires the drive-phase tracked
+        centre series `cx`, `cy` and the frame times `t`.
+    L_x : float
+        Box length in x, in meters.
+    L_y : float
+        Box length in y, in meters.
+    periodic_y : bool
+        Whether y is periodic (False for the free-y racetrack).
+
+    Returns
+    -------
+    theta_deg : float
+        Hall angle atan2(v_y, |v_x|) in degrees, range (-90, 90];
+        NaN when the centre series is unusable (core lost).
+    """
+    if 'cx' not in na or 'cy' not in na:
+        raise RuntimeError(
+            '_hall_from_dump: dump payload lacks the tracked '
+            'centre series (Python-driver layout?); the '
+            'dump-based Hall fit needs the C++ SnapshotBuffer '
+            'cx_top/cy_top arrays.')
+    cx = na['cx']
+    cy = na['cy']
+    if cx.size < 4 or not (np.all(np.isfinite(cx))
+                           and np.all(np.isfinite(cy))):
+        return float('nan')
+    cx_u, cy_u = unwrap_trajectory(cx, cy, L_x, L_y, periodic_y)
+    _vx, _vy, theta_deg = hall_angle(na['t'], cx_u, cy_u, half=0.5)
+    return theta_deg
+
+
+# -----------------------------------------------------------------------------
+def _plot_hall_deviation(na, a, L_x, theta_deg, theta_se, out_path):
+    """Three-panel visualization of the Hall-angle deviation.
+
+    Left: drive-start (relaxed) configuration with the drive
+    direction (J along +x) and the tracked centre. Middle:
+    mid-drive frame -- the first point of the last-half Hall fit
+    window -- with that point ringed. Right: final frame with the
+    final tracked point, the full centre path (broken at
+    periodic-x wraps), the zero-deflection reference line and the
+    fit-window chord, annotated with theta_H (+- SE when an
+    ensemble value is available).
+
+    Parameters
+    ----------
+    na : dict
+        `_load_anim` payload (C++ layout: needs `mr_top`,
+        `mm_top`, `mf_top`, `cx`, `cy`).
+    a : float
+        Lattice constant (m).
+    L_x : float
+        Track length along the periodic axis (m), for the
+        wrap-break of the path overlay.
+    theta_deg : float
+        Hall angle of this realization (deg).
+    theta_se : float
+        Ensemble standard error on theta (deg); NaN when no
+        ensemble aggregate is available yet.
+    out_path : str
+        Output PNG path.
+    """
+    cx = na['cx'] * 1e9
+    cy = na['cy'] * 1e9
+    i0 = int(0.5 * cx.size)
+    fig, axes = plt.subplots(1, 3, figsize=(16.0, 7.5))
+    panels = (
+        (na['mr_top'], 'drive start (relaxed)', 0),
+        (na['mm_top'], 'mid-drive (fit-window start)', i0),
+        (na['mf_top'], 'final', cx.size - 1),
+    )
+    for ax, (field, title, idx) in zip(axes, panels):
+        plot_snapshot_mz(
+            field, a, ax=ax, title=title, show_colorbar=False)
+        ax.plot(cx[idx], cy[idx], marker='o', ms=12, mfc='none',
+                mec='lime', mew=2.0)
+        ax.plot(cx[idx], cy[idx], marker='+', ms=8, color='lime',
+                mew=1.5)
+    # Drive direction: current along +x.
+    axes[0].annotate(
+        '', xy=(0.38, 0.88), xytext=(0.08, 0.88),
+        xycoords='axes fraction',
+        arrowprops={'arrowstyle': '->', 'color': 'k', 'lw': 2.0})
+    axes[0].text(0.23, 0.905, r'$J \parallel x$', ha='center',
+                 fontsize=16, transform=axes[0].transAxes)
+    # Path overlay on the final panel, broken at periodic-x wraps.
+    cx_path = cx.copy()
+    wrap = np.flatnonzero(np.abs(np.diff(cx_path)) > 0.5 * L_x * 1e9)
+    cx_path[wrap + 1] = np.nan
+    axes[2].plot(cx_path, cy, color='lime', lw=1.0, alpha=0.8)
+    # Zero-deflection reference and the fit-window chord.
+    axes[2].axhline(cy[i0], ls='--', color='k', lw=1.0)
+    axes[2].plot([cx[i0], cx[-1]], [cy[i0], cy[-1]],
+                 color='k', lw=1.5)
+    se_txt = f'{theta_se:.1f}' if np.isfinite(theta_se) else 'n/a'
+    axes[2].text(
+        0.03, 0.985,
+        rf'$\theta_H = {theta_deg:+.1f}^\circ \pm$ {se_txt}',
+        transform=axes[2].transAxes, va='top', fontsize=16,
+        bbox={'facecolor': 'w', 'alpha': 0.8, 'edgecolor': 'none'})
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f'Saved: {out_path}')
+    plt.close(fig)
 
 
 # -----------------------------------------------------------------------------
@@ -821,10 +743,13 @@ def main():
         raise RuntimeError(
             f'plot_track_width: no {anim_glob!r} dump files in '
             f'{dump_dir!r}; dumping is gated to ens_idx==0.')
-    # Pass 1 -- classify every cell from its final field, then write the
-    # class table and the class-dependent maps first (they do not depend
+    # Pass 1 -- classify every cell from its final field and fit its
+    # Hall angle from the ens0 dump trajectory, then write the class
+    # table and the class-dependent maps first (they do not depend
     # on the slow GIF encoding that follows).
+    L_y = float(agg['L_y'])
     cls = np.full((Ts.size, Js.size), '?', dtype='<U1')
+    th_ens0 = np.full((Ts.size, Js.size), np.nan)
     rows = []
     for anim_path in anim_files:
         stem = os.path.splitext(os.path.basename(anim_path))[0]
@@ -833,14 +758,18 @@ def main():
         i = int(np.argmin(np.abs(Ts - T)))
         k = int(np.argmin(np.abs(Js - J)))
         na = _load_anim(anim_path)
-        code, m = _classify_field(
+        code, m = classify_field(
             na['mf_top'][..., 2], abs(na['q_final']),
             float(D1m[i, k]), float(D2m[i, k]), L_x)
         cls[i, k] = code
+        # Racetrack: y is free (not periodic), x is periodic.
+        th_ens0[i, k] = _hall_from_dump(
+            na, L_x, L_y, periodic_y=False)
         rows.append({'T': T, 'J': J, 'code': code, **m})
         print(f"  {stem}: |Q|={m['q_abs']:.2f}  Nc={m['n_comp']}  "
               f"xperc={int(m['x_perc'])}  Dx/Lx={m['dx_lx']:.2f}  "
-              f"D1/D2={m['ratio']:.2f}  -> {code}")
+              f"D1/D2={m['ratio']:.2f}  "
+              f"theta={th_ens0[i, k]:+.1f}  -> {code}")
     _save_classes(
         os.path.join(in_dir, f'stability_classes_{run_tag}.npz'),
         Ts, Js, cls, rows)
@@ -854,22 +783,38 @@ def main():
     _plot_velocity_vs_j(
         agg, cls, os.path.join(out_dir, 'velocity_vs_J.png'))
     _plot_survival(
-        agg, cls, os.path.join(out_dir, 'survival_hall.png'))
+        agg, cls, th_ens0,
+        os.path.join(out_dir, 'survival_hall.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Pass 2 -- config stills + GIFs (skip existing; the GIF encode is the
-    # slow step and its outputs go to the T7 gif_dir).
+    # Pass 2 -- config stills, Hall-deviation stills (S/E cells only)
+    # + GIFs (skip existing; the GIF encode is the slow step and its
+    # outputs go to the T7 gif_dir).
     for anim_path in anim_files:
         stem = os.path.splitext(os.path.basename(anim_path))[0]
+        T = float(stem.split('_T')[1].split('_j')[0])
+        J = float(stem.split('_j')[1])
+        i = int(np.argmin(np.abs(Ts - T)))
+        k = int(np.argmin(np.abs(Js - J)))
         cfg_path = os.path.join(out_dir, f'{stem}_configs.png')
+        hall_path = os.path.join(out_dir, f'{stem}_hall.png')
         gif_path = os.path.join(gif_dir, f'{stem}.gif')
         need_cfg = overwrite or not os.path.isfile(cfg_path)
+        # The Hall-deviation still only makes sense for a tracked
+        # skyrmion (class S/E).
+        need_hall = cls[i, k] in ('S', 'E') and (
+            overwrite or not os.path.isfile(hall_path))
         need_gif = overwrite or not os.path.isfile(gif_path)
-        if not need_cfg and not need_gif:
+        if not need_cfg and not need_hall and not need_gif:
             print(f'Skip (exists): {stem}')
             continue
         na = _load_anim(anim_path)
         if need_cfg:
             _plot_three_configs(na, a, cfg_path)
+        if need_hall:
+            # No ensemble aggregate yet: theta SE unavailable (NaN).
+            _plot_hall_deviation(
+                na, a, L_x, float(th_ens0[i, k]), float('nan'),
+                hall_path)
         if need_gif:
             _build_animation(na, a, gif_path)
 

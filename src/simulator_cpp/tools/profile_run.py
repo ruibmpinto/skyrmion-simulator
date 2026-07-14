@@ -53,7 +53,7 @@ def main():
     p.pulse = ConstantPulse(p.J_current)
     _precompute(p)
     m_top0, m_bot0 = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     print(f'Python profile: {nx}x{ny} lattice, {n_steps} steps '
           f'(after {n_warmup} warmup)')
 

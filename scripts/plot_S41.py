@@ -51,6 +51,9 @@ plt.rcParams['lines.linewidth'] = 1.5
 
 # Build the S41 |v(t)| panel from the single S41 trace.
 def main():
+    """Load one S41 trace, compute the instantaneous and average
+    skyrmion velocity, and write the |v(t)| figure to the D-tagged
+    PNG."""
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # I/O configuration (edit here). The sweep encodes the
     # demag kind and DMI value in the filename; keep this

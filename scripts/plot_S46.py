@@ -124,6 +124,9 @@ def _plot_panel(items, x_key, x_label, x_scale,
 
 # Render whichever of the two S46 sweeps exist on disk.
 def main():
+    """Render panel A (v and d_top vs H_RKKY) and panel B (v and
+    d_top vs FWHM) from the S46a and S46b sweeps, skipping whichever
+    sweep is absent."""
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)
     # Panel A: H_RKKY sweep.

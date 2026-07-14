@@ -60,7 +60,7 @@ def test_skyrmion_ellipse_circular():
     R = 80.0e-9
     dw = 27.0e-9
     # Build the SAF skyrmion pair; use the top layer.
-    m_top, _m_bot = saf_skyrmion(nx, ny, a, R, dw)
+    m_top, _m_bot = saf_skyrmion(nx, ny, a=a, R=R, dw=dw)
     # Compute principal-axis diameters from the core mask.
     # Top layer in saf_skyrmion has core_polarity = +1 (m_z = -1 core).
     D1, D2, theta = skyrmion_ellipse(m_top, a, core_polarity=+1)
@@ -96,7 +96,7 @@ def test_dw_angle_neel_at_rest():
     R = 80.0e-9
     dw = 27.0e-9
     # Build SAF skyrmion pair.
-    m_top, m_bot = saf_skyrmion(nx, ny, a, R, dw)
+    m_top, m_bot = saf_skyrmion(nx, ny, a=a, R=R, dw=dw)
     # DW angle at the right DW of each layer; pass the polarity
     # so dw_angle can locate the correct skyrmion centroid.
     psi_top = dw_angle(m_top, a, core_polarity=+1)
@@ -140,8 +140,8 @@ def test_tsh_off_equivalence():
             'lambda_sq = 0 by default.')
     # Same initial condition for both paths.
     m_top_a, m_bot_a = saf_skyrmion(
-        p_baseline.nx, p_baseline.ny, p_baseline.a,
-        p_baseline.skyrmion_R, p_baseline.skyrmion_dw,)
+        p_baseline.nx, p_baseline.ny, a=p_baseline.a,
+        R=p_baseline.skyrmion_R, dw=p_baseline.skyrmion_dw)
     m_top_b = m_top_a.copy()
     m_bot_b = m_bot_a.copy()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -121,6 +121,13 @@ def default_params():
     # juggling two very different orders of magnitude per call.
     p.mu_B_over_q_e = 9.2740100783e-24 / 1.602176634e-19
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Demag periodic images
+    # Image wraps summed per periodic direction when building the
+    # Newell/racetrack kernels (0 = minimum-image truncation).
+    # Residual truncation scales as ((pbc_images + 1) * L)^-3;
+    # 2 puts it at ~1e-5 on the production box.
+    p.pbc_images = 2
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Time integration
     # Explicit RK4; dt must satisfy gamma * H_K * dt << 1 for stability.
     p.dt = 5e-14       # s

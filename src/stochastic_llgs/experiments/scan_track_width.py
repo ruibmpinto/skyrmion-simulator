@@ -101,7 +101,7 @@ def _relax_equilibrium(cfg):
         accuracy=float(cfg['demag_accuracy']),
         tol_conv=float(cfg['demag_tol_conv']))
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
     m_eq_top, m_eq_bot, conv, n_used, _E, tau = relax(
         m_top=m_top, m_bot=m_bot, p=p, kernels=kernels,
         max_steps=int(cfg['relax_max_steps']),
@@ -185,7 +185,9 @@ def _run_one_point(args):
     t_idx = int(point['t_idx'])
     # Decorrelate seeds: distinct stride per ensemble member and
     # per grid cell so no two trajectories share an RNG stream.
-    seed = int(cfg['seed_base']) + 1000 * ens_idx \
+    # Stage offset 1e9 keeps the drive streams disjoint from the
+    # equilibrate-stage seeds (cell_idx overlaps t_idx there).
+    seed = 1_000_000_000 + int(cfg['seed_base']) + 1000 * ens_idx \
         + 1000_000 * int(point['cell_idx'])
     # Only the first ensemble member dumps full fields.
     dump_fields = bool(ens_idx == 0)

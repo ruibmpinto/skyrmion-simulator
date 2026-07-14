@@ -17,12 +17,12 @@ argument to `precompute_demag_kernels`:
     The cell-cell tensor is built by Gauss-Legendre quadrature of the 
     surface-charge formulation, with mumax3-style variable integration
     density and a convergence assertion. 
-    Adds inter-layer N_xz, N_yz cross-terms that the slab formulation
-    treats as zero.
+    Builds the inter-layer N_xz, N_yz cross-terms from the
+    finite-prism tensor.
 
-Both formulations return a dict with the same key schema;
-the slab dispatcher pads N_xz_inter, N_yz_inter with zeros
-so that `demag_field` is kind-agnostic.
+Both formulations return a dict with the same key schema
+(the slab kernel carries its analytic cross terms
+N_xz = i (k_x/k) S), so `demag_field` is kind-agnostic.
 
 Sign convention: H_demag = -mu0 * Ms * N * m, with N
 dimensionless.
@@ -167,10 +167,9 @@ def _precompute_slab(p):
     Returns
     -------
     kernels : dict
-        Same schema as the Newell dispatcher, with
-        Nxz_inter, Nyz_inter padded to zero (the slab kernel
-        does not couple in-plane source to out-of-plane field
-        between layers).
+        Same schema as the Newell dispatcher, including the
+        imaginary inter-layer cross terms N_xz = i (k_x/k) S,
+        N_yz = i (k_y/k) S.
     """
     nx, ny = p.nx, p.ny
     a = p.a
@@ -248,12 +247,17 @@ def _precompute_slab(p):
     Nxy_inter[~nz] = 0.0
     Nzz_inter[~nz] = 0.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Newell-schema cross terms: identically zero for the
-    # slab kernel because each layer is treated as infinite
-    # in-plane, which decouples in-plane M from out-of-plane
-    # H between layers.
-    Nxz_inter = np.zeros_like(Nzz_inter)
-    Nyz_inter = np.zeros_like(Nzz_inter)
+    # Inter-layer cross terms (in-plane M of one layer to
+    # out-of-plane H of the other and vice versa). Analytic
+    # slab form N_xz = i (k_x / k) S: same magnitude S as the
+    # retained inter-layer terms, imaginary in k-space (a
+    # lateral-shift kernel), odd in the z displacement. Built
+    # for the +Z (bot -> top) direction like the Newell kernel;
+    # demag_field applies the sign flip for top -> bot.
+    inv_K = np.zeros_like(K)
+    inv_K[nz] = 1.0 / K[nz]
+    Nxz_inter = 1j * KX * inv_K * S
+    Nyz_inter = 1j * KY * inv_K * S
     return {
         'Nxx_self': Nxx_self, 'Nyy_self': Nyy_self,
         'Nxy_self': Nxy_self, 'Nzz_self': Nzz_self,

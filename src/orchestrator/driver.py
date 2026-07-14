@@ -137,6 +137,8 @@ def run_one(p,
             f'run_one: `print_every` must be a non-negative '
             f'int, got {print_every!r}.')
     # Drive window in seconds; snapshot time must fall inside it.
+    # The final state at n_drive * dt is sampled unconditionally,
+    # so the full drive window is reachable by the snapshot.
     drive_window = n_drive * p.dt
     if record_snapshot_at is not None:
         if not np.isfinite(record_snapshot_at):
@@ -219,6 +221,15 @@ def run_one(p,
                     f'    drive step {step+1}/{n_drive} '
                     f'({(step+1)*p.dt*1e12:.1f} ps)',
                     flush=True,)
+        # Final state at t = n_drive * dt: sampled unconditionally
+        # so the trace endpoint is the state the drive ends on.
+        sample_times.append(t)
+        sample_observations.append(observe_state(m_top, m_bot, p))
+        if (record_snapshot_at is not None
+                and snapshot is None
+                and t >= record_snapshot_at):
+            snapshot = (m_top.copy(), m_bot.copy())
+            snapshot_t = t
     finally:
         # Always restore p.pulse on exit so the caller's
         # namespace is left in a clean state, even if the

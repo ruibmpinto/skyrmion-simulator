@@ -75,7 +75,7 @@ def run_deterministic(p, n_relax, n_drive, dt):
         last quarter of the drive phase.
     """
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Relax with J = 0
@@ -88,7 +88,7 @@ def run_deterministic(p, n_relax, n_drive, dt):
     p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     t = 0.0
-    for _ in range(n_relax):
+    for step in range(n_relax):
         m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, dt, p)
         t += dt
     p.H_DL = H_DL_save
@@ -133,7 +133,7 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
     `heun_stochastic_step` at `sigma_noise = 0`.
     """
     m_top, m_bot = saf_skyrmion(
-        p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw,
+        p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
     rng = np.random.default_rng(int(p.seed))
     sigma = float(p.sigma_noise)
@@ -144,9 +144,14 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
         )
     H_DL_save = p.H_DL
     H_FL_save = p.H_FL
+    pulse_save = getattr(p, 'pulse', None)
     p.H_DL = 0.0
     p.H_FL = 0.0
-    for _ in range(n_relax):
+    # The pulse is what llgs_rhs reads; zeroing only the H_DL/H_FL
+    # diagnostics left this relax phase fully DRIVEN (the RK4 path
+    # relaxes at J = 0), which broke the integrator-parity gate.
+    p.pulse = ConstantPulse(0.0)
+    for step in range(n_relax):
         # Zero-noise sampling: amplitude 0, but the sampler
         # rejects sigma <= 0. Allocate zero arrays directly
         # at T = 0.
@@ -154,10 +159,12 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
         h_bot = np.zeros((p.ny, p.nx, 3), dtype=float)
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
     p.H_DL = H_DL_save
     p.H_FL = H_FL_save
+    if pulse_save is not None:
+        p.pulse = pulse_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     sample_steps = (
         int(0.75 * n_drive), n_drive,
@@ -168,9 +175,10 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
     for step in range(1, n_drive + 1):
         h_top = np.zeros((p.ny, p.nx, 3), dtype=float)
         h_bot = np.zeros((p.ny, p.nx, 3), dtype=float)
+        # Start-of-step time, matching the RK4 drive clock.
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=(step - 1) * dt,
         )
         if step in sample_steps:
             cx, cy = skyrmion_center(m_top, p.a, core_polarity=+1)
@@ -194,8 +202,11 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
 
 # -----------------------------------------------------------------------------
 def main():
-    # Run the T=0 no-demag gate: same relax+drive via RK4 and via
-    # zero-noise Heun, then gate on per-observable relative error.
+    """Run the T=0 no-demag gate.
+
+    Runs the same relax+drive via RK4 and via zero-noise Heun,
+    then gates on the per-observable relative error.
+    """
     # =========================== User Configuration =========================
     # 256x256 lattice. Use shorter durations than
     # src/simulator/analysis.py (500 ps relax + 1 ns drive)

@@ -58,7 +58,8 @@ def main():
     step = step_deterministic()
 
     def ic_factory(p):
-        return saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        return saf_skyrmion(
+            p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
 
     trace_py = run_one(
         p=p, pulse=pulse, n_relax=n_relax, n_drive=n_drive,

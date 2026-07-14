@@ -219,6 +219,8 @@ def _plot_C(items, out_path):
 
 # Render all three S44 panels from the shared S44 sweep.
 def main():
+    """Load the S44 sweep and write panel A (diameter vs time), panel
+    B (v_avg / D1 / D2 vs J), and panel C (psi vs J)."""
     in_dir = 'output/sweeps_S41_S49/S44'
     out_dir = 'output/figures_S41_S49'
     os.makedirs(out_dir, exist_ok=True)

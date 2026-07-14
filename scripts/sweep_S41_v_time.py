@@ -51,6 +51,11 @@ __status__ = 'Development'
 
 
 def main():
+    """Run one S41 DC trajectory (2 ns square pulse at J=1e11).
+
+    Samples finely so v_inst(t) can be recovered; the trace is
+    written to `output/sweeps_S41_S49/S41`.
+    """
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Run configuration.
     # Demag treatment: True = full FFT demag + convergence-stop
@@ -132,7 +137,8 @@ def main():
         # Convergence-stop relax (over-damped quench) with full
         # demag. relax() temporarily mutates p (SOT, alpha,
         # gamma_p) and restores everything on exit.
-        m_top0, m_bot0 = saf_skyrmion(nx, ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+        m_top0, m_bot0 = saf_skyrmion(
+            nx, ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         print(f'S41: relaxing with full demag (convergence-stop)...')
         (m_top_eq, m_bot_eq,
          conv, n_relax_used, E_final, tau_max) = relax(
@@ -186,7 +192,7 @@ def main():
 
         def ic_factory(p):
             return saf_skyrmion(
-                p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw)
+                p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw)
         n_relax_for_driver = n_relax_fixed
         n_relax_metadata = int(n_relax_fixed)
         relax_meta = {

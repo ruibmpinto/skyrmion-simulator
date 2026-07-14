@@ -159,9 +159,12 @@ def magnon_stiffness_grid(p, ny, nx):
 
 # -----------------------------------------------------------------------------
 def main():
-    # Run the equipartition gate: relax, accumulate per-mode
-    # transverse variance, compare to Rayleigh-Jeans theory, and
-    # gate on the low-k median sim/theory ratio.
+    """Run the spin-wave equipartition gate.
+
+    Relaxes, accumulates per-mode transverse variance, compares
+    to Rayleigh-Jeans theory, and gates on the low-k median
+    sim/theory ratio.
+    """
     # =========================== User Configuration =========================
     nx              = 16
     ny              = 16
@@ -222,7 +225,7 @@ def main():
         )
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Sampling
@@ -238,7 +241,7 @@ def main():
         )
         m_top, m_bot, _ = heun_stochastic_step(
             m_top, m_bot, dt, p, None,
-            h_top, h_bot, tol_norm,
+            h_top, h_bot, tol_norm, t=step * dt,
         )
         if step % sample_every == 0:
             # Per-mode transverse power |M_x(k)|^2 + |M_y(k)|^2.
@@ -258,7 +261,8 @@ def main():
     kx = np.fft.fftfreq(nx)
     ky = np.fft.fftfreq(ny)
     KX, KY = np.meshgrid(kx, ky, indexing='xy')
-    k_mag = np.sqrt(KX ** 2 + KY ** 2) / 0.5  # normalize to 1.0
+    # normalize to 1.0
+    k_mag = np.sqrt(KX ** 2 + KY ** 2) / 0.5  
     low_k = k_mag < k_low_cut
     ratio = sim_mode_var / th_mode_var
     median_ratio = float(np.median(ratio[low_k]))

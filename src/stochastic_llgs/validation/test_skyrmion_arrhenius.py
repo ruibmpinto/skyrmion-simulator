@@ -97,9 +97,12 @@ def censored_tau(t_collapse, t_max):
 
 # -----------------------------------------------------------------------------
 def main():
-    # Load the scan output, build censored tau(T), fit the
-    # Arrhenius law, and gate on linearity, barrier sign, and
-    # attempt time. Returns True on PASS.
+    """Load the scan output and gate the Arrhenius fit.
+
+    Builds censored tau(T), fits the Arrhenius law, and gates on
+    linearity, barrier sign, and attempt time. Returns True on
+    PASS.
+    """
     # =========================== User Configuration =========================
     in_dir = ('output/stochastic_llgs/validation/'
               'skyrmion_arrhenius')

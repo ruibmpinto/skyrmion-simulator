@@ -314,6 +314,7 @@ def plot_ic_2d(m, a, out_path, title=None, q_stride=None):
     ny, nx, _ = m.shape
     if q_stride is None:
         q_stride = max(1, min(nx, ny) // 16)
+    # Axes span the lattice centred on the origin, in nm.
     extent_nm = [
         -0.5 * (nx - 1) * a * 1e9,
         +0.5 * (nx - 1) * a * 1e9,
@@ -321,12 +322,15 @@ def plot_ic_2d(m, a, out_path, title=None, q_stride=None):
         +0.5 * (ny - 1) * a * 1e9,
     ]
     fig, ax = plt.subplots(figsize=(5.0, 4.4), dpi=160)
+    # m_z as a fixed [-1, 1] diverging map; origin='lower' so the
+    # image y-axis matches the array row order.
     im = ax.imshow(
         m[..., 2], origin='lower', cmap='RdBu',
         vmin=-1.0, vmax=+1.0, extent=extent_nm,
         interpolation='nearest')
     cbar = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.04)
     cbar.set_label(r'$m_z$', rotation=0, labelpad=8)
+    # Subsampled in-plane (m_x, m_y) quiver overlay.
     yy_idx, xx_idx = np.meshgrid(
         np.arange(ny)[::q_stride],
         np.arange(nx)[::q_stride],
@@ -362,13 +366,18 @@ def radial_profile(field2d, a, n_bins):
         np.arange(nx, dtype=float),
         np.arange(ny, dtype=float),
         indexing='xy')
+    # Per-cell radius from the geometric centre, flattened to pair
+    # with the flattened field values.
     x = (jj - 0.5 * (nx - 1)) * a
     y = (ii - 0.5 * (ny - 1)) * a
     r = np.sqrt(x * x + y * y).ravel()
     vals = field2d.ravel()
+    # Cap r_max at the inscribed-circle radius so no bin straddles
+    # the array corners (which would undersample azimuthally).
     r_max = float(0.5 * min(nx, ny) * a)
     edges = np.linspace(0.0, r_max, int(n_bins) + 1)
     centres = 0.5 * (edges[1:] + edges[:-1])
+    # Bin mean via weighted-sum / count histograms over the radii.
     sums, _ = np.histogram(r, bins=edges, weights=vals)
     counts, _ = np.histogram(r, bins=edges)
     # Per-bin mean; empty bins are explicitly NaN. The masked

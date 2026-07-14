@@ -82,9 +82,11 @@ def _fit_dE(by_T, t_max, n_events_min, n_T_min, r2_min):
 
 
 def main():
-    # Load the DMI-sweep output, fit Delta_E(D) per DMI value, and
-    # gate on Delta_E rising monotonically with D. Returns True on
-    # PASS.
+    """Load the DMI-sweep output and gate on the Delta_E(D) trend.
+
+    Fits Delta_E(D) per DMI value and gates on Delta_E rising
+    monotonically with D. Returns True on PASS.
+    """
     # =========================== User Configuration =========================
     in_dir = ('output/stochastic_llgs/validation/'
               'skyrmion_arrhenius_dsweep')
