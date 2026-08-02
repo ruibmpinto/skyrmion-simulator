@@ -2,11 +2,13 @@
 // scripts/.../production/scan_tj.py. One trajectory per
 // (T_sub, j, ensemble) grid point; SLURM array (or full serial loop)
 // selects which point(s) run. Seed = seed_base + 1000*ens + 1e6*cell.
+#include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"
 #include "skyrmion/stochastic/trajectory_io.hpp"
 #include "skyrmion/sweep/sweep_common.hpp"   // resolve_indices
 
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -44,6 +46,8 @@ int main() {
         const Pt pt = grid[idx];
         StochasticConfig cfg;
         cfg.T_sub = pt.T_sub; cfg.j_current = pt.j; cfg.R_th = r_th;
+        cfg.drive_pulse =
+            std::make_shared<ConstantPulse>(cfg.j_current);
         cfg.nx = nx; cfg.ny = ny; cfg.dt = dt;
         cfg.n_relax = n_relax; cfg.n_drive = n_drive;
         cfg.sample_every = sample_every;

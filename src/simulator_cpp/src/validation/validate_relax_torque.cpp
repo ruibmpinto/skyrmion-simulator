@@ -45,8 +45,12 @@ int fft_threads_from_env() {
 int main() {
     // ----- Run configuration -------------------------------------------------
     struct Box { int nx; int ny; };
+    // const std::vector<Box> boxes = {
+    //     {700, 500}, {1400, 500},};  // track-length scaling pair
+    // Long track (2800 x 1000 nm); 700x500 and 350x500 covered by
+    // the running hk12/hk36/hk36b/hk36c and relax_boxes jobs.
     const std::vector<Box> boxes = {
-        {350, 500}, {256, 256}, {350, 350},};
+        {1400, 500},};
     const double dt = 5.0e-14;
     const double alpha_relax = 1.0;
     const int chunk = 2000;          // steps between samples
@@ -54,11 +58,21 @@ int main() {
     // and tau keeps falling (7e-5->3e-5) well past 40k, so a short run
     // does not capture the converged plateau.
     const int n_chunks = 125;
-    // DMI chosen from the coarse racetrack sweep to hit the 180-200 nm
-    // target: 0.52 -> 142 nm, 0.57 -> 205 nm (box-independent, compact),
-    // so 0.545 interpolates to ~185 nm. Still below the effective D_c
-    // (~0.5-0.8), so the skyrmion stays a stable finite-radius state.
-    const double dmi = 0.545e-3;
+    // (K_top, D) recalibration grid, one SLURM task per case.
+    // K_top = 1.294e6 J/m^3: measured Hk_top = 12.4 mT (Table S2);
+    // K_top = 1.3106e6 J/m^3: paper Hk_top = 36 mT (supp. 1.1).
+    struct MatCase { double k_top; double dmi; };
+    const std::vector<MatCase> mat_list = {
+        {1.294e6,  0.545e-3},
+        {1.294e6,  0.56e-3},
+        {1.294e6,  0.58e-3},
+        {1.3106e6, 0.56e-3},
+        {1.3106e6, 0.58e-3},
+        {1.3106e6, 0.62e-3},
+        {1.3106e6, 0.66e-3},
+        {1.3106e6, 0.72e-3},
+        {1.3106e6, 0.76e-3},
+    };
     // Seed at the periodic equilibrium: profile radius R = 103 nm gives
     // diameter 2R = 206 nm, so any change is the response to the
     // racetrack confinement, not to a mismatched initial size.
@@ -75,6 +89,20 @@ int main() {
     // grows with the box. Must leave >=1 vacuum row, i.e. fit
     // inside the smallest box (256 cells x 2 nm = 512 nm).
     const double track_width_m = 400e-9;
+    // Optional SLURM array dispatch: task i runs mat_list[i]
+    // alone. Without SLURM_ARRAY_TASK_ID (local run) the whole
+    // grid runs serially, unchanged.
+    std::vector<MatCase> cases = mat_list;
+    if (const char* tid = std::getenv("SLURM_ARRAY_TASK_ID")) {
+        const int idx = std::atoi(tid);
+        if (idx < 0 || idx >= static_cast<int>(mat_list.size())) {
+            std::fprintf(stderr,
+                "validate_relax_torque: SLURM_ARRAY_TASK_ID=%d out "
+                "of range [0, %zu].\n", idx, mat_list.size() - 1);
+            return 1;
+        }
+        cases = {mat_list[idx]};
+    }
     // Boundary condition: newell | newell_freebc | racetrack |
     // masked_band. Each writes its own subdirectory so runs never
     // overwrite each other.
@@ -94,13 +122,7 @@ int main() {
     // masked_band = racetrack demag + a centred width-W band mask
     // (free edge at the band). racetrack = full-box free-y, no mask.
     const bool use_band_mask = (bc == "masked_band");
-    // Tag the output by DMI (mJ/m^2) so runs at different D never
-    // overwrite each other, then by boundary condition.
-    const std::string out_dir =
-        "output/stochastic_llgs/validation/relax_torque/"
-        + dmi_dir_tag(dmi) + "/" + bc;
     // -------------------------------------------------------------------------
-    std::filesystem::create_directories(out_dir);
     const int fft_threads = fft_threads_from_env();
 
     std::printf("relax-torque validator (%s, Set-A), %d chunks x %d "
@@ -108,32 +130,46 @@ int main() {
                 fft_threads);
     relax_torque_probe_header();
 
-    for (const Box& b : boxes) {
-        Params p = make_default_params();
-        p.nx = b.nx; p.ny = b.ny; p.dt = dt;
-        p.D = dmi;
-        p.skyrmion_R = skyrmion_radius;
-        p.demag_kind = demag_kind;
-        p.demag_accuracy = demag_accuracy;
-        p.demag_tol_conv = demag_tol_conv;
-        p.pulse = std::make_shared<ConstantPulse>(0.0);
-        precompute(p);
-        DemagState demag(p, fft_threads);
+    for (const MatCase& rc : cases) {
+        const double dmi = rc.dmi;
+        // Tag the output by DMI (mJ/m^2) and by Hk_top so runs at
+        // different (D, K_top) never overwrite each other, then by
+        // boundary condition.
+        const std::string hk_tag =
+            (rc.k_top < 1.30e6) ? "_hk12p4" : "_hk36";
+        const std::string out_dir =
+            "output/stochastic_llgs/validation/relax_torque/"
+            + dmi_dir_tag(dmi) + hk_tag + "/" + bc;
+        std::filesystem::create_directories(out_dir);
+        for (const Box& b : boxes) {
+            Params p = make_default_params();
+            p.nx = b.nx; p.ny = b.ny; p.dt = dt;
+            p.D = dmi;
+            p.K_top = rc.k_top;
+            p.skyrmion_R = skyrmion_radius;
+            p.demag_kind = demag_kind;
+            p.demag_accuracy = demag_accuracy;
+            p.demag_tol_conv = demag_tol_conv;
+            p.pulse = std::make_shared<ConstantPulse>(0.0);
+            precompute(p);
+            DemagState demag(p, fft_threads);
 
-        // masked_band: a centred magnetic band of width track_width_m in
-        // y (full periodic x), vacuum margins above/below carrying the
-        // free edge. racetrack and the periodic/isolated demags relax
-        // the whole box (mask = nullptr); racetrack's free-y exchange/DMI
-        // is then applied at the box edge by effective_field_demag.
-        std::vector<std::uint8_t> mask;
-        const std::uint8_t* mask_ptr = nullptr;
-        if (use_band_mask) {
-            mask = track_mask(p.nx, p.ny, p.a, track_width_m);
-            mask_ptr = mask.data();
+            // masked_band: a centred magnetic band of width track_width_m
+            // in y (full periodic x), vacuum margins above/below carrying
+            // the free edge. racetrack and the periodic/isolated demags
+            // relax the whole box (mask = nullptr); racetrack's free-y
+            // exchange/DMI is then applied at the box edge by
+            // effective_field_demag.
+            std::vector<std::uint8_t> mask;
+            const std::uint8_t* mask_ptr = nullptr;
+            if (use_band_mask) {
+                mask = track_mask(p.nx, p.ny, p.a, track_width_m);
+                mask_ptr = mask.data();
+            }
+            relax_torque_probe(p, demag, mask_ptr, n_chunks, chunk,
+                               alpha_relax, out_dir);
         }
-        relax_torque_probe(p, demag, mask_ptr, n_chunks, chunk,
-                           alpha_relax, out_dir);
+        std::printf("wrote per-box NPZ to %s\n", out_dir.c_str());
     }
-    std::printf("wrote per-box NPZ to %s\n", out_dir.c_str());
     return 0;
 }

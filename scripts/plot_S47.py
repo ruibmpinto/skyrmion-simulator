@@ -4,8 +4,8 @@ Reads `output/sweeps_S41_S49/S47/cfg<i>_J_<J0>.npz` and emits:
 
 S47_A_v.png        v_avg vs J, one line per config.
 S47_B_psi.png      psi_bot (at max diameter) vs J, per config.
-S47_C_D1.png       max D1_top vs J, per config.
-S47_D_D2.png       min D2_top vs J, per config.
+S47_C_D1.png       D1_top at the pulse maximum vs J, per config.
+S47_D_D2.png       D2_top at the pulse maximum vs J, per config.
 S47_E_snap.png     m_z snapshot at the pulse peak, config 0.
 S47_F_snap.png     m_z snapshot at the pulse peak, config 1.
 S47_G_snap.png     m_z snapshot at the pulse peak, config 2.
@@ -167,18 +167,35 @@ def _plot_psi(bucket, out_path):
 
 
 def _plot_axes(bucket, axis_key, ylabel, title, out_path,
-               reducer):
-    """Generic plot for D1 (use reducer=np.max) and D2
-    (reducer=np.min)."""
+               check_box_limit):
+    """Generic plot for D1/D2 sampled at the pulse maximum
+    (paper S47 caption convention). With `check_box_limit`,
+    warn per trace when max D1 over the whole trace exceeds
+    0.8x the box extent (post-pulse transient wrapping the
+    periodic box; the value is box geometry, not a diameter)."""
     fig, ax = plt.subplots()
     cmap = plt.get_cmap('viridis')
     # One curve per configuration.
     for k, cfg_idx in enumerate(sorted(bucket.keys())):
         items = bucket[cfg_idx]
         J_arr = np.array([float(m['J0']) for m, _ in items])
-        # Reduce the requested axis trace to a single scalar per J.
-        vals = np.array(
-            [float(reducer(t[axis_key])) for _, t in items])
+        # Sample the axis at the pulse maximum (t_center).
+        vals = []
+        for m, t in items:
+            i_pk = int(np.argmin(
+                np.abs(t['t'] - float(m['t_center']))))
+            vals.append(float(t[axis_key][i_pk]))
+            if check_box_limit:
+                box = (min(int(m['nx']), int(m['ny']))
+                       * float(default_params().a))
+                d_mx = float(np.max(t[axis_key]))
+                if d_mx > 0.8 * box:
+                    print(f'  WARN box-limited: cfg '
+                          f'{int(m["cfg_idx"])}, '
+                          f'J={float(m["J0"]):.2e}: max '
+                          f'{axis_key} = {d_mx*1e9:.0f} nm '
+                          f'> 0.8 x box ({box*1e9:.0f} nm)')
+        vals = np.array(vals)
         c = cmap(k / max(len(bucket) - 1, 1))
         # Convert m -> nm for the axis-size plot.
         ax.plot(J_arr / 1e11, vals * 1e9, 'o-', color=c,
@@ -253,17 +270,17 @@ def main():
     _plot_axes(
         bucket,
         axis_key='D1_top',
-        ylabel=r'max $D_1$ (nm)',
+        ylabel=r'$D_1$ at pulse max (nm)',
         title='S47(c): major axis vs J',
         out_path=os.path.join(out_dir, 'S47_C_D1.png'),
-        reducer=np.max)
+        check_box_limit=True)
     _plot_axes(
         bucket,
         axis_key='D2_top',
-        ylabel=r'min $D_2$ (nm)',
+        ylabel=r'$D_2$ at pulse max (nm)',
         title='S47(d): minor axis vs J',
         out_path=os.path.join(out_dir, 'S47_D_D2.png'),
-        reducer=np.min)
+        check_box_limit=False)
     _plot_snapshots(bucket, out_dir)
 
 

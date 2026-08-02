@@ -132,6 +132,8 @@ def _make_set_B_params(D, alpha, gamma, J0, nx, ny, a, dt,
     p.D = float(D)
     p.alpha = float(alpha)
     p.gamma = float(gamma)
+    # Set B keeps the measured Hk_top = 12.4 mT (S49 caption).
+    p.K_top = 1.294e6
     p.nx = int(nx)
     p.ny = int(ny)
     p.a = float(a)

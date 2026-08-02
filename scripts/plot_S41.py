@@ -59,7 +59,8 @@ def main():
     # demag kind and DMI value in the filename; keep this
     # path in sync with `sweep_S41_v_time.py:out_path`.
     demag_kind = 'newell'
-    D = 0.85e-3
+    # D = 0.85e-3            # legacy repo calibration (June figures)
+    D = 0.76e-3
     _D_tag = f'D{int(round(D*1e5)):03d}e-3'
     in_path = (
         f'output/sweeps_S41_S49/S41/'

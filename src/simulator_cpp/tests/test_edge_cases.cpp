@@ -52,12 +52,53 @@ int main() {
         r.expect("GaussianPulse_peak_at_center",
                  std::abs(g(1.0e-9) - 5.0) < 1e-12);
         r.expect("GaussianPulse_decays_off_center", g(2.0e-9) < 5.0);
+
+        // Peak pinned to the leading edge: full amplitude at t_start,
+        // zero at t_end, half-way down at the midpoint.
+        TrianglePulse tr_rise(2.0, 0.0, 0.0, 1.0e-9);
+        r.expect("TrianglePulse_sharprise_at_start",
+                 tr_rise(0.0) == 2.0);
+        r.expect("TrianglePulse_sharprise_at_end",
+                 std::abs(tr_rise(1.0e-9)) < 1e-15);
+        r.expect("TrianglePulse_sharprise_midpoint",
+                 std::abs(tr_rise(5.0e-10) - 1.0) < 1e-12);
+        // Peak pinned to the trailing edge: the mirror image.
+        TrianglePulse tr_fall(2.0, 0.0, 1.0e-9, 1.0e-9);
+        r.expect("TrianglePulse_sharpfall_at_start",
+                 std::abs(tr_fall(0.0)) < 1e-15);
+        r.expect("TrianglePulse_sharpfall_at_end",
+                 tr_fall(1.0e-9) == 2.0);
+        r.expect("TrianglePulse_sharpfall_midpoint",
+                 std::abs(tr_fall(5.0e-10) - 1.0) < 1e-12);
+        // Symmetric: zero at both edges, full amplitude at the peak.
+        TrianglePulse tr_sym(2.0, 0.0, 5.0e-10, 1.0e-9);
+        r.expect("TrianglePulse_symmetric_peak",
+                 std::abs(tr_sym(5.0e-10) - 2.0) < 1e-12);
+        r.expect("TrianglePulse_outside_window",
+                 tr_sym(-1.0e-12) == 0.0 && tr_sym(1.001e-9) == 0.0);
+
+        HalfSinePulse hs(2.0, 0.0, 1.0e-9);
+        r.expect("HalfSinePulse_zero_at_edges",
+                 std::abs(hs(0.0)) < 1e-15
+                 && std::abs(hs(1.0e-9)) < 1e-15);
+        r.expect("HalfSinePulse_peak_at_midpoint",
+                 std::abs(hs(5.0e-10) - 2.0) < 1e-12);
+        r.expect("HalfSinePulse_outside_window",
+                 hs(-1.0e-12) == 0.0 && hs(1.001e-9) == 0.0);
     }
     // ===== Pulses: constructor raises =======================================
     r.expect_throws("SquarePulse_t_end_le_t_start",
                     [] { SquarePulse(1.0, 1.0, 1.0); });
     r.expect_throws("SquarePulse_inverted_window",
                     [] { SquarePulse(1.0, 1.0e-9, 0.0); });
+    r.expect_throws("TrianglePulse_t_end_le_t_start",
+                    [] { TrianglePulse(1.0, 1.0, 1.0, 1.0); });
+    r.expect_throws("TrianglePulse_t_peak_above_t_end",
+                    [] { TrianglePulse(1.0, 0.0, 2.0, 1.0); });
+    r.expect_throws("TrianglePulse_t_peak_below_t_start",
+                    [] { TrianglePulse(1.0, 0.0, -1.0, 1.0); });
+    r.expect_throws("HalfSinePulse_t_end_le_t_start",
+                    [] { HalfSinePulse(1.0, 1.0, 1.0); });
     r.expect_throws("GaussianPulse_zero_FWHM",
                     [] { GaussianPulse(1.0, 0.0, 0.0); });
     r.expect_throws("GaussianPulse_negative_FWHM",

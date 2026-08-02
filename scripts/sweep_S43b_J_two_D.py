@@ -160,7 +160,10 @@ def main():
     demag_kind = 'newell'
     demag_newell_accuracy = 4.0
     demag_newell_tol_conv = 0.02
-    D_values = [0.60e-3, 0.85e-3]
+    # D_values = [0.60e-3, 0.85e-3]  # legacy repo calibration
+    # Paper S43B compares DMI = 0.60 and 0.76 mJ/m^2 (Set A);
+    # H_k,top raised to 36 mT (supp. 1.1).
+    D_values = [0.60e-3, 0.76e-3]
     J_values = [
         1.0e11, 2.0e11, 3.0e11, 4.0e11, 5.0e11,
         6.0e11, 7.0e11, 8.0e11, 8.9e11,

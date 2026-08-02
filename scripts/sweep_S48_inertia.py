@@ -53,6 +53,8 @@ def _run_one_point(args):
     p.D = cfg['D']
     p.alpha = cfg['alpha']
     p.gamma = cfg['gamma']
+    # Set B keeps the measured Hk_top = 12.4 mT (S48 caption).
+    p.K_top = 1.294e6
     p.H_RKKY = float(point['H_RKKY'])
     p.nx = cfg['nx']; p.ny = cfg['ny']; p.dt = cfg['dt']
     _precompute(p)

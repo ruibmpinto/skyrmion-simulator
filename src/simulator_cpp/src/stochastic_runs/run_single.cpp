@@ -4,6 +4,7 @@
 // for animating the thermal trajectory.
 #include "skyrmion/io_npz.hpp"
 #include "skyrmion/lattice.hpp"
+#include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"
 #include "skyrmion/stochastic/trajectory_io.hpp"
 
@@ -22,6 +23,8 @@ int main() {
     cfg.T_sub = 300.0;
     cfg.R_th = 0.0;
     cfg.j_current = 4.0e11;
+    // DC drive, stated explicitly: there is no implied fallback.
+    cfg.drive_pulse = std::make_shared<ConstantPulse>(cfg.j_current);
     cfg.nx = 256; cfg.ny = 256;
     cfg.dt = 5.0e-14;
     cfg.n_relax = 10000;

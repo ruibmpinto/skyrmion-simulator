@@ -21,6 +21,8 @@
 #include "skyrmion/io_npz.hpp"
 #include "skyrmion/demag.hpp"
 
+#include <npy/npy.h>
+
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -34,7 +36,36 @@ using namespace skyrmion::stochastic;
 
 int main() {
     // ----- Run configuration (box must match stages 1 & 3) -------------------
-    const int nx = 350, ny = 500;
+    // Phase-B campaign cases; select one by the TW_CASE env var.
+    // Each (K_top, D, box) matches an already-relaxed seed staged as
+    // campaign/<tag>/m_eq_<nx>x<ny>.npz.
+    struct Case { double k_top; double dmi; int nx; int ny;
+                  const char* tag; };
+    const std::vector<Case> cases = {
+        {1.294e6,  0.58e-3, 350, 500, "hk12p4_D0p58_350x500"},
+        {1.294e6,  0.58e-3, 700, 500, "hk12p4_D0p58_700x500"},
+        {1.3106e6, 0.72e-3, 350, 500, "hk36_D0p72_350x500"},
+        {1.3106e6, 0.72e-3, 700, 500, "hk36_D0p72_700x500"},
+        {1.3106e6, 0.72e-3, 1400, 500, "hk36_D0p72_1400x500"},
+        {1.294e6,  0.58e-3, 1400, 500, "hk12p4_D0p58_1400x500"},
+    };
+    const char* tw_case_env = std::getenv("TW_CASE");
+    if (tw_case_env == nullptr || *tw_case_env == '\0') {
+        std::fprintf(stderr,
+            "error: TW_CASE unset; expected 0..%zu.\n",
+            cases.size() - 1);
+        return 1;
+    }
+    const int case_idx = std::atoi(tw_case_env);
+    if (case_idx < 0 || case_idx >= static_cast<int>(cases.size())) {
+        std::fprintf(stderr,
+            "error: TW_CASE=%d out of range [0, %zu].\n",
+            case_idx, cases.size() - 1);
+        return 1;
+    }
+    const Case tw = cases[case_idx];
+    const int nx = tw.nx, ny = tw.ny;
+    const double k_top = tw.k_top;
     // Lattice constant for the dump grids, read from the same
     // Params default the trajectories run with.
     const double cell_a = make_default_params().a;
@@ -50,7 +81,7 @@ int main() {
     // L_y = ny*a. Exchange/DMI use free-y ghost cells (mask = nullptr),
     // matching the Python pipeline. D must match stages 1 & 3.
     const DemagKind demag_kind = DemagKind::Racetrack;
-    const double dmi = 0.545e-3;
+    const double dmi = tw.dmi;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
     // Equilibrate until the LCC size plateaus.
@@ -59,8 +90,10 @@ int main() {
     const double equil_tol = 0.02;         // relative size tolerance
     const int equil_k_consec = 3;          // consecutive stable windows
     const int equil_max_steps = 300000;    // 15 ns cap
-    const std::string out_dir = "output/stochastic_llgs/scan_track_width";
-    // Box-tagged so the 350x500 and 500x350 equilibria never collide.
+    const std::string out_dir =
+        std::string("output/stochastic_llgs/scan_track_width/campaign/")
+        + tw.tag;
+    // Box-tagged so different boxes within a case never collide.
     const std::string m_eq_path = out_dir + "/m_eq_"
         + std::to_string(nx) + "x" + std::to_string(ny) + ".npz";
     // -------------------------------------------------------------------------
@@ -91,6 +124,7 @@ int main() {
         Params p = make_default_params();
         p.nx = nx; p.ny = ny; p.dt = dt;
         p.D = dmi;
+        p.K_top = k_top;
         p.demag_kind = demag_kind;
         p.demag_accuracy = demag_accuracy;
         p.demag_tol_conv = demag_tol_conv;
@@ -125,6 +159,29 @@ int main() {
                    0.0, 0.0, 0.0, 0.0, 0.0,
                    er.d1_relaxed, er.d2_relaxed, 0.0, 0.0);
         buf.write(fn, pos, pos, "{}");
+        // D1/D2 equilibration series, one sample per size check.
+        char sfn[200];
+        std::snprintf(sfn, sizeof(sfn),
+                      "%s/equil_series_T%05.1f_ens%03d.npz",
+                      out_dir.c_str(), c.T_sub, c.ens);
+        {
+            const std::size_t nrow = er.step_series.size();
+            std::vector<double> step_d(nrow), t_s(nrow);
+            for (std::size_t k = 0; k < nrow; ++k) {
+                step_d[k] = static_cast<double>(er.step_series[k]);
+                t_s[k] = er.step_series[k] * dt;
+            }
+            auto arr1d = [](const std::vector<double>& v) {
+                npy::tensor<double> t({v.size()});
+                t.copy_from(v.data(), v.size());
+                return t;
+            };
+            npy::npzfilewriter w(sfn);
+            w.write("step", arr1d(step_d));
+            w.write("t_s", arr1d(t_s));
+            w.write("D1_m", arr1d(er.d1_series));
+            w.write("D2_m", arr1d(er.d2_series));
+        }
         std::printf(
             "  T_sub=%5.1f  ens=%03d  conv=%d  n=%d  "
             "D1=%.1f  D2=%.1f nm  -> %s\n",

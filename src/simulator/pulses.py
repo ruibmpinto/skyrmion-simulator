@@ -15,6 +15,11 @@ SquarePulse
 GaussianPulse
     J(t) = J0 * exp(-(t - t_center)^2 / (2 sigma^2)), with sigma
     derived from the FWHM.
+TrianglePulse
+    Linear rise to J0 at t_peak then linear fall; t_peak placement
+    selects sharp-rise, sharp-fall or symmetric.
+HalfSinePulse
+    J(t) = J0 * sin(pi (t - t_start) / (t_end - t_start)).
 SuperpositionPulse
     Sum of pulses, for multi-pulse trains or composite shapes.
 
@@ -221,6 +226,177 @@ class GaussianPulse:
         return (f'GaussianPulse(J0={self.J0:.3e}, '
                 f't_center={self.t_center:.3e}, '
                 f'FWHM={self.FWHM:.3e})')
+
+
+# =============================================================================
+class TrianglePulse:
+    """Triangular pulse with a placeable peak.
+
+    J rises linearly from 0 at `t_start` to `J0` at `t_peak`, then
+    falls linearly back to 0 at `t_end`; outside the window J = 0.
+    Moving `t_peak` selects the asymmetry, which is why one class
+    covers all three variants of interest:
+
+    - `t_peak == t_start`: instantaneous rise, linear fall.
+    - `t_peak == t_end`: linear rise, instantaneous fall.
+    - `t_peak` midway: symmetric ramp up and down.
+
+    Both the delivered charge, 0.5 * J0 * (t_end - t_start), and the
+    action, J0^2 * (t_end - t_start) / 3, are independent of where
+    the peak sits, so the three variants are matched in charge and in
+    dissipated energy and differ only in asymmetry.
+
+    Attributes
+    ----------
+    J0 : float
+        Peak current density in A/m^2.
+    t_start : float
+        Pulse leading edge in seconds.
+    t_peak : float
+        Time of the peak in seconds, in [t_start, t_end].
+    t_end : float
+        Pulse trailing edge in seconds.
+
+    Methods
+    -------
+    __call__(self, t)
+        Return J(t).
+    """
+    def __init__(self, J0, t_start, t_peak, t_end):
+        """Constructor.
+
+        Parameters
+        ----------
+        J0 : float
+            Peak current density in A/m^2.
+        t_start : float
+            Pulse leading edge in seconds.
+        t_peak : float
+            Time of the peak in seconds; must lie in
+            [t_start, t_end]. Equal to an edge for a vertical
+            rise or fall.
+        t_end : float
+            Pulse trailing edge in seconds.
+        """
+        # Reject inverted windows and out-of-window peaks loudly;
+        # silent acceptance corrupts runs.
+        if t_end <= t_start:
+            raise RuntimeError(
+                f't_end ({t_end}) must exceed t_start ({t_start}).')
+        if not (t_start <= t_peak <= t_end):
+            raise RuntimeError(
+                f't_peak ({t_peak}) must lie within '
+                f'[{t_start}, {t_end}].')
+        self.J0 = float(J0)
+        self.t_start = float(t_start)
+        self.t_peak = float(t_peak)
+        self.t_end = float(t_end)
+    # -------------------------------------------------------------------------
+    def __call__(self, t):
+        """Return the current density at time t.
+
+        Parameters
+        ----------
+        t : float
+            Time in seconds.
+
+        Returns
+        -------
+        J : float
+            J(t) in A/m^2; 0 outside [t_start, t_end].
+        """
+        # Inclusive window, matching SquarePulse's convention.
+        if t < self.t_start or t > self.t_end:
+            return 0.0
+        if t < self.t_peak:
+            # Rising edge; the degenerate case t_peak == t_start is
+            # unreachable here because t < t_peak would imply
+            # t < t_start, already returned above.
+            return self.J0 * ((t - self.t_start)
+                              / (self.t_peak - self.t_start))
+        # Falling edge, and t == t_peak. A peak pinned to t_end has
+        # no falling edge, so the amplitude is held.
+        if self.t_end == self.t_peak:
+            return self.J0
+        return self.J0 * ((self.t_end - t)
+                          / (self.t_end - self.t_peak))
+    # -------------------------------------------------------------------------
+    def __repr__(self):
+        return (f'TrianglePulse(J0={self.J0:.3e}, '
+                f't_start={self.t_start:.3e}, '
+                f't_peak={self.t_peak:.3e}, '
+                f't_end={self.t_end:.3e})')
+
+
+# =============================================================================
+class HalfSinePulse:
+    """Half-period sine lobe over a finite window.
+
+    J(t) = J0 * sin(pi * (t - t_start) / (t_end - t_start)) inside
+    [t_start, t_end] and 0 outside, so J vanishes at both edges and
+    peaks at the midpoint. Delivered charge is
+    2 * J0 * (t_end - t_start) / pi and the action is
+    J0^2 * (t_end - t_start) / 2.
+
+    Attributes
+    ----------
+    J0 : float
+        Peak current density in A/m^2.
+    t_start : float
+        Pulse leading edge in seconds.
+    t_end : float
+        Pulse trailing edge in seconds.
+
+    Methods
+    -------
+    __call__(self, t)
+        Return J(t).
+    """
+    def __init__(self, J0, t_start, t_end):
+        """Constructor.
+
+        Parameters
+        ----------
+        J0 : float
+            Peak current density in A/m^2.
+        t_start : float
+            Pulse leading edge in seconds.
+        t_end : float
+            Pulse trailing edge in seconds.
+        """
+        # Reject inverted windows loudly; silent acceptance corrupts
+        # runs.
+        if t_end <= t_start:
+            raise RuntimeError(
+                f't_end ({t_end}) must exceed t_start ({t_start}).')
+        self.J0 = float(J0)
+        self.t_start = float(t_start)
+        self.t_end = float(t_end)
+    # -------------------------------------------------------------------------
+    def __call__(self, t):
+        """Return the current density at time t.
+
+        Parameters
+        ----------
+        t : float
+            Time in seconds.
+
+        Returns
+        -------
+        J : float
+            J(t) in A/m^2; 0 outside [t_start, t_end].
+        """
+        # Inclusive window, matching SquarePulse's convention.
+        if t < self.t_start or t > self.t_end:
+            return 0.0
+        phase = (np.pi * (t - self.t_start)
+                 / (self.t_end - self.t_start))
+        return self.J0 * np.sin(phase)
+    # -------------------------------------------------------------------------
+    def __repr__(self):
+        return (f'HalfSinePulse(J0={self.J0:.3e}, '
+                f't_start={self.t_start:.3e}, '
+                f't_end={self.t_end:.3e})')
 
 
 # =============================================================================

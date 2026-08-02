@@ -26,6 +26,7 @@ Run with:
 # Standard
 import glob
 import os
+import zipfile
 # Third-party
 import numpy as np
 import matplotlib.animation as manim
@@ -137,36 +138,43 @@ def _save_classes(path, Ts, Js, cls, rows):
 
 
 # -----------------------------------------------------------------------------
-def _plot_stability_map(agg, cls, dx_lx, out_path):
-    """Skyrmion stability regime diagram over the (T, J) grid.
+def _plot_stability_map(agg, out_path):
+    """Ensemble skyrmion stability regime diagram over the (T, J) grid.
+
+    Each cell is coloured by its dominant class over all realizations
+    -- the argmax of the four ensemble class counts, kept distinct
+    (compact skyrmion, elongated, labyrinth, annihilated) -- and
+    annotated with the survival probability
+    P_surv = (n_compact + n_elongated)/n_ens. Compact and elongated
+    are separate phases and are never merged here; the per-run split is
+    shown in the class-composition figure. Cells with no realizations
+    are left white.
 
     Parameters
     ----------
     agg : dict
-        Aggregate payload (keys Ts, Js).
-    cls : numpy.ndarray(2d)
-        Per-cell class codes from the field classifier.
-    dx_lx : numpy.ndarray(2d)
-        Per-cell D_x / L_x (field x-extent of the reversed domain over
-        the track length); >= 0.5 appends the loss-of-periodicity 'p'.
+        Aggregate payload (keys Ts, Js, n_S, n_E, n_L, n_A, P_surv).
     out_path : str
         Output PNG path.
     """
     Ts = agg['Ts']
     Js = agg['Js']
-    # Loss-of-periodicity second index 'p': the field x-extent D_x of the
-    # reversed domain reaches half the track length, so it can bridge its
-    # own periodic-x image and the single-skyrmion classification is
-    # compromised. dx_lx is D_x / L_x (from the field classifier).
-    code = {'S': 0, 'E': 1, 'L': 2, 'A': 3, '?': 4}
-    z = np.array(
-        [[code[cls[i, k]] for k in range(Js.size)]
-         for i in range(Ts.size)], dtype=float)
+    n_cmp = np.asarray(agg['n_S'], float)
+    n_elo = np.asarray(agg['n_E'], float)
+    n_lab = np.asarray(agg['n_L'], float)
+    n_ann = np.asarray(agg['n_A'], float)
+    p_surv = np.asarray(agg['P_surv'], float)
+    # Dominant class per cell among the four distinct phases:
+    # 0 = compact, 1 = elongated, 2 = labyrinth, 3 = annihilated,
+    # 4 = no data.
+    stacks = np.stack([n_cmp, n_elo, n_lab, n_ann], axis=-1)
+    total = stacks.sum(axis=-1)
+    z = np.where(total > 0, np.argmax(stacks, axis=-1), 4).astype(float)
     cmap = mcolors.ListedColormap(
         ['#2c7bb6', '#fdae61', '#d7191c', '#999999', '#ffffff'])
     norm = mcolors.BoundaryNorm(
         [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5], cmap.N)
-    fig, ax = plt.subplots(figsize=(7.5, 5.0))
+    fig, ax = plt.subplots(figsize=(7.8, 5.0))
     ax.imshow(z, origin='lower', aspect='auto', cmap=cmap, norm=norm)
     ax.set_xticks(np.arange(Js.size))
     ax.set_xticklabels([f'{j*1e-11:.2g}' for j in Js])
@@ -174,27 +182,20 @@ def _plot_stability_map(agg, cls, dx_lx, out_path):
     ax.set_yticklabels([f'{t:.0f}' for t in Ts])
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel('T (K)')
-    ax.set_title('skyrmion stability regimes')
+    ax.set_title(r'stability regimes (ensemble; cell = $P_{\mathrm{surv}}$)')
+    # Annotate each cell with its ensemble survival probability.
     for i in range(Ts.size):
         for k in range(Js.size):
-            c = 'k' if cls[i, k] in ('E', '?') else 'w'
-            label = cls[i, k]
-            # 'p' (loss of periodicity) only qualifies a skyrmion class;
-            # a labyrinth/annihilated cell already voids the single-object
-            # periodic picture, so it carries no 'p'.
-            if (cls[i, k] in ('S', 'E') and np.isfinite(dx_lx[i, k])
-                    and dx_lx[i, k] >= 0.5):
-                label = label + 'p'
-            ax.text(k, i, label, ha='center', va='center',
-                    color=c, fontweight='bold')
+            c = 'k' if z[i, k] == 4 else 'w'
+            txt = (f'{p_surv[i, k]:.2f}'
+                   if np.isfinite(p_surv[i, k]) else '-')
+            ax.text(k, i, txt, ha='center', va='center',
+                    color=c, fontsize=8)
     handles = [
-        mpatches.Patch(color='#2c7bb6', label='S: compact skyrmion'),
-        mpatches.Patch(color='#fdae61', label='E: elongated / spanning'),
-        mpatches.Patch(color='#d7191c', label='L: labyrinth / multi-domain'),
-        mpatches.Patch(color='#999999', label='A: annihilated (FM)'),
-        mpatches.Patch(facecolor='white', edgecolor='k',
-                       label=r'$\cdots$p: loss of periodicity '
-                             r'($D_x\geq0.5\,L_x$)')]
+        mpatches.Patch(color='#2c7bb6', label='compact skyrmion'),
+        mpatches.Patch(color='#fdae61', label='elongated'),
+        mpatches.Patch(color='#d7191c', label='labyrinth'),
+        mpatches.Patch(color='#999999', label='annihilated')]
     ax.legend(handles=handles, bbox_to_anchor=(1.02, 1.0),
               loc='upper left', fontsize=9, frameon=False)
     fig.tight_layout()
@@ -377,53 +378,130 @@ def _plot_ratio_heatmaps(agg, out_path):
 
 
 # -----------------------------------------------------------------------------
-def _plot_survival(agg, cls, theta_ens0, out_path):
-    """Skyrmion survival and Hall-angle maps.
+def _plot_survival(agg, out_path):
+    """Ensemble survival-probability and Hall-angle maps over (T, J).
 
-    Survival is the field-classifier verdict (a member survived iff
-    its final configuration classifies as a skyrmion, 'S' or 'E'),
-    NOT the |Q|-threshold criterion -- a melted labyrinth keeps its
-    winding and would count as alive under |Q|. With only the ens0
-    dumps on disk the panel is the binary ens0 verdict; a
-    re-aggregated campaign (per-realization `mz_final_top`) turns it
-    into the ensemble fraction.
+    Uses the aggregate's per-cell ensemble statistics computed over
+    every realization (not just the ens0 dump):
+
+    - `P_surv` = (n_S + n_E) / n_ens, the fraction of members whose
+      final field classifies as a skyrmion ('S' or 'E').
+    - `theta_mean` +/- `theta_se`: the skyrmion-Hall angle mean and
+      standard error over the surviving members (the aggregator gates
+      v/theta on survival). Cells with no survivors are NaN and blank.
+
+    Three panels: survival probability, Hall-angle mean, Hall-angle
+    standard error.
 
     Parameters
     ----------
     agg : dict
-        Aggregate payload (keys Ts, Js).
-    cls : numpy.ndarray(2d)
-        Per-cell class codes from the field classifier. The Hall
-        angle is only meaningful for a tracked skyrmion, so cells
-        that are not 'S'/'E' (labyrinth, annihilated, unknown) are
-        masked in the theta panel.
-    theta_ens0 : numpy.ndarray(2d)
-        Per-cell Hall angle (deg) from the ens0 dump trajectories
-        (`_hall_from_dump`), range (-90, 90].
+        Aggregate payload (keys Ts, Js, P_surv, theta_mean, theta_se).
     out_path : str
         Output PNG path.
     """
     Ts = agg['Ts']
     Js = agg['Js']
-    surv = np.isin(cls, ('S', 'E')).astype(float)
-    fig, axes = plt.subplots(1, 2, figsize=(13.0, 5.0))
+    p_surv = np.asarray(agg['P_surv'], dtype=float)
+    th = np.asarray(agg['theta_mean'], dtype=float)
+    th_se = np.asarray(agg['theta_se'], dtype=float)
+    fig, axes = plt.subplots(1, 3, figsize=(18.5, 5.0))
     im0 = _imshow_grid(
-        axes[0], Ts, Js, surv,
-        'skyrmion survival (field classifier, ens0)',
+        axes[0], Ts, Js, p_surv,
+        'survival probability $P_{\\mathrm{surv}}$ (all ens)',
         'magma', 0.0, 1.0)
     fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
-    theta = np.where(surv > 0.0, theta_ens0, np.nan)
-    tmax = float(np.nanmax(np.abs(theta))) if np.any(
-        np.isfinite(theta)) else 1.0
+    tmax = float(np.nanmax(np.abs(th))) if np.any(
+        np.isfinite(th)) else 1.0
     im1 = _imshow_grid(
-        axes[1], Ts, Js, theta,
-        r'skyrmion Hall angle $\theta_H$ (deg), ens0, S/E only',
+        axes[1], Ts, Js, th,
+        r'Hall angle $\overline{\theta}_H$ (deg, ens mean)',
         'coolwarm', -tmax, tmax)
     fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+    se_max = float(np.nanmax(th_se)) if np.any(
+        np.isfinite(th_se)) else 1.0
+    im2 = _imshow_grid(
+        axes[2], Ts, Js, th_se,
+        r'Hall angle SE $\sigma_{\theta_H}/\sqrt{n}$ (deg)',
+        'viridis', 0.0, se_max)
+    fig.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
     fig.tight_layout()
     fig.savefig(out_path)
     print(f'Saved: {out_path}')
     plt.close(fig)
+
+
+# -----------------------------------------------------------------------------
+def _plot_class_composition(agg, out_path):
+    """Per-cell ensemble class fractions over the (T, J) grid.
+
+    Four heatmaps -- the fraction of the n_ens realizations ending in
+    each class (S compact, E elongated, L labyrinth, A annihilated),
+    each cell annotated with that fraction. Reveals cells whose
+    outcome is not deterministic across runs (e.g. a 50/50 split
+    between elongated and labyrinth at the same T and J), which the
+    dominant-class stability map collapses to a single label.
+
+    Parameters
+    ----------
+    agg : dict
+        Aggregate payload (keys Ts, Js, n_ens, n_S, n_E, n_L, n_A).
+    out_path : str
+        Output PNG path.
+    """
+    Ts = agg['Ts']
+    Js = agg['Js']
+    n = np.asarray(agg['n_ens'], float)
+    n = np.where(n > 0, n, np.nan)
+    fracs = {
+        'S': np.asarray(agg['n_S'], float) / n,
+        'E': np.asarray(agg['n_E'], float) / n,
+        'L': np.asarray(agg['n_L'], float) / n,
+        'A': np.asarray(agg['n_A'], float) / n,
+    }
+    titles = {'S': 'compact skyrmion', 'E': 'elongated',
+              'L': 'labyrinth', 'A': 'annihilated'}
+    fig, axes = plt.subplots(1, 4, figsize=(22.0, 5.0))
+    for ax, code in zip(axes, ('S', 'E', 'L', 'A')):
+        z = fracs[code]
+        im = _imshow_grid(
+            ax, Ts, Js, z,
+            f'P({code}) -- {titles[code]}', 'viridis', 0.0, 1.0)
+        for i in range(Ts.size):
+            for k in range(Js.size):
+                v = z[i, k]
+                if np.isfinite(v) and v > 0.0:
+                    ax.text(k, i, f'{v:.2f}', ha='center', va='center',
+                            color=('w' if v < 0.6 else 'k'), fontsize=6)
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f'Saved: {out_path}')
+    plt.close(fig)
+
+
+# -----------------------------------------------------------------------------
+def _try_load_anim(path):
+    """`_load_anim` guarded against empty / corrupt dumps.
+
+    Returns the payload dict, or None (with a warning) if the file is
+    zero-byte or fails to load. The ens0 field dump can be empty when
+    the driver's snapshot write ran out of memory on a large box; the
+    trajectories and aggregate are unaffected, so the ensemble figures
+    still render and only this cell's ens0 stills / GIF are skipped.
+    """
+    if os.path.getsize(path) == 0:
+        print(f'  WARN skip empty anim: {os.path.basename(path)}')
+        return None
+    try:
+        return _load_anim(path)
+    except (EOFError, OSError, ValueError, zipfile.BadZipFile,
+            KeyError) as exc:
+        # zipfile.BadZipFile: nonzero but truncated / corrupt npz
+        # (e.g. an interrupted transfer); KeyError: a missing array.
+        print(f'  WARN skip unreadable anim '
+              f'{os.path.basename(path)}: {type(exc).__name__}')
+        return None
 
 
 # -----------------------------------------------------------------------------
@@ -573,7 +651,8 @@ def _plot_hall_deviation(na, a, L_x, theta_deg, theta_se, out_path):
         Track length along the periodic axis (m), for the
         wrap-break of the path overlay.
     theta_deg : float
-        Hall angle of this realization (deg).
+        Ensemble-mean Hall angle over all surviving runs (deg); the
+        single realization drawn here is only the visual context.
     theta_se : float
         Ensemble standard error on theta (deg); NaN when no
         ensemble aggregate is available yet.
@@ -615,7 +694,8 @@ def _plot_hall_deviation(na, a, L_x, theta_deg, theta_se, out_path):
     se_txt = f'{theta_se:.1f}' if np.isfinite(theta_se) else 'n/a'
     axes[2].text(
         0.03, 0.985,
-        rf'$\theta_H = {theta_deg:+.1f}^\circ \pm$ {se_txt}',
+        rf'$\overline{{\theta}}_H = {theta_deg:+.1f}^\circ \pm$ '
+        rf'{se_txt}$^\circ$ (ens)',
         transform=axes[2].transAxes, va='top', fontsize=16,
         bbox={'facecolor': 'w', 'alpha': 0.8, 'edgecolor': 'none'})
     fig.tight_layout()
@@ -686,68 +766,107 @@ def _build_animation(na, a, out_path):
 
 
 # -----------------------------------------------------------------------------
-def main():
-    """Render all length-scale figures and one animation."""
-    # =========================== User Configuration =========================
-    # Run tag: box geometry + boundary condition. Used to name the
-    # aggregate, the dump folder, and the figure output folder so each
-    # run's products stay separate.
-    run_tag         = 'box350x500_racetrack_D0p545'
-    # Directory holding the (box/BC-tagged) aggregate NPZ.
-    in_dir          = 'output/stochastic_llgs/scan_track_width'
-    agg_name        = 'aggregate_350x500_racetrack_D0p545.npz'
-    # Directory holding the large full-field dumps (anim_*.npz). These
-    # can live on a separate drive while the aggregate stays in in_dir.
-    dump_dir        = ('/Volumes/T7/skyrmion_simulator/output/'
-                       'stochastic_llgs/scan_track_width/' + run_tag)
-    out_dir         = os.path.join(
-        'output/figures_sllg/track_width', run_tag)
-    # GIFs are large, so they are written directly to the T7 backup at
-    # the same repo-relative path (not the local disk). The small grid
-    # figures and config stills stay local in out_dir.
-    gif_dir         = os.path.join(
-        '/Volumes/T7/skyrmion_simulator',
-        'output/figures_sllg/track_width', run_tag)
-    a               = 2.0e-9         # m, lattice constant
-    # Animation / still: process every dumped cell matching this glob.
-    anim_glob       = 'anim_T*.npz'
-    # Re-render config stills / GIFs that already exist. Default False:
-    # existing outputs are skipped (the GIF encoding is the slow step).
-    overwrite       = False
-    # ======================= End User Configuration =========================
-    os.makedirs(out_dir, exist_ok=True)
-    os.makedirs(gif_dir, exist_ok=True)
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Class-independent aggregate grid figures.
-    agg = _load_aggregate(in_dir, agg_name)
-    _plot_axes_vs_j(
-        agg, os.path.join(out_dir, 'axes_vs_J.png'))
-    _plot_axes_vs_t(
-        agg, os.path.join(out_dir, 'axes_vs_T.png'))
-    _plot_relaxed_vs_t(
-        agg, os.path.join(out_dir, 'relaxed_vs_T.png'))
-    _plot_ratio_heatmaps(
-        agg, os.path.join(out_dir, 'ratio_heatmaps.png'))
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Single pass over the ens0 field dumps: classify each (T, j) cell
-    # (|Q| + periodic-x components + D1/L_x gate) and render its config
-    # still + GIF. Each dump is loaded once (classification needs the
-    # field, so the load cannot be skipped as before).
-    Ts = agg['Ts']
-    Js = agg['Js']
-    L_x = float(agg['L_x'])
-    D1m = agg['D1_mean']
-    D2m = agg['D2_mean']
-    anim_files = sorted(glob.glob(os.path.join(dump_dir, anim_glob)))
-    if not anim_files:
+def _plot_equil_series(case_dir, out_path):
+    """Thermal-equilibration D1(t) / D2(t), one color per T_sub.
+
+    Reads every `equil_series_T*_ens*.npz` (keys `step`, `t_s`,
+    `D1_m`, `D2_m`) written by stage 2 (equilibrate_track_width) in
+    `case_dir`, groups them by substrate temperature, and plots the
+    ensemble-mean axes versus time with a +/-1 sigma band. The
+    per-ensemble series are ragged (each stops at its own plateau),
+    so within each T they are truncated to the common (shortest)
+    length before averaging -- the window every member shares.
+
+    Parameters
+    ----------
+    case_dir : str
+        Campaign case directory holding the equil_series files.
+    out_path : str
+        Output PNG path.
+    """
+    paths = sorted(glob.glob(
+        os.path.join(case_dir, 'equil_series_T*_ens*.npz')))
+    if not paths:
         raise RuntimeError(
-            f'plot_track_width: no {anim_glob!r} dump files in '
-            f'{dump_dir!r}; dumping is gated to ens_idx==0.')
-    # Pass 1 -- classify every cell from its final field and fit its
-    # Hall angle from the ens0 dump trajectory, then write the class
-    # table and the class-dependent maps first (they do not depend
-    # on the slow GIF encoding that follows).
-    L_y = float(agg['L_y'])
+            f'_plot_equil_series: no equil_series_T*_ens*.npz in '
+            f'{case_dir!r}.')
+    # Group file paths by the T token in the filename.
+    by_t = {}
+    for path in paths:
+        base = os.path.basename(path)
+        t_tok = base.split('_T')[1].split('_ens')[0]
+        by_t.setdefault(float(t_tok), []).append(path)
+    t_values = sorted(by_t)
+    cmap = plt.get_cmap('viridis')
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, figsize=(11, 5.4))
+    for k, t_sub in enumerate(t_values):
+        series = [np.load(p) for p in by_t[t_sub]]
+        # Common (shortest) length so the ens mean is well-defined.
+        n = min(len(s['t_s']) for s in series)
+        t_ns = series[0]['t_s'][:n] * 1e9
+        d1 = np.stack([s['D1_m'][:n] for s in series]) * 1e9
+        d2 = np.stack([s['D2_m'][:n] for s in series]) * 1e9
+        c = cmap(k / max(len(t_values) - 1, 1))
+        label = f'$T = {t_sub:.0f}$ K ({len(series)} ens)'
+        for ax, d in ((ax1, d1), (ax2, d2)):
+            mean = d.mean(axis=0)
+            std = d.std(axis=0)
+            ax.plot(t_ns, mean, color=c, label=label)
+            ax.fill_between(
+                t_ns, mean - std, mean + std, color=c, alpha=0.2)
+    ax1.set_ylabel(r'$D_1$ (nm)')
+    ax2.set_ylabel(r'$D_2$ (nm)')
+    for ax in (ax1, ax2):
+        ax.set_xlabel(r'$t$ (ns)')
+        ax.set_box_aspect(1)
+    fig.suptitle(os.path.basename(case_dir.rstrip('/'))
+                 + r' -- thermal equilibration')
+    ax1.legend(loc='best', frameon=False, ncol=2, fontsize=9)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+    print(f'Saved {out_path}')
+
+
+# -----------------------------------------------------------------------------
+def _postprocess_case(case_dir, out_dir, gif_dir, a, anim_glob,
+                      do_equil, do_drive, do_gif, overwrite):
+    """Post-process one campaign case dir (<hk>_<D>_<box>).
+
+    Reads `aggregate.npz`, `anim_T*.npz`, and `equil_series_*` from
+    `case_dir` (on T7 with the large dumps), writing small figures to
+    `out_dir` and GIFs to `gif_dir`. Reuses the module's plot helpers.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    # --- Thermal equilibration D1/D2 vs t (stage 2) ---
+    if do_equil and glob.glob(os.path.join(
+            case_dir, 'equil_series_T*_ens*.npz')):
+        _plot_equil_series(
+            case_dir, os.path.join(out_dir, 'equil_D1D2_vs_t.png'))
+    if not (do_drive or do_gif):
+        return
+    agg_path = os.path.join(case_dir, 'aggregate.npz')
+    if not os.path.isfile(agg_path):
+        print(f'  no aggregate.npz in {case_dir}; skip drive/gif.')
+        return
+    agg = _load_aggregate(case_dir, 'aggregate.npz')
+    # --- Drive-phase aggregate grid figures ---
+    if do_drive:
+        _plot_axes_vs_j(agg, os.path.join(out_dir, 'axes_vs_J.png'))
+        _plot_axes_vs_t(agg, os.path.join(out_dir, 'axes_vs_T.png'))
+        _plot_relaxed_vs_t(
+            agg, os.path.join(out_dir, 'relaxed_vs_T.png'))
+        _plot_ratio_heatmaps(
+            agg, os.path.join(out_dir, 'ratio_heatmaps.png'))
+    anim_files = sorted(glob.glob(os.path.join(case_dir, anim_glob)))
+    if not anim_files:
+        print(f'  no {anim_glob} in {case_dir}; skip classify/gif.')
+        return
+    Ts = agg['Ts']; Js = agg['Js']
+    L_x = float(agg['L_x']); L_y = float(agg['L_y'])
+    D1m = agg['D1_mean']; D2m = agg['D2_mean']
+    # Pass 1: classify each cell + Hall angle from the ens0 dump.
     cls = np.full((Ts.size, Js.size), '?', dtype='<U1')
     th_ens0 = np.full((Ts.size, Js.size), np.nan)
     rows = []
@@ -757,66 +876,117 @@ def main():
         J = float(stem.split('_j')[1])
         i = int(np.argmin(np.abs(Ts - T)))
         k = int(np.argmin(np.abs(Js - J)))
-        na = _load_anim(anim_path)
+        na = _try_load_anim(anim_path)
+        if na is None:
+            continue
         code, m = classify_field(
             na['mf_top'][..., 2], abs(na['q_final']),
             float(D1m[i, k]), float(D2m[i, k]), L_x)
         cls[i, k] = code
         # Racetrack: y is free (not periodic), x is periodic.
-        th_ens0[i, k] = _hall_from_dump(
-            na, L_x, L_y, periodic_y=False)
+        th_ens0[i, k] = _hall_from_dump(na, L_x, L_y, periodic_y=False)
         rows.append({'T': T, 'J': J, 'code': code, **m})
-        print(f"  {stem}: |Q|={m['q_abs']:.2f}  Nc={m['n_comp']}  "
-              f"xperc={int(m['x_perc'])}  Dx/Lx={m['dx_lx']:.2f}  "
-              f"D1/D2={m['ratio']:.2f}  "
-              f"theta={th_ens0[i, k]:+.1f}  -> {code}")
-    _save_classes(
-        os.path.join(in_dir, f'stability_classes_{run_tag}.npz'),
-        Ts, Js, cls, rows)
-    dx_lx = np.full((Ts.size, Js.size), np.nan)
-    for r in rows:
-        i = int(np.argmin(np.abs(Ts - r['T'])))
-        k = int(np.argmin(np.abs(Js - r['J'])))
-        dx_lx[i, k] = r['dx_lx']
-    _plot_stability_map(
-        agg, cls, dx_lx, os.path.join(out_dir, 'stability_map.png'))
-    _plot_velocity_vs_j(
-        agg, cls, os.path.join(out_dir, 'velocity_vs_J.png'))
-    _plot_survival(
-        agg, cls, th_ens0,
-        os.path.join(out_dir, 'survival_hall.png'))
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Pass 2 -- config stills, Hall-deviation stills (S/E cells only)
-    # + GIFs (skip existing; the GIF encode is the slow step and its
-    # outputs go to the T7 gif_dir).
-    for anim_path in anim_files:
-        stem = os.path.splitext(os.path.basename(anim_path))[0]
-        T = float(stem.split('_T')[1].split('_j')[0])
-        J = float(stem.split('_j')[1])
-        i = int(np.argmin(np.abs(Ts - T)))
-        k = int(np.argmin(np.abs(Js - J)))
-        cfg_path = os.path.join(out_dir, f'{stem}_configs.png')
-        hall_path = os.path.join(out_dir, f'{stem}_hall.png')
-        gif_path = os.path.join(gif_dir, f'{stem}.gif')
-        need_cfg = overwrite or not os.path.isfile(cfg_path)
-        # The Hall-deviation still only makes sense for a tracked
-        # skyrmion (class S/E).
-        need_hall = cls[i, k] in ('S', 'E') and (
-            overwrite or not os.path.isfile(hall_path))
-        need_gif = overwrite or not os.path.isfile(gif_path)
-        if not need_cfg and not need_hall and not need_gif:
-            print(f'Skip (exists): {stem}')
-            continue
-        na = _load_anim(anim_path)
-        if need_cfg:
-            _plot_three_configs(na, a, cfg_path)
-        if need_hall:
-            # No ensemble aggregate yet: theta SE unavailable (NaN).
-            _plot_hall_deviation(
-                na, a, L_x, float(th_ens0[i, k]), float('nan'),
-                hall_path)
-        if need_gif:
-            _build_animation(na, a, gif_path)
+        print(f"  {stem}: |Q|={m['q_abs']:.2f} D1/D2={m['ratio']:.2f} "
+              f"theta={th_ens0[i, k]:+.1f} -> {code}")
+    tag = os.path.basename(out_dir.rstrip('/'))
+    if do_drive:
+        # Keep the ens0 class table as a per-realization record.
+        _save_classes(
+            os.path.join(out_dir, f'stability_classes_{tag}.npz'),
+            Ts, Js, cls, rows)
+        # Ensemble-based maps (all realizations, from the aggregate).
+        _plot_stability_map(
+            agg, os.path.join(out_dir, 'stability_map.png'))
+        _plot_class_composition(
+            agg, os.path.join(out_dir, 'class_composition.png'))
+        _plot_velocity_vs_j(
+            agg, cls, os.path.join(out_dir, 'velocity_vs_J.png'))
+        _plot_survival(
+            agg, os.path.join(out_dir, 'survival_hall.png'))
+    # Pass 2: config stills, Hall stills (S/E cells) + GIFs.
+    if do_gif:
+        os.makedirs(gif_dir, exist_ok=True)
+        for anim_path in anim_files:
+            stem = os.path.splitext(os.path.basename(anim_path))[0]
+            T = float(stem.split('_T')[1].split('_j')[0])
+            J = float(stem.split('_j')[1])
+            i = int(np.argmin(np.abs(Ts - T)))
+            k = int(np.argmin(np.abs(Js - J)))
+            cfg_path = os.path.join(out_dir, f'{stem}_configs.png')
+            hall_path = os.path.join(out_dir, f'{stem}_hall.png')
+            gif_path = os.path.join(gif_dir, f'{stem}.gif')
+            need_cfg = overwrite or not os.path.isfile(cfg_path)
+            need_hall = cls[i, k] in ('S', 'E') and (
+                overwrite or not os.path.isfile(hall_path))
+            need_gif = overwrite or not os.path.isfile(gif_path)
+            if not need_cfg and not need_hall and not need_gif:
+                print(f'  skip (exists): {stem}')
+                continue
+            na = _try_load_anim(anim_path)
+            if na is None:
+                continue
+            if need_cfg:
+                _plot_three_configs(na, a, cfg_path)
+            if need_hall:
+                # Annotate with the ensemble Hall angle mean +/- SE
+                # (from the aggregate over all surviving runs), not the
+                # single ens0 realization drawn as visual context.
+                _plot_hall_deviation(
+                    na, a, L_x,
+                    float(agg['theta_mean'][i, k]),
+                    float(agg['theta_se'][i, k]),
+                    hall_path)
+            if need_gif:
+                _build_animation(na, a, gif_path)
+
+
+# -----------------------------------------------------------------------------
+def main():
+    """Post-process every pulled track-width campaign case: thermal
+    D1/D2-vs-t, drive-phase aggregate panels, stability / velocity /
+    survival maps, and per-cell config stills + GIFs. Config is
+    variables at the top of main() (no argparse).
+    """
+    # =========================== User Configuration =========================
+    # Campaign case dirs (aggregate.npz + anim_*.npz + equil_series)
+    # live on T7 with the large dumps; each subdir is one
+    # <tag> = <hk>_<D>_<box>. Small figures go to the local fig root;
+    # GIFs go beside the dumps on T7.
+    campaign_root = ('/Volumes/T7/skyrmion_simulator/output/'
+                     'stochastic_llgs/scan_track_width/campaign')
+    fig_root_local = 'output/figures_sllg/track_width'
+    fig_root_t7 = ('/Volumes/T7/skyrmion_simulator/output/'
+                   'figures_sllg/track_width')
+    a = 2.0e-9                 # m, lattice constant
+    anim_glob = 'anim_T*.npz'
+    # Stage toggles.
+    do_equil = True            # thermal D1/D2-vs-t (needs equil_series)
+    do_drive = True            # aggregate panels + stability maps
+    do_gif = True              # per-cell config stills + GIFs (slow)
+    overwrite = False          # re-render existing stills / GIFs
+    # Restrict to these tags; empty => every case dir present with an
+    # aggregate.npz (skips cases still running on the cluster). The
+    # 350x500 / 700x500 cases are already processed, so scope to the
+    # remaining 1400x500 boxes.
+    only_tags = ['hk36_D0p72_1400x500', 'hk12p4_D0p58_1400x500']
+    # ======================= End User Configuration =========================
+    case_dirs = sorted(
+        d for d in glob.glob(os.path.join(campaign_root, '*'))
+        if os.path.isdir(d))
+    if only_tags:
+        case_dirs = [d for d in case_dirs
+                     if os.path.basename(d) in only_tags]
+    if not case_dirs:
+        raise RuntimeError(
+            f'main: no campaign case dirs under {campaign_root!r}.')
+    for case_dir in case_dirs:
+        tag = os.path.basename(case_dir)
+        print(f'===== {tag} =====')
+        _postprocess_case(
+            case_dir,
+            os.path.join(fig_root_local, tag),
+            os.path.join(fig_root_t7, tag),
+            a, anim_glob, do_equil, do_drive, do_gif, overwrite)
 
 
 # =============================================================================

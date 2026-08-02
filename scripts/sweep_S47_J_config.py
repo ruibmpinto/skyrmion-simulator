@@ -192,7 +192,9 @@ def main():
         4.0e11, 5.0e11, 6.0e11, 8.0e11, 8.9e11,
     ]
     tail_sigmas = 3.0
-    D = 0.85e-3
+    # D = 0.85e-3             # legacy repo calibration (old kernels)
+    # Paper Set A (supp. 1.1): D = 0.76 mJ/m^2, H_k,top = 36 mT.
+    D = 0.76e-3
     nx = 256; ny = 256; dt = 5.0e-14
     relax_time = 500.0e-12
     n_relax_fixed = int(math.ceil(relax_time / dt))

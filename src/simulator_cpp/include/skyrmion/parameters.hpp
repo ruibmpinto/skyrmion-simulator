@@ -34,7 +34,9 @@ struct Params {
     Real Ms     = 1.43e6;
     Real A_ex   = 16.0e-12;
     Real D      = 0.85e-3;
-    Real K_top  = 1.294e6;
+    // Real K_top = 1.294e6;  // measured (Hk_top = 12.4 mT)
+    // Paper sims raise Hk_top to 36 mT (supp. 1.1).
+    Real K_top  = 1.3106e6;
     Real K_bot  = 1.31e6;
     Real alpha  = 0.14;
     Real t_Co   = 1.3e-9;

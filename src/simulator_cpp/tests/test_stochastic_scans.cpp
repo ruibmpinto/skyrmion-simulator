@@ -62,6 +62,7 @@ int main() {
     cfg.T_sub = 30.0;
     cfg.R_th = 0.0;
     cfg.j_current = 1.0e11;
+    cfg.drive_pulse = std::make_shared<ConstantPulse>(cfg.j_current);
     cfg.nx = 24;
     cfg.ny = 24;
     cfg.dt = 5.0e-14;

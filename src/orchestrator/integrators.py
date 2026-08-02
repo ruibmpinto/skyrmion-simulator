@@ -107,7 +107,11 @@ def step_stochastic(rng, sigma, tol_norm, kernels):
         on every call without re-seeding.
     sigma : float
         Thermal field amplitude (Tesla * sqrt(s)) as produced
-        by `stochastic_llgs.parameters_thermal`.
+        by `stochastic_llgs.parameters_thermal`. Must be
+        strictly positive: `sample_thermal_field` rejects a
+        zero amplitude, so the T = 0 deterministic limit is not
+        available through this stepper -- use
+        `step_demag_deterministic` for that.
     tol_norm : float
         Allowed |m| drift per step; passed straight to
         `heun_stochastic_step`.
@@ -142,8 +146,10 @@ def step_stochastic(rng, sigma, tol_norm, kernels):
 
     def step(m_top, m_bot, t, dt, p):
         # Sample two independent thermal fields, one per layer.
-        h_top = sample_thermal_field(rng, m_top.shape, sigma, dt)
-        h_bot = sample_thermal_field(rng, m_bot.shape, sigma, dt)
+        # sample_thermal_field takes the lattice shape (ny, nx) and
+        # returns (ny, nx, 3); passing the full field shape raises.
+        h_top = sample_thermal_field(rng, m_top.shape[:2], sigma, dt)
+        h_bot = sample_thermal_field(rng, m_bot.shape[:2], sigma, dt)
         # Dispatch to the Heun stepper; discard the norm-drift
         # diagnostic since the driver does not track it here.
         m_top_new, m_bot_new, _drift = heun_stochastic_step(

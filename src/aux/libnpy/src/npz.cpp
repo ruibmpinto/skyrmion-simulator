@@ -111,6 +111,18 @@ std::uint16_t determine_extra_length(const npy::file_entry &header,
     length += 8;
   }
 
+  // This value is written as the local/central header's
+  // extra_field_length, which must cover the whole ZIP64 extra
+  // record -- including the 2-byte tag and 2-byte data-size that
+  // write_zip64_extra emits before the 8-byte fields. Without the
+  // +4 the declared length is 4 bytes short of what is written, so
+  // readers (e.g. numpy/zipfile) reject it with "Corrupt extra
+  // field 0001". This path triggers for >~2.25 GB npz where a late
+  // entry's offset exceeds ZIP64_LIMIT.
+  if (length > 0) {
+    length += 4;
+  }
+
   return length;
 }
 

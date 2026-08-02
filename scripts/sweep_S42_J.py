@@ -220,7 +220,9 @@ def main():
     FWHM = 500.0e-12          # 500 ps full width at half max.
     tail_sigmas = 3.0
     # Set A material constants.
-    D = 0.85e-3               # J/m^2
+    # D = 0.85e-3             # legacy repo calibration (old kernels)
+    # Paper Set A (supp. 1.1): D = 0.76 mJ/m^2, H_k,top = 36 mT.
+    D = 0.76e-3               # J/m^2
     nx = 256
     ny = 256
     dt = 5.0e-14              # s

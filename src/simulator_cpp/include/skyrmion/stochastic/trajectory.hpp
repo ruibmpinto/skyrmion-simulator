@@ -10,15 +10,21 @@
 
 #include "skyrmion/demag.hpp"   // DemagKind
 #include "skyrmion/io_npz.hpp"
+#include "skyrmion/pulses.hpp"
 #include "skyrmion/types.hpp"
 
+#include <memory>
 #include <vector>
 
 namespace skyrmion {
 namespace stochastic {
 
 struct StochasticConfig {
-    Real T_sub = 300.0;        // K (must be > 0; Joule heating via T_of_j)
+    // K. Strictly positive selects the thermal (Heun) dynamics via
+    // T_of_j. Exactly 0 selects the noise-free mode: no Joule heating,
+    // sigma_noise = 0, and the Heun stepper then reproduces the
+    // deterministic path bit for bit -- used for the T = 0 baseline.
+    Real T_sub = 300.0;
     Real R_th = 0.0;           // K m^4 / A^2
     Real j_current = 4.0e11;   // A/m^2
     int  nx = 256, ny = 256;
@@ -38,11 +44,19 @@ struct StochasticConfig {
     Real skyrmion_R = 0.0;     // 0 => keep default_params value
     Real skyrmion_dw = 0.0;    // 0 => keep default
     Real D = 0.0;              // DMI override (0 => keep default)
+    Real K_top = 0.0;          // top anisotropy override (0 => default)
     Real H_z = 0.0;            // external field z-component (Tesla)
     // Pre-relaxed starting field; both non-null => seed from these
     // (skip saf_skyrmion), both null => fresh SAF skyrmion seed.
     const Field3* m_init_top = nullptr;
     const Field3* m_init_bot = nullptr;
+    // Drive-phase current profile. REQUIRED -- run_trajectory throws if
+    // it is unset; there is no implied DC fallback. For a DC drive pass
+    // ConstantPulse(j_current) explicitly. With a shaped pulse,
+    // j_current carries the PEAK amplitude and still sets the
+    // Joule-heating term through T_of_j, which is exact for R_th = 0
+    // as used by the racetrack campaign.
+    std::shared_ptr<Pulse> drive_pulse;
     // Thermal equilibration of the relax phase. If equilibrate, run the
     // J=0 noisy dynamics until the LCC size plateaus (ignoring n_relax);
     // else run a fixed n_relax steps.
@@ -60,6 +74,10 @@ struct StochasticConfig {
     int  progress_every = 0;
     // FFTW thread count for the demag transforms (0 => single-threaded).
     int  fft_threads = 0;
+    // Record the per-sample translation/deformation split of the
+    // deterministic dm/dt. Off by default (two extra field evaluations
+    // per sample); enabled for the pulse-width study.
+    bool record_dissipation = false;
 };
 
 struct StochasticPayload {
@@ -75,6 +93,11 @@ struct StochasticPayload {
     std::vector<double> D1_top, D2_top, theta_top;
     std::vector<double> D1_bot, D2_bot, theta_bot;
     std::vector<double> norm_drift_max;
+    // Per-sample dissipation split (empty unless record_dissipation).
+    // diss_trans + diss_def = diss_total to round-off; v_fit is the
+    // collective velocity the split recovers, for cross-check.
+    std::vector<double> diss_trans, diss_def, diss_total;
+    std::vector<double> v_fit_x, v_fit_y;
     double L_x = 0.0, L_y = 0.0;   // box extent (m); track width = L_y
     double T_sub = 0.0, j_current = 0.0;   // cell coordinates (echo)
     // Pre-drive (J=0) finite-T equilibrium size + equilibration outcome.

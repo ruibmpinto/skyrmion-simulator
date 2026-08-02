@@ -59,6 +59,8 @@ def _build_set_B_params(D, alpha, gamma, lambda_sq,
     p.D = D
     p.alpha = alpha
     p.gamma = gamma
+    # Set B keeps the measured Hk_top = 12.4 mT (S49 caption).
+    p.K_top = 1.294e6
     p.nx = nx; p.ny = ny; p.dt = dt
     p.lambda_sq = float(lambda_sq)
     p.skyrmion_R = float(R)

@@ -1,8 +1,9 @@
 """Field-based skyrmion stability classification.
 
 Classifies a single relaxed/driven SAF configuration into compact
-skyrmion / elongated skyrmion / labyrinth / annihilated from the
-raw top-layer m_z field, the topological charge and the LCC
+skyrmion / elongated skyrmion / spanning stripe / labyrinth /
+annihilated / reversed background from the raw top-layer m_z
+field, the topological charge and the LCC
 ellipse axes. Shared by the track-width plot script (per-cell ens0
 classification) and the aggregator (per-realization survival
 criterion).
@@ -228,11 +229,12 @@ def decide_class(m):
     Returns
     -------
     code : str
-        'S', 'E', 'L', or 'A'.
+        'S', 'E', 'P', 'L', 'A', or 'R'.
     """
     q_sk = 0.5          # |Q| above -> a topological skyrmion is present
     q_multi = 1.6       # |Q| above -> more than one skyrmion
     core_min = 0.005    # domain-area frac below -> no domain (FM)
+    core_rev = 0.5      # domain-area frac above -> background switched
     x_gate = 0.5        # D_x/L_x above -> periodic-image break (index p)
     r_elong = 1.7       # D1/D2 above -> elongated
     n_dom = 3           # this many domains -> labyrinth (multi-domain)
@@ -242,6 +244,18 @@ def decide_class(m):
     # No reversed domain (and no sub-floor winding): ferromagnetic.
     if n_comp == 0 or (m['core_frac'] < core_min and q < q_sk):
         return 'A'
+    # Background switched: the reversed domain now covers most of the
+    # box, so the m_z < -0.5 mask selects the BACKGROUND rather than
+    # the object, and every shape metric derived from it -- solidity,
+    # D_x/L_x, the axes -- describes that background instead. Measured
+    # separation is wide: a genuine skyrmion sits at core_frac
+    # 0.07-0.11 and a labyrinth at 0.15-0.39, while a switched track
+    # sits at 0.61-0.77. Reported as its own class rather than as a
+    # skyrmion, since the metrics behind an S/E verdict are not
+    # meaningful once the mask has inverted. Note |Q| is NOT a
+    # discriminator here: it stays near -1 through the switch.
+    if m['core_frac'] > core_rev:
+        return 'R'
     # Genuine labyrinth: more than one winding, or many domains.
     if q >= q_multi or n_comp >= n_dom:
         return 'L'
@@ -252,7 +266,18 @@ def decide_class(m):
     # hull-underfilling domain is a labyrinth.
     if m['solidity'] < s_min:
         return 'L'
-    # Skyrmion: elongated/spanning (E) vs compact (S).
-    if m['x_perc'] or m['dx_lx'] >= x_gate or m['ratio'] >= r_elong:
+    # Spanning: the domain reaches its own periodic image, or covers at
+    # least half the track length. Topologically still one winding, but
+    # it is no longer a localized object -- it bridges the track, so the
+    # single-skyrmion picture is void and it cannot serve as a racetrack
+    # bit. Reported apart from E rather than inside it: measured, a
+    # genuine elongated skyrmion sits at core_frac ~0.03 and
+    # D_x/L_x ~0.12, whereas these span 0.6-0.8 of the track and cover a
+    # third of the box. (The earlier DC study drew the same line with
+    # its separate 'p' index.)
+    if m['x_perc'] or m['dx_lx'] >= x_gate:
+        return 'P'
+    # Localized skyrmion: elongated (E) vs compact (S).
+    if m['ratio'] >= r_elong:
         return 'E'
     return 'S'

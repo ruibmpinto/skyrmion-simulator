@@ -39,6 +39,27 @@ private:
     Real J0_, t_center_, sigma_;
 };
 
+// Linear rise to J0 at t_peak, then linear fall. Pin t_peak to
+// t_start for an instantaneous rise, to t_end for an instantaneous
+// fall, or midway for a symmetric ramp. Charge and action are both
+// independent of t_peak.
+class TrianglePulse : public Pulse {
+public:
+    TrianglePulse(Real J0, Real t_start, Real t_peak, Real t_end);
+    Real operator()(Real t) const override;
+private:
+    Real J0_, t_start_, t_peak_, t_end_;
+};
+
+// Half-period sine lobe: vanishes at both edges, peaks at midpoint.
+class HalfSinePulse : public Pulse {
+public:
+    HalfSinePulse(Real J0, Real t_start, Real t_end);
+    Real operator()(Real t) const override;
+private:
+    Real J0_, t_start_, t_end_;
+};
+
 class SuperpositionPulse : public Pulse {
 public:
     explicit SuperpositionPulse(std::vector<std::unique_ptr<Pulse>> pulses);

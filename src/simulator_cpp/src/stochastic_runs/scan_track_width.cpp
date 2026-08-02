@@ -14,6 +14,7 @@
 // the field-snapshot stream for animation.
 #include "skyrmion/lattice.hpp"
 #include "skyrmion/sweep/sweep_common.hpp"   // resolve_indices
+#include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"
 #include "skyrmion/stochastic/trajectory_io.hpp"
 
@@ -21,6 +22,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <sstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -42,7 +44,35 @@ int fft_threads_from_env() {
 
 int main() {
     // ----- Run configuration (box must match stages 1-2) ---------------------
-    const int nx = 350, ny = 500;
+    // Phase-B campaign cases; select one by the TW_CASE env var.
+    // Must match equilibrate_track_width's case table (same order).
+    struct Case { double k_top; double dmi; int nx; int ny;
+                  const char* tag; };
+    const std::vector<Case> cases = {
+        {1.294e6,  0.58e-3, 350, 500, "hk12p4_D0p58_350x500"},
+        {1.294e6,  0.58e-3, 700, 500, "hk12p4_D0p58_700x500"},
+        {1.3106e6, 0.72e-3, 350, 500, "hk36_D0p72_350x500"},
+        {1.3106e6, 0.72e-3, 700, 500, "hk36_D0p72_700x500"},
+        {1.3106e6, 0.72e-3, 1400, 500, "hk36_D0p72_1400x500"},
+        {1.294e6,  0.58e-3, 1400, 500, "hk12p4_D0p58_1400x500"},
+    };
+    const char* tw_case_env = std::getenv("TW_CASE");
+    if (tw_case_env == nullptr || *tw_case_env == '\0') {
+        std::fprintf(stderr,
+            "error: TW_CASE unset; expected 0..%zu.\n",
+            cases.size() - 1);
+        return 1;
+    }
+    const int case_idx = std::atoi(tw_case_env);
+    if (case_idx < 0 || case_idx >= static_cast<int>(cases.size())) {
+        std::fprintf(stderr,
+            "error: TW_CASE=%d out of range [0, %zu].\n",
+            case_idx, cases.size() - 1);
+        return 1;
+    }
+    const Case tw = cases[case_idx];
+    const int nx = tw.nx, ny = tw.ny;
+    const double k_top = tw.k_top;
     // Lattice constant for the dump grids, read from the same
     // Params default the trajectories run with.
     const double cell_a = make_default_params().a;
@@ -65,10 +95,12 @@ int main() {
     // Exchange/DMI use free-y ghost cells (mask = nullptr), matching
     // the Python pipeline. D must match stages 1 & 2.
     const DemagKind demag_kind = DemagKind::Racetrack;
-    const double dmi = 0.545e-3;
+    const double dmi = tw.dmi;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
-    const std::string out_dir = "output/stochastic_llgs/scan_track_width";
+    const std::string out_dir =
+        std::string("output/stochastic_llgs/scan_track_width/campaign/")
+        + tw.tag;
     // -------------------------------------------------------------------------
     std::filesystem::create_directories(out_dir);
     const int fft_threads = fft_threads_from_env();
@@ -107,6 +139,9 @@ int main() {
         cfg.T_sub = tr.T_sub;
         cfg.R_th = r_th;
         cfg.j_current = tr.j;
+        // DC drive, stated explicitly: there is no implied fallback.
+        cfg.drive_pulse =
+            std::make_shared<ConstantPulse>(cfg.j_current);
         cfg.nx = nx; cfg.ny = ny; cfg.dt = dt;
         cfg.n_relax = 0;                 // pre-thermalized; no relax here
         cfg.n_drive = n_drive;
@@ -118,6 +153,7 @@ int main() {
                    + 1000000LL * tr.cell_idx;
         cfg.tol_norm = tol_norm;
         cfg.D = dmi;
+        cfg.K_top = k_top;
         cfg.use_demag = true;
         cfg.demag_kind = demag_kind;
         cfg.demag_accuracy = demag_accuracy;

@@ -13,22 +13,25 @@ mkdir -p logs
 
 # Stage 2 of the track-width campaign. The J=0 thermal equilibrium is
 # current-independent, so it is computed ONCE per (T_sub, ens):
-# 6 T x 100 ens = 600 tasks. Each loads the shared T=0 m_eq.npz
-# (submit_relax_track_width.sh), equilibrates at its T until the LCC
+# 6 T x 100 ens = 600 tasks. Each loads the shared T=0 m_eq (staged
+# from the relaxed-box snapshot), equilibrates at its T until the LCC
 # size plateaus, and caches m_thermal_T{T}_ens{ens}.npz. The drive
 # stage reuses each cached state across all 6 current values.
+# Select the (K_top, D, box) case with the exported TW_CASE env var:
+#   sbatch --export=ALL,TW_CASE=<0..3> scripts/submit_equilibrate_track_width.sh
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
-module load stack/.2024-06-silent gcc/12.2.0
+module load stack/2024-06 gcc/12.2.0
 # FFTW must be loaded at RUNTIME too (libfftw3.so.3). Match the version
-# present when you built (`module list` in the build shell).
-module load fftw/3.3.9
+# present when you built (build_tw was built against fftw/3.3.10).
+module load fftw/3.3.10
 
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-16}"
 export OMP_PROC_BIND=close
 export OMP_PLACES=cores
+: "${TW_CASE:?TW_CASE must be exported (0-3)}"
 
-BIN=src/simulator_cpp/build/equilibrate_track_width
+BIN=src/simulator_cpp/build_tw/equilibrate_track_width
 if [[ ! -x "${BIN}" ]]; then
     echo "error: ${BIN} not built." >&2
     exit 1

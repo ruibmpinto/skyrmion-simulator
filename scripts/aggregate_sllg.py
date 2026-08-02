@@ -180,7 +180,8 @@ def _aggregate_track_width(in_dir):
     Returns
     -------
     payload : dict
-        Keys: Ts, Js, n_ens, P_surv, n_S, n_E, n_L, n_A, v_mean,
+        Keys: Ts, Js, n_ens, P_surv, n_S, n_E, n_P, n_L, n_A, n_R,
+        v_mean,
         v_se, theta_mean, theta_se, sigma_y_mean, D1_mean, D1_se,
         D2_mean, D2_se, D1r_mean, D1r_se, D2r_mean, D2r_se,
         L_x, L_y.
@@ -203,7 +204,9 @@ def _aggregate_track_width(in_dir):
         j = float(d['j_current'])
         cell = (T_sub, j)
         by_cell.setdefault(cell, {
-            'n': 0, 'codes': {'S': 0, 'E': 0, 'L': 0, 'A': 0},
+            'n': 0,
+            'codes': {'S': 0, 'E': 0, 'P': 0, 'L': 0, 'A': 0,
+                      'R': 0},
             'v': [], 'vx': [], 'vy': [], 'sigma_y': [],
             'D1': [], 'D2': [], 'D1r': [], 'D2r': [],
         })
@@ -282,9 +285,9 @@ def _aggregate_track_width(in_dir):
     D2r_mean = np.full((nT, nJ), np.nan)
     D2r_se = np.full((nT, nJ), np.nan)
     n_ens = np.zeros((nT, nJ), dtype=np.int64)
-    # Per-cell counts of each stability class (S/E/L/A).
+    # Per-cell counts of each stability class (S/E/P/L/A/R).
     n_cls = {c: np.zeros((nT, nJ), dtype=np.int64)
-             for c in ('S', 'E', 'L', 'A')}
+             for c in ('S', 'E', 'P', 'L', 'A', 'R')}
     # Reduce each cell's samples to one grid entry.
     for i, T_sub in enumerate(Ts):
         for k, j in enumerate(Js):
@@ -293,8 +296,18 @@ def _aggregate_track_width(in_dir):
             if rec is None:
                 continue
             n_ens[i, k] = rec['n']
-            for c in ('S', 'E', 'L', 'A'):
+            for c in ('S', 'E', 'P', 'L', 'A', 'R'):
                 n_cls[c][i, k] = rec['codes'][c]
+            # Every member must land in exactly one class; a code the
+            # aggregator does not know would otherwise vanish from the
+            # counts while still inflating n_ens.
+            n_counted = sum(rec['codes'][c]
+                            for c in ('S', 'E', 'P', 'L', 'A', 'R'))
+            if n_counted != rec['n']:
+                raise RuntimeError(
+                    f'aggregate: cell (T={T_sub}, j={j}) has '
+                    f'{rec["n"]} members but {n_counted} classified; '
+                    f'an unknown class code was returned.')
             # Survival = fraction whose final configuration is a
             # skyrmion (field classifier 'S' or 'E').
             P_surv[i, k] = (rec['codes']['S'] + rec['codes']['E']) \
@@ -326,7 +339,9 @@ def _aggregate_track_width(in_dir):
         'Ts': Ts, 'Js': Js, 'n_ens': n_ens,
         'P_surv': P_surv,
         'n_S': n_cls['S'], 'n_E': n_cls['E'],
+        'n_P': n_cls['P'],
         'n_L': n_cls['L'], 'n_A': n_cls['A'],
+        'n_R': n_cls['R'],
         'v_mean': v_mean, 'v_se': v_se,
         'theta_mean': th_mean, 'theta_se': th_se,
         'sigma_y_mean': sy_mean,
@@ -624,12 +639,17 @@ def main():
     command line, print a per-cell summary, and write the single
     `aggregate.npz` its analysis script reads back.
     """
-    # Exactly one positional argument: the analysis type.
-    if len(sys.argv) != 2:
+    # First positional argument: the analysis type. Optional second
+    # positional argument: an explicit input directory (used for the
+    # per-case track-width campaign dirs under
+    # .../scan_track_width/campaign/<tag>). Its aggregate.npz is
+    # written into that same directory.
+    if len(sys.argv) not in (2, 3):
         raise RuntimeError(
-            'aggregate_sllg: pass the analysis type as the '
-            f'single positional argument. One of '
-            f'{_KNOWN_TYPES}. Got: {sys.argv[1:]!r}.'
+            'aggregate_sllg: pass the analysis type as the first '
+            f'positional argument (one of {_KNOWN_TYPES}) and, '
+            f'optionally, an explicit input directory as the '
+            f'second. Got: {sys.argv[1:]!r}.'
         )
     analysis = sys.argv[1].strip()
     # Reject unknown scan names loudly rather than guessing.
@@ -638,9 +658,13 @@ def main():
             f'aggregate_sllg: unknown analysis type '
             f'{analysis!r}. Must be one of {_KNOWN_TYPES}.'
         )
-    # Inputs live under output/stochastic_llgs/<scan>/.
-    in_dir = os.path.join(
-        'output', 'stochastic_llgs', analysis)
+    # Inputs live under output/stochastic_llgs/<scan>/, unless an
+    # explicit directory is supplied.
+    if len(sys.argv) == 3:
+        in_dir = sys.argv[2]
+    else:
+        in_dir = os.path.join(
+            'output', 'stochastic_llgs', analysis)
     if not os.path.isdir(in_dir):
         raise RuntimeError(
             f'aggregate_sllg: input directory {in_dir!r} '

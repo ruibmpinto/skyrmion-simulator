@@ -53,6 +53,7 @@ EquilResult equilibrate_to_plateau(
             d1_hist.push_back(kNaN);
             d2_hist.push_back(kNaN);
         }
+        r.step_series.push_back(r.n_used);
         const int n = static_cast<int>(diam_hist.size());
         if (n >= 2 * window) {
             double nm = 0.0, om = 0.0;
@@ -86,6 +87,9 @@ EquilResult equilibrate_to_plateau(
     }
     r.d1_relaxed = (c1 > 0) ? s1 / c1 : kNaN;
     r.d2_relaxed = (c2 > 0) ? s2 / c2 : kNaN;
+    // Expose the full per-check series to the caller.
+    r.d1_series = std::move(d1_hist);
+    r.d2_series = std::move(d2_hist);
     return r;
 }
 

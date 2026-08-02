@@ -57,7 +57,8 @@ def main():
     sys.path.insert(0, str(repo))
     from src.simulator.parameters import _precompute, default_params
     from src.simulator.pulses import (
-        SquarePulse, GaussianPulse, SuperpositionPulse)
+        SquarePulse, GaussianPulse, SuperpositionPulse,
+        TrianglePulse, HalfSinePulse)
     from src.simulator.initial_conditions import (
         skyrmion_profile, uniform_state)
     from src.simulator.analysis import (
@@ -78,6 +79,14 @@ def main():
                   lambda: GaussianPulse(1.0, 0.0, 0.0), res)
     _expect_raise('SuperpositionPulse_empty',
                   lambda: SuperpositionPulse([]), res)
+    _expect_raise('TrianglePulse_t_end_le_t_start',
+                  lambda: TrianglePulse(1.0, 1.0, 1.0, 1.0), res)
+    _expect_raise('TrianglePulse_t_peak_above_t_end',
+                  lambda: TrianglePulse(1.0, 0.0, 2.0, 1.0), res)
+    _expect_raise('TrianglePulse_t_peak_below_t_start',
+                  lambda: TrianglePulse(1.0, 0.0, -1.0, 1.0), res)
+    _expect_raise('HalfSinePulse_t_end_le_t_start',
+                  lambda: HalfSinePulse(1.0, 1.0, 1.0), res)
     # ---- Parameters ----------------------------------------------------------
 
     def _bad_keff():

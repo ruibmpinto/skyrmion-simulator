@@ -68,8 +68,10 @@ def default_params():
     # p.D = 0.62e-3        # J/m^2, legacy paper Set A
     p.D = 0.85e-3          # J/m^2, DMI constant
     # Bare K; thin-film K_eff = K - mu0 Ms^2/2 is used elsewhere.
-    p.K_top = 1.294e6      # J/m^3, anisotropy (top)
-    # Slight layer asymmetry (K_bot > K_top) breaks the SAF degeneracy.
+    # p.K_top = 1.294e6    # measured (Hk_top = 12.4 mT, Table S2)
+    # Paper sims raise Hk_top to 36 mT (supp. 1.1) so the domain
+    # background is not reversed by SOT at the maximal current.
+    p.K_top = 1.3106e6     # J/m^3, anisotropy (top)
     p.K_bot = 1.31e6       # J/m^3, anisotropy (bottom)
     # Large alpha reflects Pt proximity-enhanced damping.
     p.alpha = 0.14         # Gilbert damping

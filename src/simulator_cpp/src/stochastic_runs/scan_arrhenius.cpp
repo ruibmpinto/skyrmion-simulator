@@ -1,6 +1,7 @@
 // Stochastic thermal-annihilation (Arrhenius) scan. Port of
 // scripts/.../production/scan_arrhenius.py. j = 0 (no drive/heating);
 // records t_flip = flip_index * sample_every * dt per trajectory.
+#include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"
 #include "skyrmion/stochastic/trajectory_io.hpp"
 #include "skyrmion/sweep/sweep_common.hpp"
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -43,6 +45,8 @@ int main() {
         const Pt pt = grid[idx];
         StochasticConfig cfg;
         cfg.T_sub = pt.T_sub; cfg.j_current = j_current; cfg.R_th = r_th;
+        cfg.drive_pulse =
+            std::make_shared<ConstantPulse>(cfg.j_current);
         cfg.nx = nx; cfg.ny = ny; cfg.dt = dt;
         cfg.n_relax = n_relax; cfg.n_drive = n_drive;
         cfg.sample_every = sample_every;

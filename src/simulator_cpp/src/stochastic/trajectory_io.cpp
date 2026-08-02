@@ -119,6 +119,15 @@ void save_trajectory(const std::string& path, const StochasticPayload& pl,
     w.write("D2_bot",          arr(pl.D2_bot));
     w.write("theta_bot",       arr(pl.theta_bot));
     w.write("norm_drift_max",  arr(pl.norm_drift_max));
+    // Dissipation split, written only when recorded (empty otherwise),
+    // so the key set of the default trajectories is unchanged.
+    if (!pl.diss_trans.empty()) {
+        w.write("diss_trans",  arr(pl.diss_trans));
+        w.write("diss_def",    arr(pl.diss_def));
+        w.write("diss_total",  arr(pl.diss_total));
+        w.write("v_fit_x",     arr(pl.v_fit_x));
+        w.write("v_fit_y",     arr(pl.v_fit_y));
+    }
     w.write("L_x",             sc(pl.L_x));
     w.write("L_y",             sc(pl.L_y));
     w.write("T_sub",           sc(pl.T_sub));

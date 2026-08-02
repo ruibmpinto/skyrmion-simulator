@@ -4,6 +4,7 @@
 #include "test_common.hpp"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 using namespace skyrmion;
@@ -44,6 +45,41 @@ int main() {
         for (std::size_t i = 0; i < T; ++i) got[i] = p(t_grid[i]);
         auto exp = ref.vec<double>("pulses_gauss_out");
         r.check("GaussianPulse", test_common::array(got.data(), exp.data(), T));
+    }
+    // ---- TrianglePulse ------------------------------------------------------
+    {
+        auto shape_grid = ref.vec<double>("pulses_shape_t_grid");
+        const std::size_t S = shape_grid.size();
+        const double J0 = ref.scalar<double>("pulses_tri_J0");
+        const double ts = ref.scalar<double>("pulses_tri_t_start");
+        const double te = ref.scalar<double>("pulses_tri_t_end");
+        // One class, three asymmetries, selected by the peak time.
+        const char* tags[3] = {"sharprise", "sharpfall", "symmetric"};
+        for (const char* tag : tags) {
+            const std::string peak_key =
+                std::string("pulses_tri_") + tag + "_t_peak";
+            const std::string out_key =
+                std::string("pulses_tri_") + tag + "_out";
+            TrianglePulse p(J0, ts, ref.scalar<double>(peak_key), te);
+            std::vector<double> got(S);
+            for (std::size_t i = 0; i < S; ++i) got[i] = p(shape_grid[i]);
+            auto exp = ref.vec<double>(out_key);
+            r.check(std::string("TrianglePulse_") + tag,
+                    test_common::array(got.data(), exp.data(), S));
+        }
+    }
+    // ---- HalfSinePulse ------------------------------------------------------
+    {
+        auto shape_grid = ref.vec<double>("pulses_shape_t_grid");
+        const std::size_t S = shape_grid.size();
+        HalfSinePulse p(ref.scalar<double>("pulses_hsine_J0"),
+                        ref.scalar<double>("pulses_hsine_t_start"),
+                        ref.scalar<double>("pulses_hsine_t_end"));
+        std::vector<double> got(S);
+        for (std::size_t i = 0; i < S; ++i) got[i] = p(shape_grid[i]);
+        auto exp = ref.vec<double>("pulses_hsine_out");
+        r.check("HalfSinePulse",
+                test_common::array(got.data(), exp.data(), S));
     }
     // ---- SuperpositionPulse -------------------------------------------------
     {

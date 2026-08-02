@@ -1,7 +1,10 @@
+#include "skyrmion/stochastic/dissipation_partition.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"
 
 #include "skyrmion/demag.hpp"
+#include "skyrmion/fields.hpp"
 #include "skyrmion/initial_conditions.hpp"
+#include "skyrmion/integrator.hpp"
 #include "skyrmion/observables.hpp"
 #include "skyrmion/parameters.hpp"
 #include "skyrmion/pulses.hpp"
@@ -63,8 +66,25 @@ bool all_finite(const std::vector<double>& v, int end) {
 
 StochasticPayload run_trajectory(const StochasticConfig& cfg,
                                  SnapshotBuffer* snaps) {
-    // Effective temperature via uniform Joule heating.
-    const Real T_eff = T_of_j(cfg.j_current, cfg.T_sub, cfg.R_th);
+    // The drive profile is caller-supplied with no fallback: a missing
+    // pulse is a configuration error, not an implied DC run.
+    if (!cfg.drive_pulse) {
+        throw std::runtime_error(
+            "run_trajectory: cfg.drive_pulse is unset; pass an explicit "
+            "pulse (ConstantPulse(j_current) for a DC drive).");
+    }
+    // Effective temperature via uniform Joule heating. T_sub == 0 is the
+    // noise-free mode: skip T_of_j, which rejects non-positive T_sub.
+    // Joule heating cannot be represented there, so a non-zero R_th is
+    // an error rather than something to drop quietly.
+    const bool noise_free = (cfg.T_sub == 0.0);
+    if (noise_free && cfg.R_th != 0.0) {
+        throw std::runtime_error(
+            "run_trajectory: T_sub = 0 selects the noise-free mode, "
+            "which cannot carry Joule heating; got R_th != 0.");
+    }
+    const Real T_eff = noise_free
+        ? Real{0} : T_of_j(cfg.j_current, cfg.T_sub, cfg.R_th);
 
     Params p = make_default_params();
     p.nx = cfg.nx; p.ny = cfg.ny; p.dt = cfg.dt;
@@ -72,14 +92,18 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     if (cfg.skyrmion_R > 0.0)  p.skyrmion_R = cfg.skyrmion_R;
     if (cfg.skyrmion_dw > 0.0) p.skyrmion_dw = cfg.skyrmion_dw;
     if (cfg.D > 0.0)           p.D = cfg.D;
+    if (cfg.K_top > 0.0)       p.K_top = cfg.K_top;
     p.H_ext = {0.0, 0.0, cfg.H_z};
     if (cfg.use_demag) {
         p.demag_kind = cfg.demag_kind;
         p.demag_accuracy = cfg.demag_accuracy;
         p.demag_tol_conv = cfg.demag_tol_conv;
     }
-    p.pulse = std::make_shared<ConstantPulse>(cfg.j_current);
+    p.pulse = cfg.drive_pulse;
     precompute(p);
+    // attach_thermal accepts T = 0 as the deterministic limit and sets
+    // sigma_noise = 0 there, so the noise-free mode needs no separate
+    // path; only T_of_j above had to be bypassed.
     attach_thermal(p, T_eff, cfg.R_th, cfg.seed);
 
     std::unique_ptr<DemagState> demag;
@@ -175,6 +199,21 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     P.D1_bot.resize(n_samples); P.D2_bot.resize(n_samples);
     P.theta_bot.resize(n_samples);
     P.norm_drift_max.resize(n_samples);
+    // Dissipation split: only sized (and only computed) on request, so
+    // the default drive path is untouched.
+    Field3 h_diss_top(cfg.ny, cfg.nx), h_diss_bot(cfg.ny, cfg.nx);
+    Field3 dmdt_diss(cfg.ny, cfg.nx);
+    const bool free_y_diss = (p.demag_kind == DemagKind::Racetrack);
+    if (cfg.record_dissipation) {
+        P.diss_trans.resize(n_samples); P.diss_def.resize(n_samples);
+        P.diss_total.resize(n_samples);
+        P.v_fit_x.resize(n_samples); P.v_fit_y.resize(n_samples);
+        if (!demag) {
+            throw std::runtime_error(
+                "run_trajectory: record_dissipation needs the demag "
+                "field path (use_demag).");
+        }
+    }
 
     if (snaps) dump(m_top, m_bot, 0, 0.0, 1);
     int s_idx = 0;
@@ -230,6 +269,22 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
             P.cx_lcc[s_idx] = cl.cx; P.cy_lcc[s_idx] = cl.cy;
             P.cx_lcc_bot[s_idx] = clb.cx; P.cy_lcc_bot[s_idx] = clb.cy;
             P.norm_drift_max[s_idx] = stepper.last_norm_drift();
+            if (cfg.record_dissipation) {
+                // Deterministic dm/dt of the top layer, from the same
+                // two calls the stepper's predictor makes minus the
+                // noise term. mask is null here (racetrack free-y is
+                // carried by the demag kernel and the field assembly).
+                effective_field_demag(m_top, m_bot, p, *demag,
+                                      h_diss_top, h_diss_bot, nullptr);
+                llgs_rhs(m_top, h_diss_top, p, t, dmdt_diss, nullptr);
+                const DissipationSplit ds = dissipation_partition(
+                    m_top, dmdt_diss, a, free_y_diss);
+                P.diss_trans[s_idx] = ds.trans;
+                P.diss_def[s_idx] = ds.def;
+                P.diss_total[s_idx] = ds.total;
+                P.v_fit_x[s_idx] = ds.v_x;
+                P.v_fit_y[s_idx] = ds.v_y;
+            }
             ++s_idx;
         }
         if (snaps && cfg.snapshot_every > 0

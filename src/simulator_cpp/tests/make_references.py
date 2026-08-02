@@ -41,6 +41,7 @@ sys.path.insert(0, str(_REPO))
 from src.simulator.parameters import default_params
 from src.simulator.pulses import (
     ConstantPulse, SquarePulse, GaussianPulse, SuperpositionPulse,
+    TrianglePulse, HalfSinePulse,
 )
 from src.simulator.lattice import lattice_positions, disk_mask
 from src.simulator.initial_conditions import (
@@ -161,6 +162,30 @@ def main():
         [SquarePulse(sq_J0, sq_ts, sq_te),
          GaussianPulse(g_J0, g_tc, g_fwhm)])
     refs['pulses_super_out'] = np.array([sup(t) for t in t_grid])
+    # Triangle / half-sine on a denser grid: the coarse t_grid above
+    # straddles the kinks with too few interior samples to pin the
+    # ramps down.
+    shape_grid = np.linspace(-0.2e-9, 1.2e-9, 29)
+    tri_J0, tri_ts, tri_te = float(p.J_current), 0.0, 1e-9
+    refs['pulses_shape_t_grid'] = shape_grid
+    refs['pulses_tri_J0'] = tri_J0
+    refs['pulses_tri_t_start'] = tri_ts
+    refs['pulses_tri_t_end'] = tri_te
+    # Three asymmetries from one class: peak pinned to the leading
+    # edge, to the trailing edge, and at the midpoint.
+    for tag, t_peak in (('sharprise', tri_ts),
+                        ('sharpfall', tri_te),
+                        ('symmetric', 0.5*(tri_ts + tri_te))):
+        refs[f'pulses_tri_{tag}_t_peak'] = float(t_peak)
+        refs[f'pulses_tri_{tag}_out'] = np.array(
+            [TrianglePulse(tri_J0, tri_ts, t_peak, tri_te)(t)
+             for t in shape_grid])
+    hs_J0, hs_ts, hs_te = float(p.J_current), 0.0, 1e-9
+    refs['pulses_hsine_J0'] = hs_J0
+    refs['pulses_hsine_t_start'] = hs_ts
+    refs['pulses_hsine_t_end'] = hs_te
+    refs['pulses_hsine_out'] = np.array(
+        [HalfSinePulse(hs_J0, hs_ts, hs_te)(t) for t in shape_grid])
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Parameters precompute (scalar prefactors)
     refs['precompute_C_ex'] = float(p.C_ex)

@@ -71,8 +71,9 @@ def main():
     # Drive parameters (paper S41).
     J0 = 1.0e11               # Amperes/m^2
     t_pulse = 2.0e-9          # Square-pulse duration (s)
-    # DMI: paper-adjusted (Set A).
-    D = 0.85e-3               # J/m^2
+    # DMI: paper-adjusted (Set A, supp. 1.1: 0.76 instead of 0.62).
+    # D = 0.85e-3             # legacy repo calibration (old kernels)
+    D = 0.76e-3               # J/m^2
     # Lattice size: 256 x 256 to match the paper.
     nx = 256
     ny = 256

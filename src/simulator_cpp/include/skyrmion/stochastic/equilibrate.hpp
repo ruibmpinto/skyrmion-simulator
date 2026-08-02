@@ -16,6 +16,11 @@ struct EquilResult {
     bool   converged = true; // plateau criterion met
     double d1_relaxed = 0.0; // major LCC axis, final-window mean (m)
     double d2_relaxed = 0.0; // minor LCC axis, final-window mean (m)
+    // Per-check series (one entry every check_every steps; NaN where
+    // the LCC ellipse was undefined).
+    std::vector<int>    step_series;
+    std::vector<double> d1_series;  // m
+    std::vector<double> d2_series;  // m
 };
 
 // Run J=0 noisy dynamics (caller must have zeroed the pulse/SOT) in

@@ -18,18 +18,22 @@ mkdir -p logs
 # then drives at its current with newell demag using OpenMP across the
 # 16 allocated cores -- no equilibration here. The C++ binary reads
 # SLURM_ARRAY_TASK_ID to select its trajectory.
+# Select the (K_top, D, box) case with the exported TW_CASE env var
+# (must match the stage-2 submission it depends on):
+#   sbatch --export=ALL,TW_CASE=<0..3> scripts/submit_scan_track_width.sh
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
-module load stack/.2024-06-silent gcc/12.2.0
+module load stack/2024-06 gcc/12.2.0
 # FFTW must be loaded at RUNTIME too (libfftw3.so.3). Match the version
-# present when you built (`module list` in the build shell).
-module load fftw/3.3.9
+# present when you built (build_tw was built against fftw/3.3.10).
+module load fftw/3.3.10
 
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-16}"
 export OMP_PROC_BIND=close
 export OMP_PLACES=cores
+: "${TW_CASE:?TW_CASE must be exported (0-3)}"
 
-BIN=src/simulator_cpp/build/scan_track_width
+BIN=src/simulator_cpp/build_tw/scan_track_width
 if [[ ! -x "${BIN}" ]]; then
     echo "error: ${BIN} not built." >&2
     exit 1
@@ -37,11 +41,15 @@ fi
 
 srun --unbuffered "${BIN}"
 
-# Submit the three stages with dependencies:
-#   j1=$(sbatch --parsable scripts/submit_relax_track_width.sh)
-#   j2=$(sbatch --parsable --dependency=afterok:$j1 \
-#        scripts/submit_equilibrate_track_width.sh)
-#   sbatch --dependency=afterok:$j2 scripts/submit_scan_track_width.sh
+# Stage 1 is skipped: the relaxed-box snapshot is staged directly as
+# campaign/<tag>/m_eq_<nx>x<ny>.npz. Submit stages 2 -> 3 chained, per
+# case (TW_CASE in 0..3):
+#   for i in 0 1 2 3; do
+#     j2=$(sbatch --parsable --export=ALL,TW_CASE=$i \
+#          scripts/submit_equilibrate_track_width.sh)
+#     sbatch --dependency=afterok:$j2 --export=ALL,TW_CASE=$i \
+#          scripts/submit_scan_track_width.sh
+#   done
 # After all tasks finish, aggregate + plot on a login node:
 #   python3 -m scripts.aggregate_sllg scan_track_width
 #   python3 -m scripts.plot_track_width

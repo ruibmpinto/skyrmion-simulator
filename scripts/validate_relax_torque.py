@@ -258,9 +258,93 @@ def _plot_scaling(dicts, out_path):
 
 
 # -----------------------------------------------------------------------------
+def _collect_relaxed(relaxed_dir, hk, box):
+    """`(D, path)` pairs for one Hk group and box size, D-sorted.
+
+    Reads the T7 layout `relaxed/<hk>/D0pXXX/box_<box>.npz`.
+    """
+    cases = []
+    for path in glob.glob(os.path.join(
+            relaxed_dir, hk, 'D0p*', f'box_{box}.npz')):
+        tag = os.path.basename(os.path.dirname(path))
+        digits = tag[len('D0p'):]
+        if not (tag.startswith('D0p') and digits.isdigit()):
+            raise RuntimeError(
+                f'_collect_relaxed: unrecognised D tag {tag!r}.')
+        cases.append((float(f'0.{digits}'), path))
+    cases.sort(key=lambda c: c[0])
+    return cases
+
+
+# -----------------------------------------------------------------------------
+def _plot_relaxed_group(cases_by_box, hk_label, out_path,
+                        xmax_ns=None):
+    """D1(t) / D2(t) panels; one color per D, one linestyle per box.
+
+    Parameters
+    ----------
+    cases_by_box : dict
+        Box tag -> list of `(d_val, path)` from `_collect_relaxed`.
+    hk_label : str
+        Title annotation for the Hk_top group.
+    out_path : str
+        Output PNG path.
+    xmax_ns : {float, None}, default=None
+        Fixed upper x-limit in ns for a common timeline across
+        Hk groups. None autoscales to the longest series.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(7, 8))
+    cmap = plt.get_cmap('viridis')
+    # Consistent color per D across the boxes of the group.
+    d_all = sorted({d for cases in cases_by_box.values()
+                    for d, _ in cases})
+    style_by_box = {'350x500': '-', '700x500': '--', '1400x500': ':'}
+    for box, cases in cases_by_box.items():
+        ls = style_by_box[box]
+        for d_val, path in cases:
+            d = np.load(path)
+            t_ns = d['steps'] * float(d['dt']) * 1e9
+            c = cmap(d_all.index(d_val) / max(len(d_all) - 1, 1))
+            # Color legend only once (on the solid box set).
+            label = (f'$D = {d_val:.3g}$ mJ/m$^2$'
+                     if ls == '-' or len(cases_by_box) == 1 else None)
+            ax1.plot(t_ns, d['D1'] * 1e9, ls, color=c, label=label)
+            ax2.plot(t_ns, d['D2'] * 1e9, ls, color=c)
+    if len(cases_by_box) > 1:
+        # Style legend for the box comparison.
+        for box, ls in style_by_box.items():
+            if box in cases_by_box:
+                ax1.plot([], [], ls, color='0.3', label=f'{box} box')
+    ax1.set_ylabel(r'$D_1$ (nm)')
+    ax2.set_ylabel(r'$D_2$ (nm)')
+    ax2.set_xlabel(r'$t$ (ns)')
+    ax1.set_title(hk_label)
+    ax1.legend(loc='best', frameon=False, ncol=2, fontsize=9)
+    if xmax_ns is not None:
+        ax1.set_xlim(0.0, xmax_ns)
+    for ax in (ax1, ax2):
+        ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path)
+    print(f'Saved: {out_path}')
+    plt.close(fig)
+
+
+# -----------------------------------------------------------------------------
 def main():
     """Run the Python diagnostics (optional) and render the plots."""
     # =========================== User Configuration =========================
+    # Relaxed-box D1/D2 comparison across D and Hk_top. When True,
+    # render the four comparison figures and return; the legacy
+    # single-(D, bc) diagnostics below are not touched. Reads the
+    # relaxed box series and writes the figures in place.
+    plot_relaxed_comparison = True
+    relaxed_dir = ('output/stochastic_llgs/scan_track_width/relaxed')
+    relaxed_fig_dir = relaxed_dir
+    hk_labels = {
+        'hk12p4': r'$\mu_0 H_{k,\mathrm{top}} = 12.4$ mT',
+        'hk36': r'$\mu_0 H_{k,\mathrm{top}} = 36$ mT',
+    }
     # Boundary condition, mirroring the C++ validate_relax_torque CLI:
     # 'newell' | 'newell_freebc' | 'racetrack' | 'masked_band'.
     bc = 'newell'
@@ -291,6 +375,48 @@ def main():
     fig_dir = os.path.join(
         'output/figures_sllg/relax_torque', dmi_tag, bc)
     # ======================= End User Configuration =========================
+    if plot_relaxed_comparison:
+        os.makedirs(relaxed_fig_dir, exist_ok=True)
+        for hk, hk_label in hk_labels.items():
+            cases_350 = _collect_relaxed(relaxed_dir, hk, '350x500')
+            cases_700 = _collect_relaxed(relaxed_dir, hk, '700x500')
+            cases_1400 = _collect_relaxed(relaxed_dir, hk, '1400x500')
+            if not cases_350:
+                raise RuntimeError(
+                    f'main: no 350x500 series found for {hk} under '
+                    f'{relaxed_dir!r}.')
+            _plot_relaxed_group(
+                {'350x500': cases_350},
+                hk_label + r' — $350\times500$',
+                os.path.join(relaxed_fig_dir,
+                             f'D1D2_350x500_{hk}.png'),
+                xmax_ns=25.0)
+            _plot_relaxed_group(
+                {'350x500': cases_350, '700x500': cases_700},
+                hk_label + r' — $350\times500$ vs $700\times500$',
+                os.path.join(relaxed_fig_dir,
+                             f'D1D2_350v700_{hk}.png'))
+            # Three-box comparison including the 1400x500 boxes.
+            if cases_1400:
+                _plot_relaxed_group(
+                    {'350x500': cases_350, '700x500': cases_700,
+                     '1400x500': cases_1400},
+                    hk_label + r' — $350\times500$ vs $700\times500$'
+                    r' vs $1400\times500$',
+                    os.path.join(relaxed_fig_dir,
+                                 f'D1D2_350v700v1400_{hk}.png'))
+            # Console summary: final D1/D2 per case.
+            for box, cases in (('350x500', cases_350),
+                               ('700x500', cases_700),
+                               ('1400x500', cases_1400)):
+                for d_val, path in cases:
+                    d = np.load(path)
+                    t_end = float(d['steps'][-1] * d['dt'] * 1e9)
+                    print(f'  {hk} D={d_val:.3g} {box}: '
+                          f'D1 = {d["D1"][-1]*1e9:6.1f} nm, '
+                          f'D2 = {d["D2"][-1]*1e9:6.1f} nm '
+                          f'at t = {t_end:.1f} ns')
+        return
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(fig_dir, exist_ok=True)
     cfg = {

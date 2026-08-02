@@ -59,6 +59,7 @@ set(SKYRMION_SOURCES
     src/stochastic/diagnostics.cpp
     src/stochastic/equilibrate.cpp
     src/stochastic/trajectory.cpp
+    src/stochastic/dissipation_partition.cpp
     src/stochastic/trajectory_io.cpp
     src/stochastic/pair_ic.cpp
     src/validation/analytic.cpp
@@ -168,6 +169,7 @@ set(STOCHASTIC_BINARIES
     equilibrate_track_width
     scan_arrhenius
     scan_radius
+    sweep_pulse_shape
     pair_potential)
 foreach(s ${STOCHASTIC_BINARIES})
     add_executable(${s} src/stochastic_runs/${s}.cpp)
@@ -201,7 +203,7 @@ set(SKYRMION_TESTS
     demag_slab demag_newell demag_field
     fields energy integrator observables io_npz simulation
     sweep relax edge_cases thermal stochastic_t0 lcc stochastic_diag pair_ic
-    stochastic_scans validation)
+    stochastic_scans validation dissipation_partition)
 foreach(t ${SKYRMION_TESTS})
     add_executable(test_${t} tests/test_${t}.cpp)
     target_include_directories(test_${t} PRIVATE
