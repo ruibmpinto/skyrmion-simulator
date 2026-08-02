@@ -1,0 +1,1107 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{verbatim}
+\usepackage[font=small]{caption}
+\graphicspath{%
+  {../output/figures_sllg/track_width/hk36_box_comparison/}%
+  {../output/figures_sllg/track_width/rkky_breaking/}%
+  {../output/figures_sllg/track_width/hk36_D0p72_350x500/}%
+  {../output/figures_sllg/track_width/hk36_D0p72_700x500/}%
+  {../output/figures_sllg/track_width/hk36_D0p72_1400x500/}%
+  {../output/figures_driving_T/}%
+  {../output/figures_driving_T/inertia/}%
+  {../output/figures_driving_T/campaign_dc/}%
+  {../output/figures_driving_T/ranking/}%
+  {../output/figures_driving_T/stability/}%
+  {../output/figures_driving_T/width/}}
+
+\newcommand{\Q}{\lvert Q\rvert}
+
+\title{Finite-temperature skyrmion stability\\[2pt]
+\large SAF racetrack, $H_{k,\mathrm{top}}=36$~mT, $D=0.72$~mJ/m$^2$,
+$L_x\in\{700,1400,2800\}$~nm}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Setup}
+Three racetracks differing only in length $L_x$ along the periodic
+drive axis, at fixed width $L_y=1000$~nm (free $y$). Each $(T,J)$ cell
+is an ensemble of $100$ independent thermal realizations. Every
+realization is classified from its final field into compact skyrmion
+(S), elongated (E), labyrinth (L) or annihilated (A);
+$P_{\mathrm{surv}}=[n(\mathrm{S})+n(\mathrm{E})]/n_{\mathrm{ens}}$.
+
+\begin{table}[H]
+\centering
+\caption{Material, geometry and grid.}
+\begin{tabular}{lll}
+\toprule
+quantity & value & note\\
+\midrule
+$M_s$                 & $1.43\times10^{6}$~A/m & \\
+$A_{\mathrm{ex}}$     & $16$~pJ/m & \\
+$\alpha$              & $0.14$ & \\
+$K_{\mathrm{top}}$    & $1.3106\times10^{6}$~J/m$^3$
+                      & $H_{k,\mathrm{top}}=36$~mT\\
+$K_{\mathrm{bot}}$    & $1.31\times10^{6}$~J/m$^3$ & \\
+$D$                   & $0.72\times10^{-3}$~J/m$^2$ & \\
+$t_{\mathrm{Co}}$     & $1.3$~nm & \\
+$d_{\mathrm{Ru}}$     & $1.35$~nm & \\
+$H_{\mathrm{RKKY}}$   & $0.205$~T & SAF interlayer coupling\\
+cell $a$              & $2$~nm & \\
+$\Delta t$            & $50$~fs & all three stages\\
+$L_x$                 & $700 / 1400 / 2800$~nm
+                      & $n_x = 350 / 700 / 1400$\\
+$L_y$                 & $1000$~nm & $n_y = 500$, free $y$\\
+$T_{\mathrm{sub}}$    & $10, 50, 100, 130, 160, 200$~K & 6 values\\
+$J$                   & $0.5, 1, 2, 3, 4, 5\times10^{11}$~A/m$^2$
+                      & 6 values\\
+ensembles per cell    & $100$ & independent thermal seeds\\
+trajectories per box  & $3600$
+                      & $3594$ for $L_x=2800$~nm\\
+demag / BC            & racetrack & periodic $x$, free $y$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Three-stage protocol: durations, stopping rules and
+thresholds.}
+\begin{tabular}{lll}
+\toprule
+quantity & value & note\\
+\midrule
+\multicolumn{3}{l}{\emph{Stage 1 -- $T=0$ relaxation (shared seed
+per box)}}\\
+relaxation chunk      & $2000$ steps & $0.1$~ns per sample\\
+number of chunks      & $125$ & no early stopping\\
+total relaxation time & $250\,000$ steps $=12.5$~ns & fixed-step\\
+convergence check     & size / energy plateau
+                      & per-chunk, plus torque probe\\
+\midrule
+\multicolumn{3}{l}{\emph{Stage 2 -- thermal equilibration (per
+$T_{\mathrm{sub}}$, per realization)}}\\
+axis tolerance        & $0.02$ (relative) & on $D_1$, $D_2$\\
+stable windows        & $3$ consecutive & stop condition\\
+step cap              & $300\,000$ steps $=15$~ns
+                      & reached only at high $T$\\
+$\lvert m\rvert$ tolerance & $5\times10^{-3}$
+                      & renormalization guard\\
+demag convergence     & $0.02$ & image-sum tolerance\\
+\midrule
+\multicolumn{3}{l}{\emph{Stage 3 -- current drive}}\\
+drive time            & $40\,000$ steps $=2$~ns
+                      & no relaxation in this stage\\
+sampling interval     & $200$ steps $=10$~ps & $200$ samples\\
+field-dump interval   & $400$ steps $=20$~ps
+                      & $103$ frames, ens0 only\\
+survival threshold    & $\Q\ge0.5$ & topological charge\\
+consecutive samples   & $10$ & sustained before a cell is called dead\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Stage 1 is run once per box and shared by all $600$
+equilibration runs of that box; stage 2 caches one thermal state per
+$(T_{\mathrm{sub}},\text{realization})$, which stage 3 then drives at
+each $J$. The classifier is the one of the earlier report: topology
+first ($\Q$), then domain count and solidity, then shape -- a
+single-winding convex domain is a skyrmion, tagged \textbf{E} if it
+percolates ($D_x/L_x\ge0.5$) or is elongated ($D_1/D_2\ge1.7$), else
+\textbf{S}. The gate $D_x/L_x\ge0.5$ is the only ingredient that
+refers to the box.
+
+\section{Stability maps}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stability_maps.png}
+\caption{Ensemble stability regimes for the three track lengths.
+Colour is the dominant class over $100$ realizations; the number in
+each cell is $P_{\mathrm{surv}}$. The survival boundary
+($T\simeq100$--$130$~K, and the high-$J$ edge) is at the same place in
+all three boxes; what moves is the internal S/E boundary, which
+retreats to higher $J$ and higher $T$ as the track is lengthened.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{composition_hk36_D0p72_350x500.png}
+\caption{$L_x=700$~nm: per-class ensemble fractions. The annihilated
+channel is not shown because it is identically zero here and in both
+longer tracks: at this anisotropy the skyrmion is never lost by
+collapse to the ferromagnet, only by stripe/labyrinth formation.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{composition_hk36_D0p72_700x500.png}
+\caption{$L_x=1400$~nm: per-class ensemble fractions. Weight has moved
+from E to S relative to the $700$~nm track, while the L map -- the
+actual loss channel -- is unchanged.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{composition_hk36_D0p72_1400x500.png}
+\caption{$L_x=2800$~nm: per-class ensemble fractions. Several cells are
+mixed rather than pure -- $T=100$~K, $J=2\times10^{11}$ is
+$0.88\,$S$/0.11\,$E, $J=3\times10^{11}$ is
+$0.17\,$S$/0.76\,$E$/0.07\,$L, and $T=50$~K, $J=5\times10^{11}$ is
+$0.65\,$E$/0.35\,$L. Comparing the three figures, the S and E maps
+exchange weight as $L_x$ grows while the L map stays put.}
+\end{figure}
+
+\section{Final configurations}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=0.86\textheight,%
+  keepaspectratio]{config_table_hk36_D0p72_350x500.png}
+\caption{$L_x=700$~nm: final driven top-layer $m_z$ of every $(T,J)$
+cell (ens0 realization), drawn at physical scale on the stability
+grid, labelled with the ens0 class; the suffix \textbf{p} marks cells
+whose $x$-extent trips the periodic-image gate. Blue is the reversed
+domain, red the background. Only the top layer is shown; the bottom
+layer mirrors it under the SAF coupling. Almost the whole surviving
+region carries a \textbf{p}: the domains fill the short track.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=0.86\textheight,%
+  keepaspectratio]{config_table_hk36_D0p72_700x500.png}
+\caption{$L_x=1400$~nm, same construction. The low-$T$ cells now show
+a compact blob with clear background on both sides, and the
+\textbf{p} tags are gone from the $T\le100$~K block.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\makebox[\linewidth][c]{%
+  \includegraphics[width=1.09\linewidth,height=0.86\textheight,%
+    keepaspectratio]{config_table_hk36_D0p72_1400x500.png}}
+\caption{$L_x=2800$~nm, same construction. The surviving objects are
+visibly identical in size to those of the $1400$~nm track while
+occupying half the frame, which is the whole point of the comparison:
+the skyrmion does not know how long the track is. The
+$J\ge3\times10^{11}$ column shows the genuine current-driven
+elongation, and the $T\ge130$~K rows the labyrinth state.}
+\end{figure}
+
+\section{Survival probability and Hall angle}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.93\linewidth]{survival_hall_boxes.png}
+\caption{Survival probability (top row), ensemble-mean Hall angle
+$\bar\theta_H$ (middle) and its standard error
+$\sigma_{\theta_H}/\sqrt{n}$ (bottom); columns are the three tracks.
+Each row uses one colour scale across all boxes, so the maps may be
+read against each other directly. All quantities are over the full
+$100$-member ensemble. The three survival maps are the same map;
+$\bar\theta_H$ grows with $J$ at low $T$, and its error bar is large
+only in the near-dead $T=130$~K row, where few realizations survive to
+define an angle.}
+\end{figure}
+
+\section{Velocity versus current}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{velocity_boxes.png}
+\caption{Drift speed versus current density, ensemble mean $\pm$ SE,
+for cells with $P_{\mathrm{surv}}\ge0.5$; common axis limits across
+the three tracks. The curves and their mild sublinearity are the same
+in all three boxes; only the extent of the surviving region differs
+(the $T=100$~K branch reaches $J=4\times10^{11}$ in the shortest track
+only).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{transport.png}
+\caption{The same drift speed, and the Hall angle, with all three
+boxes overlaid on one pair of axes (solid $700$, dashed $1400$, dotted
+$2800$~nm). The curves superpose: transport is independent of track
+length.}
+\end{figure}
+
+\section{Thermal equilibration}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{equil_D1D2_boxes.png}
+\caption{Stage-2 thermal equilibration: ensemble-mean ellipse axes
+$D_1(t)$ (top row) and $D_2(t)$ (bottom row) with $\pm1\sigma$ bands,
+one colour per $T_{\mathrm{sub}}$; columns are the three tracks, all
+on common axis limits. Each series is truncated to the window shared
+by all $100$ members. At $T\le50$~K the axes stay flat at the $T=0$
+value ($\approx190$~nm): the seed is already the thermal equilibrium.
+From $T=100$~K upward the domain grows without arresting -- the
+run-away to the labyrinth that the stability maps report as
+\textbf{L}. The $700$~nm track is the exception that proves the rule:
+its $T\ge160$~K curves flatten near $D_1\approx690$~nm because the
+domain has run into the length of the box, while both longer tracks
+continue to $\approx940$~nm.}
+\end{figure}
+
+\section{Box-size comparison}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{class_flips.png}
+\caption{Top: cells whose dominant class changes between consecutive
+track lengths ($6$ cells for $700\!\rightarrow\!1400$~nm, $1$ cell for
+$1400\!\rightarrow\!2800$~nm; $7$ of $36$ cells change at all).
+Bottom: the corresponding change in survival probability, which is
+zero or within ensemble noise everywhere except the single cell
+$T=100$~K, $J=4\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{gate_dx_lx.png}
+\caption{The periodic-image gate metric $D_x/L_x$ (ens0); a star marks
+the cells the gate sends to class \textbf{E}. In the low-$T$ block the
+metric halves with every doubling of $L_x$ ($T=10$~K:
+$0.25\rightarrow0.13\rightarrow0.06$), i.e.\ $D_x$ itself is fixed and
+only its ratio to the box changes. Every S/E flip in the previous
+figure is a cell whose star disappears here.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{box_invariance.png}
+\caption{Left: $P_{\mathrm{surv}}(T)$ per current, all boxes overlaid.
+Centre: aspect ratio $D_1/D_2$ versus $J$ per temperature, all boxes
+overlaid. Right: absolute $x$-extent $D_x$ of the surviving cells,
+with the $0.5L_x$ gate of each box drawn in grey. The first two
+collapse onto single curves. The third shows the mechanism: the
+$T=100$~K branch sits at $D_x\approx450$--$580$~nm, above the $350$~nm
+gate of the shortest track but below the $700$ and $1400$~nm gates of
+the longer ones -- one and the same object, classified differently.}
+\end{figure}
+
+\clearpage
+\section{Interlayer coupling under drive}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{alignment_vs_T.png}
+\caption{Interlayer alignment of the SAF pair at $j=0$, from the
+stored two-layer state at the end of the thermal equilibration. Left:
+$\langle m_{\rm top}\cdot m_{\rm bot}\rangle$ against the locked
+($-1$) and unlocked ($0$) references. Right: the deviation
+$1+\langle m_{\rm top}\cdot m_{\rm bot}\rangle$, which is linear in
+$T$ at $3.3\times10^{-4}$/K with no upturn -- equipartition
+transverse fluctuation, not a weakening of the coupling. The lock is
+box-independent and never breaks in this range: at $200$~K it is still
+good to $7\%$, well above the $\sim130$~K labyrinth transition, so the
+lock outlives the skyrmion.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{alignment_vs_t_drive.png}
+\caption{Alignment during the $2$~ns drive for the ens0 realization,
+at the lowest and highest current of each temperature. Each trace
+settles to a plateau set by $T$ and $J$; the current costs at most a
+further $\sim5\%$ of alignment. The $T=100$~K, $J=5\times10^{11}$
+trace is the one case that rings, a damped oscillation of period
+$\approx0.28$~ns decaying over $\sim1$~ns.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stretch_vs_current.png}
+\caption{Current-driven interlayer stretch. Left: the steady offset
+$d=|r_{\rm top}-r_{\rm bot}|$ against current, for the three track
+lengths (line style) and three temperatures (colour); the curves
+coincide to better than $2\%$, so the stretch is a local property of
+the pair. Centre: the same offsets against the drift speed, with the
+proportional-drag reference $d=v\tau$. Right: the implied lag
+$\tau=d/v$.}
+\end{figure}
+
+\paragraph{Elastic, not decoupling.}
+The offset reaches only $6.9$~nm at $10$~K and $8.4$~nm at $50$~K for
+$J=5\times10^{11}$~A/m$^2$, against a skyrmion diameter of
+$\approx190$~nm -- at most $4\%$ of the object. The two layers stay
+locked and simply stretch against the RKKY coupling; they do not come
+apart.
+
+\paragraph{The linear-drag picture holds only at low drive.}
+A rigid pair dragged through a linear spring would satisfy $d=v\tau$
+with a single $\tau$. Instead $\tau$ rises from $\approx9$--$11$~ps at
+$J\le2\times10^{11}$ to $19$--$21$~ps at $5\times10^{11}$, and the
+$T=100$~K branch falls well below the $10$ and $50$~K ones, so the
+points do not collapse onto one line. Past $J\approx3\times10^{11}$ the
+skyrmion elongates ($D_1/D_2\rightarrow2.9$) and stops behaving as a
+rigid disc, and the stretch then grows faster than the speed.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{separation_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{separation_hk36_D0p72_700x500.png}
+\caption{Separation dynamics for $L_x=700$~nm (top) and $1400$~nm
+(bottom): the ensemble-mean $d(t)$ of every surviving cell (left) and
+the steady offset against current (right). $d(t)$ rises and plateaus;
+the detrended second half has an FFT peak-to-mean of only $2$--$4$
+(a coherent oscillation over $100$ samples would give $\sim50$), so
+apart from the single ringing cell above there is no sustained pair
+oscillation.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{separation_hk36_D0p72_1400x500.png}
+\caption{Separation dynamics for $L_x=2800$~nm, identical to the two
+shorter tracks.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{pair_maps_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{pair_maps_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{pair_maps_hk36_D0p72_1400x500.png}
+\caption{Pair coordinates at the drive end for $L_x=700$, $1400$ and
+$2800$~nm (top to bottom): separation and charge imbalance
+$|Q_{\rm top}+Q_{\rm bot}|$, both over all $100$ realizations and
+masked to cells with $P_{\rm surv}\ge0.5$. Within the surviving region
+the separation stays at the few-nm level and the imbalance below
+$\sim0.01$. The large separations and imbalances of $0.15$--$0.22$ seen
+outside this region belong to cells that are already labyrinths, where
+a single pair coordinate has no meaning -- which is why they are
+masked out.}
+\end{figure}
+
+\clearpage
+\section{DC drive: velocity and deformation}
+\label{sec:dcvdef}
+
+Each curve
+is an ensemble average over the $100$ realizations of a cell; the band
+or bar is the standard error. Members are gated to single-winding,
+\emph{$x$-localized} skyrmions: compact (S), elongated (E), and
+spanning-flagged (P) members that are still localized along the
+periodic axis ($D_x/L_x<0.5$). The P flag fires when the reversed
+domain touches both $x$-edges; on a periodic track, that also catches a
+skyrmion merely sitting on the seam. Only a domain that truly
+spans the track ($D_x/L_x\ge0.5$), or a labyrinth (L), annihilated (A)
+or reversed-background (R) member, is dropped. Each figure shows all
+three tracks, top to bottom $L_x=700,1400,2800$~nm (panel titles label
+them by cell count $n_x=350,700,1400$).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{S41_vt_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S41_vt_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S41_vt_hk36_D0p72_1400x500.png}
+\caption{S41. Ensemble-mean drift speed $\langle|v|\rangle(t)$ under
+the $2$~ns DC drive, one trace per peak current, at $T=10,50,100$~K,
+for $L_x=700,1400,2800$~nm (top to bottom). A current is one colour
+across panels; the $\pm$SE band is thinner than the line. The speed
+rises to a current-set plateau within $\sim0.3$~ns and holds -- a
+steady drift, not a transient. At $T=100$~K only the weakest currents
+survive; the stronger drives break the skyrmion into a labyrinth and
+are gated out. The $700$~nm track has no $T=100$~K survivors at all
+(empty panel) -- its thermally swollen skyrmion already spans the
+short track. The plateau speeds agree across the tracks that do
+survive.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{S44_A_D1D2_t_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S44_A_D1D2_t_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S44_A_D1D2_t_hk36_D0p72_1400x500.png}
+\caption{S44A. Ensemble-mean ellipse axes $D_1$ (major) and $D_2$
+(minor) versus time, at the largest surviving current of each
+temperature, for $L_x=700,1400,2800$~nm (top to bottom). The major
+axis stretches monotonically while the minor axis stays nearly fixed:
+the drive elongates the skyrmion, chiefly across the free-$y$ width,
+and the stretch has not saturated by $2$~ns at the strongest drives.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{S44_B_vD_J_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S44_B_vD_J_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{S44_B_vD_J_hk36_D0p72_1400x500.png}
+\caption{S44B. Drive-average speed $v_{\mathrm{avg}}$ (left axis) and
+the extremal axes $\max D_1$, $\min D_2$ (right axis) versus peak
+current, per temperature, with SE bars, for $L_x=700,1400,2800$~nm
+(top to bottom). $v_{\mathrm{avg}}$ rises sub-linearly with $J$; the
+major axis grows with $J$ while the minor axis is nearly flat,
+quantifying the drive-driven elongation.}
+\end{figure}
+
+\clearpage
+\section{Pulse response -- setup}
+
+The stability results above are for a DC drive: the current is switched
+on and left on for 2~ns. This section sets up a separate study of the
+\emph{pulsed} response, where the current has a finite duration and a
+shape, and reports the usable-current window measured for each shape.
+
+\paragraph{Geometry and material.}
+Identical to the DC study: SAF racetrack, periodic $x$ and free $y$,
+$H_{k,\mathrm{top}}=36$~mT (Set A), $D=0.72$~mJ/m$^2$, $a=2$~nm,
+$\Delta t=50$~fs, on the same three tracks $L_x = 700$, $1400$ and
+$2800$~nm at $L_y=1000$~nm. Each run is seeded from the DC campaign's
+own cached states -- the $T=0$ relaxed configuration, or the
+thermalised state of the matching $(T_{\mathrm{sub}},\text{realization})$
+-- so the pulsed and DC results start from the same ensemble.
+
+\paragraph{The six shapes.}
+All are compared at matched peak amplitude $J_0$ and matched duration
+$t_p=500$~ps, followed by a $500$~ps unforced interval so the skyrmion
+is observed coming to rest. Delivered charge $\int J\,dt$ and action
+$\int J^2\,dt$ then differ between shapes by construction, and are the
+denominators of the efficiency measures.
+
+\begin{table}[H]
+\centering
+\caption{Pulse shapes, with delivered charge and action at peak $J_0$
+over duration $t_p$. The three triangles share both integrals
+regardless of where the peak sits, so comparing them isolates asymmetry
+alone.}
+\begin{tabular}{llll}
+\toprule
+shape & profile & $\int J\,dt$ & $\int J^2\,dt$\\
+\midrule
+square & constant over $t_p$ & $J_0 t_p$ & $J_0^2 t_p$\\
+half-sine & $\sin(\pi t/t_p)$ & $2J_0t_p/\pi$ & $J_0^2 t_p/2$\\
+triangle, sharp rise & peak at $t=0$, linear fall
+  & $J_0t_p/2$ & $J_0^2t_p/3$\\
+triangle, sharp fall & linear rise, peak at $t_p$
+  & $J_0t_p/2$ & $J_0^2t_p/3$\\
+triangle, symmetric & peak at $t_p/2$
+  & $J_0t_p/2$ & $J_0^2t_p/3$\\
+Gaussian & centred, FWHM $250$~ps
+  & $J_0\sigma\sqrt{2\pi}$ & $J_0^2\sigma\sqrt{\pi}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth,height=0.88\textheight,%
+  keepaspectratio]{pulse_profiles.png}
+\caption{The six drive profiles at matched peak amplitude and duration
+(left), with their running delivered charge (centre) and running action
+(right); the dotted line marks the end of the drive. Columns share
+their vertical scale, so the shapes are directly comparable. The
+endpoints are the values tabulated above: the square delivers twice the
+charge of any triangle and three times the action, which is why it
+destabilises the skyrmion at the lowest peak current. The three
+triangles reach identical endpoints by different routes -- sharp-rise
+front-loads and saturates by $\sim300$~ps, sharp-fall accumulates almost
+nothing early and then climbs into the abrupt cut-off -- so comparing
+them isolates the effect of rise/fall asymmetry at fixed charge and
+fixed dissipation.}
+\end{figure}
+
+\paragraph{Usable-current window.}
+A cap is the largest peak current at which \emph{every} realization
+stayed a localized skyrmion, with every lower current also surviving
+-- the contiguous window, not the maximum over surviving cells. Two
+further classes are scored apart from the compact (S) and elongated (E)
+skyrmions and count as failures: a spanning stripe (P) reaching its own
+periodic image, and a reversed background (R) where the whole track has
+switched polarity. Caps are quoted at finite temperature only, a $T=0$
+point being a single deterministic realization.
+
+\begin{table}[H]
+\centering
+\caption{Usable peak current ($10^{11}$~A/m$^2$) per pulse shape,
+temperature and track length, from $2424$ pilot trajectories.
+$^{*}$ marks a non-contiguous usable set. Every entry agrees across the
+three lengths. The $700$~nm track has no $100$~K row: there the
+thermally swollen skyrmion already spans $0.68$ of the track at the
+lowest current tested, before the drive acts, so those cells measure
+the box rather than the physics and are excluded ($1400$~nm sits at
+$0.34$ under the same conditions).}
+\label{tab:pulsecaps}
+\begin{tabular}{lccccccccc}
+\toprule
+& \multicolumn{2}{c}{$L_x=700$~nm}
+& \multicolumn{3}{c}{$L_x=1400$~nm}
+& \multicolumn{3}{c}{$L_x=2800$~nm}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-6}\cmidrule(lr){7-9}
+shape & 10 & 50 & 10 & 50 & 100 & 10 & 50 & 100\\
+\midrule
+square              & 6 & 5 & 6 & 5 & 3 & 6 & 5 & 3\\
+half-sine           & 8 & 6 & 8 & 6 & 4 & 8 & 6 & 4\\
+triangle sharp rise & 9 & 6 & 9 & 6 & 5 & 9 & 6 & 5\\
+\textbf{triangle sharp fall}
+                    & \textbf{10} & \textbf{9} & \textbf{10}
+                    & \textbf{9} & \textbf{6} & \textbf{10}
+                    & \textbf{9} & \textbf{6}\\
+triangle symmetric  & 9$^{*}$ & 6 & 9$^{*}$ & 6 & 5 & 9 & 6 & 5\\
+Gaussian            & 9 & 6 & 9 & 6 & 5 & 9 & 6 & 5\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Pulse response -- shape ranking}
+\label{sec:shaperank}
+
+With the usable window known, the question is which shape drives a
+skyrmion best, according to three measures:
+\begin{itemize}
+\item displacement per delivered charge $\int J\,dt$; \\
+\item displacement per delivered action $\int J^2\,dt$
+(the Ohmic dissipation, i.e.\ energy); \\
+\item and the largest displacement reached while the skyrmion stays compact.
+\end{itemize}
+The displacement is the net centroid travel, ensemble-averaged over the
+surviving realizations of each cell; the charge and action are the
+analytic integrals of the shape at its peak amplitude, so they are 
+shape-specific. The three triangles share both integrals, so
+any difference between them is pure rise/fall asymmetry. Members are
+gated to $x$-localized skyrmions for the efficiency measures and to
+compact (S) members for the reach measure. 
+The short track carries no periodic wrap-around:
+its largest displacement ($\sim\!218$~nm) is well below
+$L_x=700$~nm for this case.
+
+\subsection{Displacement}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{rank_d_per_charge_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{rank_d_per_charge_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{rank_d_per_charge_hk36_D0p72_1400x500.png}
+\caption{Displacement per delivered charge, $d/\!\int J\,dt$, versus
+peak current, one curve per shape, at each temperature, for
+$L_x=700,1400,2800$~nm (top to bottom; all panels and boxes share the
+$y$-range). This ratio corresponds to the skyrmion mobility: $v=\mu J$, so
+$\mu = d/\!\int J\,dt$ (displacement per delivered charge, since
+$d=\int v\,dt = \mu\!\int J\,dt$). At low drive all shapes collapse to
+the linear-response mobility $\mu$ -- a property of the
+skyrmion, not the pulse --, then separate as the square (blue) falls
+fastest and the triangles stay highest. 
+$\mu$ grows with temperature. 
+The short track has no $T=100$~K survivors (empty panel).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{rank_d_per_action_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{rank_d_per_action_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=\linewidth]{rank_d_per_action_hk36_D0p72_1400x500.png}
+\caption{Displacement per delivered action (energy),
+$d/\!\int J^2\,dt$, versus peak current, for $L_x=700,1400,2800$~nm
+(top to bottom; shared $y$-range). The ordering is the same as for
+charge but starker: the square is the least efficient at every current
+and temperature, the triangles and Gaussian the most. The $1/J$
+falloff is expected -- action grows as $J^2$ while
+displacement grows as $J$. Triangles win because they produce
+displacement while dissipating the least energy (the lowest
+$\int J^2$): the square is the least energy-efficient shape and the
+triangles the most.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\linewidth]{rank_maxd_compact_hk36_D0p72_350x500.png}\\[2pt]
+\includegraphics[width=0.8\linewidth]{rank_maxd_compact_hk36_D0p72_700x500.png}\\[2pt]
+\includegraphics[width=0.8\linewidth]{rank_maxd_compact_hk36_D0p72_1400x500.png}
+\caption{Largest displacement reached while the skyrmion stays compact
+(S), per shape and temperature, for $L_x=700,1400,2800$~nm (top to
+bottom; shared $y$-range). The ordering is the \emph{inverse} of the
+efficiency one: the square moves a compact skyrmion the farthest
+($\sim\!190$~nm) because it delivers the most charge, while the
+efficient shapes trade reach for economy. The reach is consistent
+across the three tracks.}
+\end{figure}
+
+\paragraph{Efficiency: triangular pulses preferred.}
+At low drive every shape delivers the same displacement per charge,
+the mobility $\mu$; at matched peak the square delivers twice a 
+triangle's charge and three times its action, 
+so it over-drives and deforms the skyrmion and its
+efficiency falls fastest. Per unit dissipated energy the square is the
+worst at every current. A triangle or a Gaussian is the choice to
+move a skyrmion a given distance at least cost.
+
+\paragraph{Reach: square pulses preferred.} 
+The previous ordering inverts for absolute
+reach: the square pushes a still-compact skyrmion the farthest,
+since because it deposits the most charge. 
+
+\paragraph{Asymmetry shows little effect.} The three triangles, matched in
+charge and action, rank within a few percent on every metric.
+Sharp-fall (linear rise into an abrupt cut-off) is marginally the best,
+holding the largest compact reach at $T=100$ K, consistent with its
+being the most stable shape in the cap table.
+
+\paragraph{Displacement, side by side.} The trade-off is clearest in the
+final configurations themselves. The next two figures place the worst
+and a best shape, square (top) and the sharp-fall triangle (bottom), in
+the same column, with a light-green arrow from the skyrmion's start to
+its end (open circle at the end). At matched peak, the square moves the
+skyrmion about twice as far (it delivers twice the charge) and deforms
+it far more, elongating across the width; the triangle moves less but
+stays compact. The two temperatures use different current ladders,
+$J=2,4,6\times10^{11}$~A/m$^2$ at $T=10$~K and the lower $J=1,2,3$ at
+$T=100$~K, where the stability window is narrower.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{dcompare_T010_hk36_D0p72_700x500.png}
+\caption{Final top-layer $m_z$ (ens0) at $T=10$~K, square (top) vs
+sharp-fall triangle (bottom), at $J=2,4,6$. The light-green arrow runs
+from the start to the end (open circle at the end); the title gives the
+net displacement. The square moves $\sim\!2\times$ farther and deforms
+much more at every current.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{dcompare_T100_hk36_D0p72_700x500.png}
+\caption{Same at $T=100$~K, at the lower $J=1,2,3$ where both shapes
+stay within the narrower stability window. The skyrmion is thermally
+swollen and the background noisier, but both shapes still displace
+coherently; the square again moves farther per pulse.}
+\end{figure}
+
+\subsection{Speed}
+
+\paragraph{Speed.} The same runs give the peak and average speed of the
+skyrmion during the pulse. Both rise with peak current -- the peak
+instantaneous speed almost linearly. Here the
+square is the \emph{fastest}: sustaining $J_0$ for the whole pulse lets
+the velocity reach its plateau, whereas a triangle holds $J_0$ only
+briefly and the $\sim\!100$~ps inertial lag (next section) keeps the
+skyrmion from ever reaching full speed. So the square wins on speed and
+absolute reach, the triangles on efficiency.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{speed_max_hk36_D0p72_700x500.png}
+\caption{Peak pulse speed versus peak current, one curve per shape, per
+temperature, for the $L_x=1400$~nm track. The square (blue) reaches the
+highest peak speed at every current; the triangles lag because their
+current is at $J_0$ only briefly.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{speed_avg_hk36_D0p72_700x500.png}
+\caption{Average pulse speed versus peak current, same layout, and on
+the same $y$-scale as the peak speed above, so the two are directly
+comparable. The square again leads, by a wider margin than for the
+peak speed, because its current, and so its velocity, is sustained
+rather than transient.}
+\end{figure}
+
+\subsection{Mobility}
+The mobility $\mu = d/\!\int J\,dt$, where $v=\mu J$ in the linear-response 
+regime,
+is plotted against temperature below. It carries two clear trends. It
+rises steeply with temperature, roughly $50\%$ from $T=0$ to $100$~K,
+as thermal fluctuations help the skyrmion past the pinning and
+deformation that otherwise limit its travel; and it falls with current:
+at higher drive the skyrmion elongates and its displacement no
+longer scales with the delivered charge. The spread over the six shapes
+(the band width) is negligible at
+$J=1\times10^{11}$~A/m$^2$, confirming that $\mu$ there does not depend 
+on the pulse, and it widens only at
+high current, where the square's mobility drops below the triangles' as
+it over-drives.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\linewidth]{mobility_range_hk36_D0p72_700x500.png}
+\caption{Skyrmion mobility $\mu = d/\!\int J\,dt$ versus temperature on
+the $L_x=1400$~nm track, one band per peak current. The band spans the
+minimum to maximum over the six pulse shapes and the line is their
+mean. $\mu$ rises with temperature (thermal assistance) and falls with
+current (deformation). The band is narrow at low current, where $\mu$
+is the shape-independent intrinsic mobility, and widens at high current
+as the shapes diverge. $J=5\times10^{11}$ has no survivors above
+$T=100$~K and $J=8\times10^{11}$ none above $T=50$~K.}
+\end{figure}
+
+\subsection{Operating points}
+Combining efficiency and speed, each temperature has two extremal
+operating points among the surviving cells: the most energy-efficient
+(highest $d/\!\int J^2\,dt$) and the fastest (highest average pulse
+speed). They sit at opposite corners of a Pareto front: the efficient
+point is the weakest triangular pulse, it always corresponds to the
+lower current density value, as less current is employed in deforming 
+the skyrmion, and instead used to move it slowly;
+whereas the fastest is a strong square pulse.
+
+\begin{table}[H]
+\centering
+\caption{Energy-efficient and fastest operating points per temperature
+for the $L_x=1400$~nm box, with the average pulse speed
+$v_{\mathrm{avg}}$ (m/s) at each ($J$ in $10^{11}$~A/m$^2$). Efficiency
+is maximized at the lowest current for a triangle; the fastest square
+drops from $J=6$ to $J=3$ as the stability cap tightens with
+temperature.}
+\begin{tabular}{rllll}
+\toprule
+$T$ (K) & \multicolumn{2}{c}{energy-efficient}
+& \multicolumn{2}{c}{fastest}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+ & shape ($J$) & $v_{\mathrm{avg}}$ & shape ($J$) & $v_{\mathrm{avg}}$\\
+\midrule
+0 & tri\_symmetric ($0.5$) & $23$ & square ($6.0$) & $361$\\
+10 & tri\_sharpfall ($0.5$) & $28$ & square ($6.0$) & $366$\\
+50 & tri\_sharprise ($0.5$) & $48$ & square ($5.0$) & $364$\\
+100 & tri\_symmetric ($0.5$) & $58$ & square ($3.0$) & $315$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\linewidth]{operating_points_hk36_D0p72_700x500.png}
+\caption{Energy efficiency $d/\!\int J^2\,dt$ versus average pulse
+speed for every surviving cell of the $L_x=1400$~nm box, one colour per
+temperature. Stars mark the most efficient operating point of each
+temperature, diamonds the fastest. The two objectives trade off along
+a Pareto front that temperature lifts upward, as the mobility grows.}
+\end{figure}
+
+\section{Pulse response -- duration}
+\label{sec:duration}
+
+The width sweep holds the peak current at each shape's cap and varies
+the pulse duration $t_{\mathrm{pulse}}$ over $\{100,200,300,400,600,
+700\}$~ps ($500$~ps is the production pulse), with $25$ realizations
+per finite-$T$ cell. Since a longer pulse at fixed peak delivers
+proportionally more charge, duration is a second drive knob. All
+quantities are ensemble means over the $x$-localized survivors, on the
+$L_x=1400$~nm box.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{width_displacement_hk36_D0p72_700x500.png}
+\caption{Net displacement versus pulse duration, one curve per shape,
+per temperature. Displacement grows almost linearly
+with duration -- longer pulse, more delivered charge.
+Curves stop where the cell no longer survives.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{width_speed_hk36_D0p72_700x500.png}
+\caption{Average pulse speed versus duration. It rises and saturates:
+a short pulse is dominated by the $\sim\!100$~ps inertial rise (next
+section), which is a shrinking fraction of a longer pulse, so the
+average approaches the plateau speed by $\sim\!400$--$600$~ps.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{width_deformation_hk36_D0p72_700x500.png}
+\caption{Maximum ellipse major axis $D_1$ versus duration. The
+skyrmion elongates roughly linearly with duration; at $T=100$~K it
+starts thermally swollen and approaches the $\sim\!700$~nm track-half
+(spanning) at the longest pulses, which is where survival falls.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{width_survival_hk36_D0p72_700x500.png}
+\caption{Surviving-skyrmion fraction versus duration. Curves not shown
+sit at $P_{\mathrm{surv}}=1$. At the cap current, extending the pulse
+past $\sim\!400$--$600$~ps destabilizes the Gaussian, sharp-rise and
+sharp-fall shapes, while the square, half-sine and symmetric triangle
+survive every duration.}
+\end{figure}
+
+\paragraph{Duration is a stability axis.} The cap current was
+calibrated at $t_{\mathrm{pulse}}=500$~ps, so a longer pulse at the
+same peak over-drives the skyrmion. 
+Notably the sharp-fall triangle, the most stable shape
+at $500$~ps, is among the first to fail at $600$--$700$~ps.
+Duration, peak current and shape are not
+independent.
+
+\begin{comment}
+\paragraph{Energy partition (deferred).} The width runs also carry an
+online translation-versus-deformation dissipation observable. It is
+reliable only at $T=0$, where the fitted collective velocity matches
+the tracked drift (there the square spends $\sim\!15$--$19\%$ of its
+dissipation on translation and the rest on deformation); at finite
+temperature the observable evaluates the deterministic $\mathrm{d}
+\mathbf{m}/\mathrm{d}t$ on the thermally-roughened state, so the
+incoherent roughness swamps the coherent drift and the partition
+collapses. Its temperature dependence therefore awaits a corrected
+re-run and is not reported here.
+\end{comment}
+
+\section{Pulse response -- inertia}
+\label{sec:inertia}
+
+The finite duration of a pulse exposes a transient the DC drive cannot:
+the skyrmion accelerating when the current switches on and decelerating
+when it switches off. We characterise it on the square pulse -- the
+one shape with sharp, well-defined edges -- on the $L_x=1400$~nm track
+($700\times500$ cells). The velocity is the top-layer drift speed
+$|v|(t)=|\mathrm{d}\mathbf{r}/\mathrm{d}t|$ from the unwrapped centroid,
+sampled every $10$~ps; the appendix gives the extraction of the
+relaxation time in full.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\linewidth]{S48_A_vt_full.png}
+\caption{Complete $|v|(t)$ at $T=0$ for the square pulse, one trace per
+peak current; the $500$~ps drive window is shaded. The velocity rises
+to a plateau proportional to $J$, then decays back to a small residual
+drift once the current is off. The response is \emph{overdamped}: no
+overshoot at the plateau and no ringing after switch-off.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\linewidth]{S48_B_vt_rise.png}
+\hfill
+\includegraphics[width=0.49\linewidth]{S48_C_vt_fall.png}
+\caption{Rising (left) and falling (right) edges of $|v|(t)$, zoomed,
+one trace per peak current at $T=0$. Both edges are single
+exponentials to good approximation; the rise develops a mild overshoot
+above the plateau only at the two highest currents.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.49\linewidth]{S48_D_invtau.png}
+\hfill
+\includegraphics[width=0.49\linewidth]{S48_E_invtau_T.png}
+\caption{Inverse relaxation time. Left: $1/\tau$ of the rise and fall
+fits versus peak current at $T=0$; both sit at $\approx10$/ns and vary
+by under $3\%$ across the whole current range, so $\tau\approx100$ ps is
+essentially drive-independent, with $\tau_{\mathrm{rise}}\approx
+\tau_{\mathrm{fall}}$ (symmetric turn-on/turn-off). Right: $1/\tau$
+pooled over the rise and fall edges of every surviving ensemble member
+versus temperature, at the common current $J=3\times10^{11}$ A/m$^2$;
+the error bar is the ensemble standard deviation. It is flat within
+scatter ($10.07,10.03,9.91,9.95$/ns at $T=0,10,50,100$ K), i.e., the
+effective damping is temperature-independent.}
+\end{figure}
+
+The picture is a single overdamped relaxation time $\tau\approx100$~ps
+($1/\tau\approx10$/ns), independent of drive current and of
+temperature, and equal on turn-on and turn-off. There is no inertial
+oscillation. Here the coupling is fixed and the response is overdamped. 
+
+\begin{comment}
+\clearpage
+\section{Discussion}
+
+\paragraph{What does not depend on the track length.}
+The survival map, the morphology and the transport are box-invariant.
+$P_{\mathrm{surv}}$ agrees cell-by-cell across the three tracks with a
+mean absolute difference of $0.022$ ($700\!\rightarrow\!1400$~nm) and
+$0.005$ ($1400\!\rightarrow\!2800$~nm), i.e.\ at the level of the
+$1/\sqrt{100}=0.1$ ensemble noise of a single cell. The aspect ratio
+$D_1/D_2$ reproduces to $\pm0.03$, the drift speed and the Hall angle
+superpose within their standard errors, and the equilibration
+transients at each $T_{\mathrm{sub}}$ are the same curves. The
+physical boundaries of the phase diagram -- the thermal ceiling at
+$T\simeq100$--$130$~K and the high-current edge -- are therefore
+intrinsic to the material and the drive, not to the simulation cell.
+
+\paragraph{What does depend on it.}
+Only the S/E label, and only through the periodic-image gate. Seven of
+$36$ cells change dominant class across the three boxes, all of them
+in the surviving region, and all in the same direction: E at short
+$L_x$, S at long $L_x$. The gate figure identifies the cause without
+ambiguity -- $D_x$ is a fixed physical length (about $175$~nm at
+$T=10$~K, $280$~nm at $T=50$~K, $450$--$580$~nm at $T=100$~K), so
+$D_x/L_x$ halves each time the track is doubled and eventually drops
+below the $0.5$ threshold. A skyrmion occupying $71\%$ of a $700$~nm
+track and $21\%$ of a $2800$~nm one is the same skyrmion; calling the
+first "elongated/spanning" is a statement about the box. The
+$D_1/D_2\ge1.7$ branch of the classifier, which is box-free, flags the
+genuinely stretched states ($J\ge3\times10^{11}$) identically in all
+three boxes.
+
+\paragraph{A second, milder finite-size effect.}
+Above the stability ceiling the growing labyrinth in the $700$~nm
+track runs into the box: its $D_1$ flattens at $\approx690$~nm, one
+track length, while the $1400$ and $2800$~nm tracks agree with each
+other at $\approx940$~nm. This does not affect any reported class --
+those cells are \textbf{L} in every box -- but it means the short
+track cannot be used to measure the size of the run-away state, only
+to detect that it happened.
+
+\paragraph{Convergence.}
+The correction is not linear in $L_x$: six cells change between $700$
+and $1400$~nm but only one between $1400$ and $2800$~nm. The shortest
+track is qualitatively misleading -- it reports the entire $T=100$~K
+row and half the $T=50$~K row as elongated -- whereas $L_x=1400$~nm
+is already within one cell of the converged answer. For this material
+$L_x\gtrsim1400$~nm ($\gtrsim5\times$ the largest $D_x$ of a surviving
+skyrmion) is sufficient; $2800$~nm is converged.
+
+\paragraph{The one physical box effect.}
+The single cell where survival itself moves is $T=100$~K,
+$J=4\times10^{11}$: $P_{\mathrm{surv}}=0.50$ at $L_x=700$~nm and
+$0.00$ at $1400$ and $2800$~nm. This cell sits exactly on the burst
+boundary, and the short track stabilizes it: a domain that has already
+grown to $D_x\simeq0.72L_x$ closes on its own periodic image and is
+held as a wrapped stripe, whereas in a long track the same domain has
+room to keep elongating and breaks up into a labyrinth. The artifact
+here is not a mislabelling but a spurious stabilization, and it acts
+in the non-conservative direction -- the short box over-reports
+survival. It is confined to this one boundary cell; the two longer
+tracks agree.
+
+\paragraph{Consequence.}
+Quoting a stability map from a $700$~nm track would misreport the
+skyrmion/elongated boundary over a third of the surviving region and
+over-report survival at the burst edge. The $2800$~nm results are the
+ones to quote; the $1400$~nm results are usable. Since $P_{\mathrm{surv}}$,
+$v(J)$ and $\bar\theta_H$ are box-invariant, any earlier conclusion
+resting on those quantities alone is unaffected by track length.
+\end{comment}
+
+\clearpage
+\appendix
+\section{Extraction of the velocity relaxation time}
+\label{app:invtau}
+
+The velocity is the magnitude of the time derivative of the unwrapped
+top-layer centroid $\mathbf{r}(t)=(c_x,c_y)$,
+\begin{equation}
+|v|(t) = \left|\frac{\mathrm{d}\mathbf{r}}{\mathrm{d}t}\right|,
+\end{equation}
+evaluated by central differences on the $10$~ps sample grid. Writing
+$t_p$ for the pulse duration ($500$~ps, read from each trajectory's
+own configuration record), the two edges are fit to single
+exponentials:
+\begin{align}
+\text{rise } (0\le t\le t_p):\quad
+  &|v|(t) = A\left(1 - e^{-t/\tau_{\mathrm{rise}}}\right),
+  \label{eq:rise}\\[2pt]
+\text{fall } (t\ge t_p):\quad
+  &|v|(t) = v_{\mathrm{res}}
+    + (v_p - v_{\mathrm{res}})\,e^{-(t-t_p)/\tau_{\mathrm{fall}}},
+  \label{eq:fall}
+\end{align}
+where $A$ is the plateau speed, $v_p$ the speed at switch-off and
+$v_{\mathrm{res}}$ the residual drift. Each fit is a nonlinear
+least-squares minimisation of $\sum_i\big(|v|_i-\text{model}\big)^2$
+(Levenberg--Marquardt), and the reported quantity is the inverse time
+constant $1/\tau_{\mathrm{rise}}$ or $1/\tau_{\mathrm{fall}}$.
+
+The fall is fit over the full $[\,t_p,\,t_p+250\,\text{ps}\,]$ window.
+The rise is fit over $[\,0,\,90\,\text{ps}\,]$, ending before the
+mid overshoot; otherwise, a wider window would drag $A$ and
+$\tau_{\mathrm{rise}}$ off their true values and inject a spurious
+current dependence into $1/\tau_{\mathrm{rise}}$. The two windows and
+the resulting fits are shown in Fig.~\ref{fig:invtaufit}: inside the
+rise window the fit tracks the data, and its dashed extrapolation
+climbs away from the plateau.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{invtau_fit_windows.png}
+\caption{The $1/\tau$ extraction on one representative cell (square
+pulse, $J=5\times10^{11}$~A/m$^2$, $T=0$). Grey points are the measured
+$|v|(t)$ (ground truth). Shaded bands are the rise (blue) and fall
+(red) fit windows; solid curves are the exponential fits of
+Eqs.~\eqref{eq:rise}--\eqref{eq:fall} inside their windows, dashed
+where extrapolated. The dashed blue curve stops at $90$~ps to avoid 
+the rising observable past $\sim\!110$~ps.}
+\label{fig:invtaufit}
+\end{figure}
+
+For the temperature dependence (the $1/\tau$-versus-$T$ panel of
+Sec.~\ref{sec:inertia}) the two values
+$\{1/\tau_{\mathrm{rise}},1/\tau_{\mathrm{fall}}\}$ are collected from
+every ensemble member that ends as a compact or elongated skyrmion --
+the field classifier excludes labyrinth and reversed-background
+members -- pooled at the common current $J=3\times10^{11}$~A/m$^2$; the
+plotted point is their mean and the error bar their standard deviation.
+
+\clearpage
+\section{Per-shape stability of the pulse study}
+\label{app:pulsestability}
+
+For completeness, the two figures below classify every production
+realization of the pulse-shape study over the $(T,J)$ grid, per shape,
+for the $L_x=1400$~nm ($700\times500$) box. Since production is
+capped at each shape's stability window and its current ladder stops
+at $8\times10^{11}$~A/m$^2$, every cell in the window is a
+compact (S) or, at the highest currents, an elongated (E) skyrmion at
+$P_{\mathrm{surv}}=1.00$; blank cells lie beyond that shape's cap. The
+other two tracks ($L_x=700$ and $2800$~nm) give the same picture and
+are not reproduced here.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{pulse_stability_maps_hk36_D0p72_700x500.png}
+\caption{Dominant final class in each $(T,J)$ cell, one panel per
+shape, annotated with the surviving-skyrmion fraction
+$P_{\mathrm{surv}}=(S+E+P)/n$. The legend lists all six classes
+(compact S, elongated E, spanning P, labyrinth L, annihilated A,
+reversed R); only S and E occur within the capped production window.
+Blank cells are beyond the shape's cap.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{pulse_composition_hk36_D0p72_700x500.png}
+\caption{Per-class ensemble fractions, rows the shapes and columns the
+classes S, E, P and L. The weight sits almost entirely in S, shifting
+to E only at the highest surviving currents; the P and L columns are
+empty because production never enters those regimes.}
+\end{figure}
+
+\clearpage
+\section{Open questions and operating guidance}
+\label{app:questions}
+
+Three practical questions about running a skyrmion racetrack at finite
+temperature motivate the study; the results above bear on each.
+
+\paragraph{Can the skyrmion keep the same speed at room temperature, or
+must it be driven more slowly?} Within the surviving window the
+mobility $\mu = d/\!\int J\,dt$ actually \emph{rises} with temperature
+(Sec.~\ref{sec:shaperank}): from $\approx100$ to $\approx148$~nm per
+$10^{11}$~A/m$^2$/ns between $T=0$ and $100$~K, so at fixed delivered
+charge the skyrmion moves \emph{faster}, not slower, as it warms, since
+thermal fluctuations help it past the pinning and deformation that
+limit its travel. The caveat is survival: the compact skyrmion exists
+only up to $T\simeq100$--$130$~K, above which it breaks into a
+labyrinth, so true room temperature ($300$~K) is out of reach at this
+anisotropy. Up to the stability ceiling, then, no slowdown is needed.
+
+\paragraph{Is directional control harder with temperature?} On average
+the drift stays along the current axis, but thermal fluctuations add a
+transverse jitter: the ensemble spread in the skyrmion Hall angle
+(Sec.~4, the survival/Hall maps) widens with temperature, so a single
+realization deviates more from the mean deflection as it warms.
+Directional control is therefore progressively harder toward the
+labyrinth ceiling, even where the mean direction is unchanged.
+
+\paragraph{What is the optimal drive temperature without annihilation?}
+Because the mobility increases with temperature while the skyrmion
+survives only up to $T\simeq100$--$130$~K, the best operating point is
+just below that labyrinth transition, near $T\simeq100$~K for this
+material: there the skyrmion is still compact
+($P_{\mathrm{surv}}\approx1$ at low-to-moderate current) yet moves with
+the highest mobility. Below it the skyrmion is stable but slower per
+unit charge; above it, it is lost.
+
+\end{document}
