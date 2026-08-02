@@ -2310,18 +2310,21 @@ results appear as a subsection of
 Sec.~\ref{sec:results}. Reproducing the paper's velocities,
 elliptical deformation, inertial transients, and topological spin
 Hall comparison establishes that the solver is quantitatively
-trustworthy and fixes the calibrated operating point
-($D=0.85$~mJ/m$^2$, full-FFT or Newell demag) used as the $T=0$
+trustworthy and fixes the operating point ($D=0.76$~mJ/m$^2$,
+$\mu_0H_{k,\mathrm{top}}=36$~mT, supplement~1.1 of
+\cite{pham2024}; full-FFT or Newell demag) used as the $T=0$
 anchor for Campaign~II.
 
 \begin{table}[H]
 \centering
 \small
 \caption{Campaign~I: zero-temperature reproduction sweeps. Set~A
-$=$ production stack ($\alpha=0.14$, $\gamma=194.8$~GHz/T,
-$D=0.85$~mJ/m$^2$); Set~B $=$ Pham S48/S49 stack ($\alpha=0.216$,
-$\gamma=175.9$~GHz/T, $D=0.62$~mJ/m$^2$). All lattices
-$256\times256$, full magnetostatic demag.}
+$=$ Pham simulation stack ($\alpha=0.14$, $\gamma=194.8$~GHz/T,
+$D=0.76$~mJ/m$^2$, $\mu_0H_{k,\mathrm{top}}=36$~mT); Set~B $=$
+Pham S48/S49 stack ($\alpha=0.216$, $\gamma=175.9$~GHz/T,
+$D=0.62$~mJ/m$^2$, measured
+$\mu_0H_{k,\mathrm{top}}=12.4$~mT). All lattices $256\times256$,
+full magnetostatic demag.}
 \label{tab:campaign1}
 \begin{tabular}{@{}llll@{}}
 \toprule
@@ -2487,27 +2490,32 @@ qualitative.
 
 \begin{table}[H]
 \centering
-\caption{Comparison of simulation results with~\cite{pham2024}.}
+\caption{Comparison of simulation results with~\cite{pham2024}
+(Set~A, Newell demag).}
 \begin{tabular}{@{}lll@{}}
 \toprule
 Quantity & Simulation & Paper \\
 \midrule
-Equilibrium diameter & 160 nm & 197 nm \\
-Velocity ($J = 4 \times 10^{11}$ A/m$^2$)
-    & 500 m/s & $\sim$400 m/s (micromagnetic) \\
-Skyrmion Hall angle & $0.3^\circ$ & $\sim 0^\circ$ (SAF) \\
+Equilibrium diameter & 210 nm & $\sim$215 nm \\
+$v_\mathrm{avg}$ ($J = 1 \times 10^{11}$ A/m$^2$, 2~ns DC)
+    & 99 m/s & $\sim$100 m/s (S41) \\
+$v_\mathrm{avg}$ ($J = 8.9 \times 10^{11}$ A/m$^2$, Gaussian)
+    & 674 m/s & $\sim$670 m/s (S42b) \\
+$v_\mathrm{max}$ ($J = 8.9 \times 10^{11}$ A/m$^2$, Gaussian)
+    & 579 m/s & $\sim$510 m/s (S42b) \\
+Skyrmion Hall angle & $0.15^\circ$ & $\sim 0^\circ$ (SAF) \\
 Topological charge & $\pm 0.999$ & $\pm 1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The diameter discrepancy (160 vs 197~nm) arises from the thin-film
-demagnetization approximation (local $N_z = 1$) compared to the full
-magnetostatic FFT calculation in MuMax3, and from parameter
-uncertainties ($D$ has $\pm 39\%$ error bars, $K$ has $\pm 7\%$).
-The velocity is within the uncertainty band of the damping constant
-($\alpha = 0.14 \pm 0.04$). The four approximations are detailed in
-Sec.~\ref{sec:implementation_notes}.
+With the full Newell magnetostatic kernel the equilibrium size and
+the velocity scale agree with the paper at the few-percent level;
+the DC benchmark (S41) matches to within 1\%. The largest residual
+is the peak instantaneous velocity at the strongest Gaussian drive
+($579$ vs $\sim 510$~m/s, $+13\%$), where the skyrmion is far from
+rigid and the velocity is sensitive to the deformation transient
+(see the S47 discussion below).
 
 Empirically, widening the inter-layer spacer from $d_{\text{Ru}}=0.8$ to
 $1.35$~nm (Pt$+$Ru, Sec.~\ref{sec:demag}) shifts $d_{\text{top}}$ by
@@ -2518,11 +2526,13 @@ The remainder of this section presents one numerical experiment
 per subsection. For each, the objective, the drive, the swept
 quantities, and the resulting figure are given in place; the
 parameter sets are defined inline the first time they are used
-(\textbf{Set~A} = the production SAF stack of
-Sec.~\ref{sec:demag}, $\alpha=0.14$, $\gamma=194.8$~GHz/T,
-$D=0.85$~mJ/m$^2$; \textbf{Set~B} = the modified stack used by
-Pham et al.\ for S48 and S49, $\alpha=0.216$,
-$\gamma=175.9$~GHz/T, $D=0.62$~mJ/m$^2$).
+(\textbf{Set~A} = the SAF stack of Sec.~\ref{sec:demag} with the
+paper's simulation values, $\alpha=0.14$, $\gamma=194.8$~GHz/T,
+$D=0.76$~mJ/m$^2$, $\mu_0H_{k,\mathrm{top}}=36$~mT;
+\textbf{Set~B} = the modified stack used by Pham et al.\ for S48
+and S49, $\alpha=0.216$, $\gamma=175.9$~GHz/T,
+$D=0.62$~mJ/m$^2$, measured
+$\mu_0H_{k,\mathrm{top}}=12.4$~mT).
 
 %----------------------------------------------------------------------
 \subsection{Instantaneous velocity vs.\ time}
@@ -2534,18 +2544,24 @@ A/m$^2$, 2~ns square pulse, Set~A.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.65\linewidth]{S41_v_t_newell_D085e-3.png}
-\caption{Instantaneous and pulse-averaged velocity for the production
-D=0.85~mJ/m$^2$ Newell run.}
+\includegraphics[width=0.65\linewidth]{S41_v_t_newell_D076e-3.png}
+\caption{Instantaneous and pulse-averaged velocity for the Set~A
+Newell run ($D=0.76$~mJ/m$^2$). The pulse-averaged velocity is
+$99$~m/s against the paper's $\sim100$~m/s plateau.}
 \end{figure}
 
 %----------------------------------------------------------------------
 \subsection{Gaussian pulses of varying current density}
 
-\textbf{Objective.} Demonstrate that $v_\mathrm{max}$ diverges from
-$v_\mathrm{avg}$ at high $J$ due to skyrmion deformation. Gaussian
-pulse with FWHM~$=500$~ps, $J_0\in\{1..8.9\}\times10^{11}$~A/m$^2$
-(9 runs), Set~A.
+\textbf{Objective.} Track $v_\mathrm{inst}(t)$ and the
+$v_\mathrm{max}$/$v_\mathrm{avg}$ pair across the current range.
+Gaussian pulse with FWHM~$=500$~ps,
+$J_0\in\{1..8.9\}\times10^{11}$~A/m$^2$ (9 runs), Set~A. Following
+the paper's convention, $v_\mathrm{avg}=X/\mathrm{FWHM}$ with $X$
+the net pulse-induced displacement; since the motion accrues over
+the full $\pm3\sigma\simeq2.5\,\mathrm{FWHM}$ window,
+$v_\mathrm{avg}$ exceeds $v_\mathrm{max}$ by construction, in the
+simulation as in the paper's own S42b panel.
 
 \begin{figure}[H]
 \centering
@@ -2563,8 +2579,11 @@ showing the gap that opens at high current.}
 \textbf{Objective.} (a) Probe the dependence of $v_\mathrm{avg}$ on
 Gaussian pulse width at two current densities (10 FWHM~$\times$ 2~$J$
 = 20 runs). (b) Compare two skyrmion sizes by sweeping $J$ at two
-DMI values ($D_1=0.85$, $D_2=0.60$~mJ/m$^2$; 9~$J\times$ 2~$D$ = 18
-runs).
+DMI values ($D_1=0.76$, $D_2=0.60$~mJ/m$^2$; 9~$J\times$ 2~$D$ = 18
+runs). The $D=0.60$~mJ/m$^2$ branch terminates at
+$J=6\times10^{11}$~A/m$^2$: at the three highest drives the small
+skyrmion is destroyed during the pulse (the paper's S43b extends
+to $8.9\times10^{11}$ for both $D$ values).
 
 \begin{figure}[H]
 \centering
@@ -2597,12 +2616,13 @@ v_\mathrm{SOT}(r) \;\propto\; \frac{\Delta\,r^{2}}{r^{2}+1},
 \end{equation}
 which rises monotonically and saturates at
 $v_\infty=\pi\gamma\Delta H_\mathrm{DL}/(2\alpha)$ for $r\gg 1$.
-For the production stack ($R\simeq 93$~nm, $\Delta\simeq 27$~nm,
-$r\simeq 3.5$), we are still on the rising part of this curve, so
-increasing $D$ from $0.76$ to $0.85$~mJ/m$^{2}$ inflates the
-skyrmion and increases $v_\mathrm{avg}$ at every $J$. Inertia does
-grow with $R$ in the SAF, but it sets the rise/fall time constant
-$\tau_d$ (probed in S48), not the plateau speed.
+For the Set~A stack ($R\simeq 105$~nm, $\Delta\simeq 27$~nm,
+$r\simeq 3.9$), we are still on the rising part of this curve, so
+increasing $D$ from $0.60$ to $0.76$~mJ/m$^{2}$ inflates the
+skyrmion and increases $v_\mathrm{avg}$ at every $J$ (74 vs
+110~m/s at $J=1\times10^{11}$~A/m$^2$). Inertia does grow with $R$
+in the SAF, but it sets the rise/fall time constant $\tau_d$
+(probed in S48), not the plateau speed.
 
 %----------------------------------------------------------------------
 \subsection{Skyrmion deformation under a 0.5~ns pulse}
@@ -2662,8 +2682,14 @@ snapshots). Set~A, Gaussian pulse.
 \includegraphics[width=0.46\linewidth]{S47_C_D1.png}
 \hfill
 \includegraphics[width=0.46\linewidth]{S47_D_D2.png}
-\caption{Ellipse axes $\max D_1$ (left) and $\min D_2$ (right) at the
-pulse peak, vs $J$, per configuration.}
+\caption{Ellipse axes $D_1$ (left) and $D_2$ (right) sampled at
+the pulse maximum, vs $J$, per configuration (the paper's S47
+convention). For the 500-ps configurations at
+$J\geq4\times10^{11}$~A/m$^2$ the post-pulse deformation
+transient grows past the periodic box ($\max D_1$ over the trace
+reaches $0.8\times$ the box extent or more), so late-time axis
+values there are box-limited and only the pulse-maximum sample is
+reported.}
 \end{figure}
 
 \begin{figure}[H]
@@ -2806,7 +2832,9 @@ and is negligible at large skyrmions.}
 %======================================================================
 
 Before any finite-temperature or current-driven measurement, the
-Set~A SAF skyrmion is relaxed to its zero-current ground state. Two
+SAF skyrmion ($D=0.85$~mJ/m$^2$,
+$\mu_0H_{k,\mathrm{top}}=12.4$~mT) is relaxed to its zero-current
+ground state. Two
 questions decide whether a relaxed configuration is a usable
 reference: (i) how many integration steps are needed for the
 skyrmion \emph{size} to converge, and (ii) whether the converged size
@@ -2814,8 +2842,10 @@ depends on the simulation box. Both are answered by relaxing the same
 initial skyrmion in four boxes and tracking the size, energy, and
 residual torque as a function of step.
 
-\textbf{Setup.} Set~A parameters, single magnetisation pulse switched
-off ($J=0$), overdamped relaxation ($\alpha=1$, $dt=5\times10^{-14}$~s)
+\textbf{Setup.} $D=0.85$~mJ/m$^2$,
+$\mu_0H_{k,\mathrm{top}}=12.4$~mT, single magnetisation pulse
+switched off ($J=0$), overdamped relaxation ($\alpha=1$,
+$dt=5\times10^{-14}$~s)
 under the periodic (circular-convolution) Newell demag evaluated with
 the Gauss--Legendre quadrature tensor. Each box is relaxed for
 $2.5\times10^{5}$ steps in chunks of $2000$, \emph{never}
@@ -2935,7 +2965,7 @@ Repeating the relaxation with free (open) top and bottom edges across
 the width $y$ --- the $2n_y\times n_x$ zero-padded racetrack demag, here
 with the exchange/DMI still on the $y$-torus (the demag-only free-$y$
 case of Sec.~\ref{sec:bc-comparison}) --- changes the picture completely.
-All other settings are unchanged (Set~A, $D=0.85$~mJ/m$^2$, $J=0$,
+All other settings are unchanged ($D=0.85$~mJ/m$^2$, $J=0$,
 $\alpha=1$, $2.5\times10^{5}$ steps).
 
 \begin{table}[H]
@@ -2998,7 +3028,9 @@ falls by more than an order of magnitude as the box grows
 interior is increasingly well-relaxed while the residual concentrates
 at the expanding wall and the free boundary.
 
-\textbf{Why this happens.} Set~A sits at $D/D_c = 1.75$
+\textbf{Why this happens.} At $D=0.85$~mJ/m$^2$ with
+$\mu_0H_{k,\mathrm{top}}=12.4$~mT the stack sits at
+$D/D_c = 1.75$
 ($\sigma_{\mathrm{DW}} = 4\sqrt{\Aex\,\Keff} - \pi D = -1.14\times
 10^{-3}$~J/m$^2 < 0$, Sec.~\ref{sec:relax-convergence}). With negative
 wall energy the isolated skyrmion has no finite equilibrium radius --- it

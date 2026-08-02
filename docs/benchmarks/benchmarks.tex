@@ -79,10 +79,10 @@ detailed in each section.}
 7  & RT 2013 Fig.\,4(d) confined $R_s$ & ${\approx}25$ nm
    & $27.6$ nm (10\%) & \PASS \\
 8  & Rohart 2016 N\'eel-Arrhenius collapse & Arrhenius;
-   $\Delta E{=}26{\pm}4$ meV & $R^2{=}0.98$;
-   $\Delta E{=}11.5$ meV & \PASS \\
+   $\Delta E{=}26{\pm}4$ meV & $R^2{=}0.99$;
+   $\Delta E{=}11.1$ meV & \PASS \\
 8b & Rohart 2016 Fig.\,5(b) $\Delta E(D)$ & rises with $D$
-   & $5.7\!\to\!31.5$ meV & \PASS \\
+   & $5.9\!\to\!36.0$ meV & \PASS \\
 9a & Tomasello 2018 size vs $T$ (determ.) & $H{=}0$ ratio
    ${\approx}3.3$ & $2.52$ (converged) & \PASS \\
 9b & Tomasello 2018 size vs $T$ (thermal) & ratio ${\approx}3.3$
@@ -122,7 +122,12 @@ inter-layer $N_{xz}/N_{yz}$ cross terms; mask/free-$y$-consistent
 total energy). All quoted values re-verified unchanged except \#10
 (LLGS spot $1.5\%\!\to\!9.9\%$; the old figure was an artefact of
 the nonstandard torque, see \S\ref{sec:thiele}) and the \#9a ratio
-($2.51\!\to\!2.52$, last-digit rounding).
+($2.51\!\to\!2.52$, last-digit rounding). The thermal ensembles
+\#8/\#8b re-ran with fresh statistics (shifts at ensemble-noise
+scale: $R^2$ $0.98\!\to\!0.99$, $\Delta E$ $11.5\!\to\!11.1$ meV,
+trend endpoints $5.9\!\to\!36.0$ meV); \#6 fails with values
+identical to the pre-fix run, confirming its known failure is
+unrelated to the fixed physics.
 
 % ============================================================
 \clearpage
@@ -820,16 +825,18 @@ rate $\tau(T)$ the Arrhenius fit measures.}
 \end{figure}
 
 \paragraph{Behaviour / status.} \PASS\ (gate $=$ Arrhenius form $+$
-sub-ns $\tau_0$ $+$ barrier sign). $R^2=0.983$ over a decade of
-$\tau$ ($16.4\!\to\!1.8$ ns); $\tau_0=0.35$ ns (Rohart 0.22, same
-order); $\Delta E=11.5$ meV. \textbf{Limitations:} the field is
+sub-ns $\tau_0$ $+$ barrier sign). $R^2=0.990$ over a decade of
+$\tau$; $\tau_0=0.37$ ns (Rohart 0.22, same
+order); $\Delta E=11.1$ meV (2026-07 re-run; previously
+$R^2{=}0.983$, $\tau_0{=}0.35$ ns, $\Delta E{=}11.5$ meV ---
+ensemble-statistics scale shifts). \textbf{Limitations:} the field is
 95 mT, not 250 mT --- Rohart's model is atomistic, where 250 mT is
 supercritical here ($H_c\approx135$ mT $\Rightarrow$ athermal
 collapse). 95 mT is the sub-critical field with a clean activated
 ladder. $\Delta E$ is reported, \emph{not gated}: the
 micromagnetic collapse barrier is grid-dependent and the model
 class differs, so matching the order (tens of meV) is the honest
-expectation, not the number ($11.5$ vs $26$ meV). The method is
+expectation, not the number ($11.1$ vs $26$ meV). The method is
 anchored independently by the macrospin N\'eel--Brown gate
 (\S\ref{sec:support}).
 
@@ -864,8 +871,8 @@ MLE per $D$), reproducing Rohart Fig.\,5(b)'s strong nonlinearity.}
 \end{figure}
 
 \paragraph{Behaviour / status.} \PASS. $\Delta E$ rises
-monotonically and steeply: $5.7\to12.9\to21.5\to31.5$ meV over
-$D=2.95\to3.00\to3.05\to3.10$ ($5.5\times$ over a 5\% DMI
+monotonically and steeply: $5.9\to13.5\to20.4\to36.0$ meV over
+$D=2.95\to3.00\to3.05\to3.10$ ($6.1\times$ over a 5\% DMI
 increase); $\tau_0$ stays $0.25$--$0.38$ ns.
 \textbf{Limitations:} the narrow grid is required because the
 barrier is exponentially $D$-sensitive at fixed field --- the
