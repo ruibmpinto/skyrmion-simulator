@@ -59,7 +59,7 @@ import numpy as np
 # Local
 from src.simulator.pulse_metrics import analytic_action, analytic_charge
 from src.simulator.pulses import (GaussianPulse, HalfSinePulse,
-                                   SquarePulse, TrianglePulse)
+                                  SquarePulse, TrianglePulse)
 from src.stochastic_llgs.stability import classify_field
 
 #

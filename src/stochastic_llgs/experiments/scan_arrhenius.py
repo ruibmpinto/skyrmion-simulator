@@ -20,7 +20,6 @@ Run with:
 import multiprocessing as mp
 import os
 # Third-party
-import numpy as np
 # Local
 from src.stochastic_llgs.io import save_trajectory
 from src.stochastic_llgs.experiments.run_single import (

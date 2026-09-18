@@ -16,7 +16,6 @@ import pathlib
 import sys
 import time
 # Third-party
-import numpy as np
 
 #
 #                                                          Authorship & Credits

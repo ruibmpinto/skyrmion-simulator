@@ -863,9 +863,12 @@ def _postprocess_case(case_dir, out_dir, gif_dir, a, anim_glob,
     if not anim_files:
         print(f'  no {anim_glob} in {case_dir}; skip classify/gif.')
         return
-    Ts = agg['Ts']; Js = agg['Js']
-    L_x = float(agg['L_x']); L_y = float(agg['L_y'])
-    D1m = agg['D1_mean']; D2m = agg['D2_mean']
+    Ts = agg['Ts']
+    Js = agg['Js']
+    L_x = float(agg['L_x'])
+    L_y = float(agg['L_y'])
+    D1m = agg['D1_mean']
+    D2m = agg['D2_mean']
     # Pass 1: classify each cell + Hall angle from the ens0 dump.
     cls = np.full((Ts.size, Js.size), '?', dtype='<U1')
     th_ens0 = np.full((Ts.size, Js.size), np.nan)

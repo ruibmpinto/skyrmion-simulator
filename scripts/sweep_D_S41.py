@@ -242,7 +242,7 @@ def main():
     # so K_eff and Newell sweeps coexist in the same directory.
     out_path = os.path.join(
         out_dir, f'D_{D*1e3:.3f}mJm2_{field_kind}.npz')
-    
+
     print(f'  drive: J0={J0:.2e}, t_pulse={t_pulse*1e9:.1f} ns, '
           f'n_drive={n_drive}', flush=True)
     # Skip relax (n_relax=0): IC is already the equilibrium.

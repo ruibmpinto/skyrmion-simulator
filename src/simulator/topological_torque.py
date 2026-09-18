@@ -178,7 +178,7 @@ def sot_thiele_speed(R, Delta, p):
     Uses the paper's closed-form Thiele expression for an AF (SAF) skyrmion:
 
         v_SOT_x = pi * H_DL * R * gamma / (2 alpha * (R/Delta + Delta/R))
-    
+
     in the simulator's H-in-Tesla convention. The `H_DL` value
     is recomputed from the supplied pulse to remain consistent
     if the caller has updated `p.pulse`.

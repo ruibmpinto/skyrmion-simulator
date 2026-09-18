@@ -30,13 +30,9 @@ import numpy as np
 from src.phase_diagram.relaxation import relax as relax_demag
 from src.simulator.analysis import skyrmion_diameter
 from src.simulator.demag import precompute_demag_kernels
-from src.simulator.fields import (
-    effective_field,
-    effective_field_demag_pair,
-)
+from src.simulator.fields import effective_field
 from src.simulator.initial_conditions import saf_skyrmion
 from src.simulator.integrator import (
-    llgs_rhs,
     normalize,
     rhs_demag,
     rhs_local_keff,
@@ -66,7 +62,8 @@ def _relax_keff(p, m_top, m_bot, max_steps, tol_torque,
              getattr(p, 'pulse', None))
     p.alpha = float(alpha_relax)
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-    p.H_DL = 0.0; p.H_FL = 0.0
+    p.H_DL = 0.0
+    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     tau_max = float('inf')
     conv = False
@@ -112,10 +109,14 @@ def _run_one_D(args):
     returns a one-line summary. Picklable for multiprocessing."""
     cfg, D = args
     field_kind = cfg['field_kind']
-    nx = cfg['nx']; ny = cfg['ny']; dt = cfg['dt']
+    nx = cfg['nx']
+    ny = cfg['ny']
+    dt = cfg['dt']
     p = default_params()
     p.D = D
-    p.nx = nx; p.ny = ny; p.dt = dt
+    p.nx = nx
+    p.ny = ny
+    p.dt = dt
     _precompute(p)
     print(f'D = {D*1e3:.3f} mJ/m^2 ({field_kind}): start',
           flush=True)
@@ -166,7 +167,8 @@ def _run_one_D(args):
              getattr(p, 'pulse', None))
     p.alpha = float(cfg['free_alpha'])
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-    p.H_DL = 0.0; p.H_FL = 0.0
+    p.H_DL = 0.0
+    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     # Bind the right RHS for free evolution.
     if field_kind == 'keff':

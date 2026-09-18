@@ -6,17 +6,17 @@ spacer. Two demag formulations are exposed via the `kind`
 argument to `precompute_demag_kernels`:
 
   `kind='slab'`:
-    Each layer is treated as a continuous (out-of-plane) slab of 
+    Each layer is treated as a continuous (out-of-plane) slab of
     thickness `t_Co`; the in-plane lattice has periodic boundary conditions and
-    the kernel is computed analytically in k-space via the standard 
+    the kernel is computed analytically in k-space via the standard
     thin-film shape function
         f(k, t) = (1 - exp(-|k|*t)) / (|k|*t).
 
   `kind='newell'`:
-    Each cell is treated as a finite-width rectangular prism (a x a x t_Co). 
-    The cell-cell tensor is built by Gauss-Legendre quadrature of the 
+    Each cell is treated as a finite-width rectangular prism (a x a x t_Co).
+    The cell-cell tensor is built by Gauss-Legendre quadrature of the
     surface-charge formulation, with mumax3-style variable integration
-    density and a convergence assertion. 
+    density and a convergence assertion.
     Builds the inter-layer N_xz, N_yz cross-terms from the
     finite-prism tensor.
 

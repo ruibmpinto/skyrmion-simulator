@@ -24,8 +24,6 @@ import os
 # Third-party
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyArrowPatch
 
 #
 #                                                   Authorship & Credits
@@ -98,7 +96,7 @@ def plot_keff_vs_thickness(figsize=(5.5, 3.5),
     ax.axvline(
         t_srt, color='C3', ls=':', lw=1.2,
         label=f'SRT ($t_{{\\mathrm{{Co}}}}$'
-              f' = {t_srt:.2f} nm)',
+        f' = {t_srt:.2f} nm)',
     )
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Operating point
@@ -245,7 +243,7 @@ def plot_energy_landscape(figsize=(5.5, 3.5),
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Combined legend
     lns = ln1 + ln2
-    labs = [l.get_label() for l in lns]
+    labs = [ln.get_label() for ln in lns]
     ax1.legend(
         lns, labs, loc='center right',
         framealpha=0.9,
@@ -307,9 +305,9 @@ def plot_hysteresis_comparison(figsize=(10, 3.5),
     )
     # Spin schematics
     for yp, label in [(0.85, r'$\uparrow\uparrow'
-                              r'\uparrow\uparrow$'),
-                       (-0.85, r'$\downarrow\downarrow'
-                               r'\downarrow\downarrow$')]:
+                       r'\uparrow\uparrow$'),
+                      (-0.85, r'$\downarrow\downarrow'
+                       r'\downarrow\downarrow$')]:
         ax.text(
             -0.8, yp, label,
             fontsize=14, ha='center', va='center',

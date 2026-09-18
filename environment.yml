@@ -1,0 +1,38 @@
+# Full environment for both halves of the project: the Python
+# reference implementation and the C++ production port.
+#
+#   conda env create -f environment.yml
+#   conda activate skyrmion-simulator
+#
+# Versions are the ones the committed results and the parity tests were
+# produced with.
+
+name: skyrmion-simulator
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+
+  # Python reference implementation and analysis scripts
+  - numpy=2.4
+  - scipy=1.15
+  - matplotlib=3.10
+
+  # Test suite
+  - pytest=8.3
+
+  # C++ simulator: CMake >= 3.20 and double-precision FFTW3 >= 3.3.8
+  # are hard requirements of src/simulator_cpp/CMakeLists.txt.
+  # pkg-config lets CMake verify the FFTW version.
+  - cmake>=3.20
+  - fftw>=3.3.8
+  - pkg-config
+
+  # Optional: a toolchain from conda-forge rather than the system one.
+  # Uncomment if the system compiler is older than C++17 or lacks
+  # OpenMP (AppleClang ships without libomp by default).
+  # - cxx-compiler
+  # - llvm-openmp   # macOS
+  # - libgomp       # Linux

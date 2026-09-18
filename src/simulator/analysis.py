@@ -17,7 +17,6 @@ run_analysis
 #                                                                Modules
 # =====================================================================
 # Standard
-import sys
 # Third-party
 import numpy as np
 # Local
@@ -347,7 +346,7 @@ def run_analysis():
     print(f'Initial diameter: {d0 * 1e9:.1f} nm')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # 10000 * 50 fs = 500 ps
-    n_relax = 10000  
+    n_relax = 10000
     t = 0.0
     for step in range(1, n_relax + 1):
         m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, p.dt, p)
@@ -381,7 +380,8 @@ def run_analysis():
     # is on from the first substep onwards.
     t = 0.0
     for step in range(1, n_drive + 1):
-        m_top_d, m_bot_d = rk4_step(rhs_local_keff, m_top_d, m_bot_d, t, p2.dt, p2)
+        m_top_d, m_bot_d = rk4_step(
+            rhs_local_keff, m_top_d, m_bot_d, t, p2.dt, p2)
         t += p2.dt
         if step % 4000 == 0:
             c = skyrmion_center(m_top_d, p2.a, core_polarity=+1)

@@ -27,7 +27,6 @@ import itertools
 import multiprocessing as mp
 import os
 # Third-party
-import numpy as np
 # Local
 from src.stochastic_llgs.io import save_trajectory
 from src.stochastic_llgs.joule_heating import T_of_j

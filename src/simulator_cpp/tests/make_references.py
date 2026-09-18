@@ -15,7 +15,6 @@ main
 #                                                                       Modules
 # =============================================================================
 # Standard
-import os
 import pathlib
 import sys
 from types import SimpleNamespace

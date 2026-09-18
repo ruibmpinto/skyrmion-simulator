@@ -68,7 +68,7 @@ def _draw_arrow(ax, x, y0, y1, color, lw=1.6):
 
 # =============================================================================
 fig, axes = plt.subplots(1, 2, figsize=(9.0, 4.6),
-                          gridspec_kw={'width_ratios': [1.0, 1.6]})
+                         gridspec_kw={'width_ratios': [1.0, 1.6]})
 
 # -----------------------------------------------------------------------------
 # Left panel: local (i, j) view of the AFM coupling.

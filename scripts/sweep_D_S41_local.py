@@ -51,11 +51,15 @@ def _run_one_D(args):
     is picklable for `multiprocessing.Pool`."""
     cfg, D = args
     field_kind = cfg['field_kind']
-    nx = cfg['nx']; ny = cfg['ny']; dt = cfg['dt']
+    nx = cfg['nx']
+    ny = cfg['ny']
+    dt = cfg['dt']
     # Build the parameter namespace at this D.
     p = default_params()
     p.D = D
-    p.nx = nx; p.ny = ny; p.dt = dt
+    p.nx = nx
+    p.ny = ny
+    p.dt = dt
     _precompute(p)
     print(f'D = {D*1e3:.3f} mJ/m^2: starting', flush=True)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

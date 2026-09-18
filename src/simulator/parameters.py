@@ -191,7 +191,7 @@ def _precompute(p):
         p.H_DL = p.DL_SOT * p.J_current  # Tesla
         p.H_FL = p.FL_SOT * p.J_current  # Tesla
     else:
-        p.H_DL = 0.0  # explicit zero so llgs_rhs skips SOT branch
+        p.H_DL = 0.0
         p.H_FL = 0.0
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Gamma prime for explicit LLGS (absorbs 1/(1+a^2) prefactor)

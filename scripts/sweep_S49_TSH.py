@@ -61,7 +61,9 @@ def _build_set_B_params(D, alpha, gamma, lambda_sq,
     p.gamma = gamma
     # Set B keeps the measured Hk_top = 12.4 mT (S49 caption).
     p.K_top = 1.294e6
-    p.nx = nx; p.ny = ny; p.dt = dt
+    p.nx = nx
+    p.ny = ny
+    p.dt = dt
     p.lambda_sq = float(lambda_sq)
     p.skyrmion_R = float(R)
     p.skyrmion_dw = float(Delta)
@@ -112,7 +114,7 @@ def _run_analytic(R_over_Delta_values, Delta, lambda_sq_values,
         'R_over_Delta_values': [
             float(r) for r in R_over_Delta_values],
         'lambda_sq_values_nm2': [
-            float(l * 1e18) for l in lambda_sq_values],
+            float(lam * 1e18) for lam in lambda_sq_values],
         'alpha': 0.216,
         'gamma': 175.9e9,
         'D': 0.62e-3,
@@ -254,7 +256,9 @@ def main():
     alpha = 0.216
     gamma = 175.9e9
     D = 0.62e-3
-    nx = 256; ny = 256; dt = 5.0e-14
+    nx = 256
+    ny = 256
+    dt = 5.0e-14
     relax_time = 500.0e-12
     n_relax_fixed = int(math.ceil(relax_time / dt))
     relax_max_steps = 200_000

@@ -99,7 +99,7 @@ ax.plot(lam_nm, H_total, '-', color='black', lw=2.0,
         label=r'PMA $+$ demag (full)')
 ax.axhline(H_eff, color='gray', lw=1.2, ls=':',
            label=r'local $K_{\rm eff}$ approximation '
-                  r'($k=0$ value)')
+           r'($k=0$ value)')
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Bottom axis: wavelength in nm.
 ax.set_xscale('log')

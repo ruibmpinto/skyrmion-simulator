@@ -41,10 +41,8 @@ if str(ROOT) not in sys.path:
 # Local (production)
 from src.phase_diagram.relaxation import relax
 from src.phase_diagram.sweep import _build_ic
-from src.simulator.analysis import skyrmion_center, skyrmion_diameter
 from src.simulator.demag import precompute_demag_kernels
-from src.simulator.fields import (
-    effective_field, effective_field_demag_pair)
+from src.simulator.fields import effective_field
 from src.simulator.initial_conditions import (
     saf_skyrmion, skyrmion_profile, uniform_state)
 from src.simulator.integrator import llgs_rhs, rk4_step, rk4_step_single
@@ -65,7 +63,7 @@ from src.simulator.validation.test_dw_profile_1d import _make_dw_params
 from src.simulator.validation.test_mumag_sp4 import (
     _make_sp4_params, _relax_single_layer, _rk4_single_layer)
 from src.simulator.validation.test_mumag_sp5 import (
-    _make_sp5_params, _relax_vortex, _rk4_zhang_li, _vortex_core)
+    _make_sp5_params, _relax_vortex, _rk4_zhang_li)
 from src.simulator.validation.test_thiele_v_sot import (
     _make_set_B_params, _rhs_saf_demag)
 from src.stochastic_llgs.validation.test_skyrmion_arrhenius import \

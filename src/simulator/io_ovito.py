@@ -117,7 +117,7 @@ def write_dump(filepath, m_top, m_bot, pos_top, pos_bot,
         f.write(f'{x_lo:.4f} {x_hi:.4f}\n')
         f.write(f'{y_lo:.4f} {y_hi:.4f}\n')
         f.write(f'{z_lo:.4f} {z_hi:.4f}\n')
-        
+
         f.write('ITEM: ATOMS id type x y z fx fy fz\n')
 
         np.savetxt(f, data, fmt='%d %d %.4f %.4f %.4f %.6f %.6f %.6f',)

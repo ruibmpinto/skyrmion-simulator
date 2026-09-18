@@ -133,7 +133,7 @@ struct StochasticPayload {
     double L_x = 0.0, L_y = 0.0;   ///< box extent (m); track width = L_y
     /// Configuration echo: substrate temperature (K) and drive
     /// current density (A/m^2).
-    double T_sub = 0.0, j_current = 0.0;   ///< cell coordinates (echo)
+    double T_sub = 0.0, j_current = 0.0;
     /// Pre-drive (J=0) finite-T equilibrium size + equilibration
     /// outcome. The relaxed LCC axes are in metres, NaN if the
     /// ellipse was never defined.

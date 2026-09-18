@@ -187,7 +187,7 @@ def main():
             'relax_tol_dE': float(relax_tol_dE),
         }
     else:
-        # Local-K_eff path (no demag). Fixed-time relax inside run_one. 
+        # Local-K_eff path (no demag). Fixed-time relax inside run_one.
         # No kernels.
         step = step_deterministic()
 
@@ -198,7 +198,7 @@ def main():
         n_relax_metadata = int(n_relax_fixed)
         relax_meta = {
             'relax_mode': 'fixed_time',
-            'relax_time_ps': float(relax_time * 1e12),}
+            'relax_time_ps': float(relax_time * 1e12), }
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Drive pulse: square pulse starting at drive-phase t = 0.
     pulse = SquarePulse(J0=J0, t_start=0.0, t_end=t_pulse)

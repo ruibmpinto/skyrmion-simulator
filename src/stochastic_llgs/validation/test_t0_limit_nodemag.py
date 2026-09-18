@@ -39,7 +39,6 @@ from src.simulator.parameters import default_params
 from src.simulator.pulses import ConstantPulse
 from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
 from src.stochastic_llgs.parameters_thermal import attach_thermal
-from src.stochastic_llgs.thermal_field import sample_thermal_field
 
 #
 #                                                          Authorship & Credits

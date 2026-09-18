@@ -187,7 +187,7 @@ def main():
     A_ex = 16.0e-12          # J/m
     K_eff = 0.50e6           # J/m^3 (D_c = 3.61 mJ/m^2)
     Ms = 1.1e6               # A/m (RT 2013 Co/Pt; irrelevant
-                             # to R_s but set for completeness)
+    # to R_s but set for completeness)
     D = 4.5e-3               # J/m^2 (D/D_c = 1.25)
     gamma = 1.760e11
     R_dot = 50.0e-9

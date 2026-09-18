@@ -51,7 +51,7 @@ def _v_steady(trace, metadata):
     cx, _cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
-    periodic_y=True)
+        periodic_y=True)
     window = (t > 0.5e-9) & (t < 1.5e-9)
     if not np.any(window):
         return float('nan')

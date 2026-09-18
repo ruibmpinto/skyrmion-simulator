@@ -69,15 +69,15 @@ PHASE_LABELS = (
 # random labyrinth) at 256x256.
 _TH_FM_MZ = 0.95         # |<m_z>| above this means FM
 _TH_FM_DOT = 0.9         # |<m_top . m_bot>| above this means
-                         # the FM is cleanly parallel or
-                         # antiparallel (not canted)
+# the FM is cleanly parallel or
+# antiparallel (not canted)
 _TH_ISK_Q_LO = 0.5       # iSk lower bound on |Q|
 _TH_ISK_Q_HI = 1.5       # iSk upper bound on |Q|
-_TH_HARMONIC_RATIO = 2.0 # min ratio P_n / P_iso for SkX/SS
+_TH_HARMONIC_RATIO = 2.0  # min ratio P_n / P_iso for SkX/SS
 _TH_PEAK_OVER_BG = 3.0   # min ratio peak/background to call
-                         # ordering present in the FFT
+# ordering present in the FFT
 _TH_Q_PER_PERIOD = 0.5   # min |Q| / N_periods for SkX
-                         # (else 6-fold + Q~0 -> BX)
+# (else 6-fold + Q~0 -> BX)
 
 
 def _radial_power(power, K_radius):

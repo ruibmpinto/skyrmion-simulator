@@ -53,7 +53,7 @@ __status__ = 'Development'
 
 
 def make_equipartition_params(T, alpha, B_z, nx, ny, a, t_Co,
-                             Ms, A_ex, gamma, seed):
+                              Ms, A_ex, gamma, seed):
     """Construct a parameters namespace for the equipartition
     test.
 
@@ -170,8 +170,8 @@ def main():
     ny              = 16
     t_kelvin        = 5.0
     b_z             = 0.5            # Tesla; large enough that
-                                     # the linearization is
-                                     # valid
+    # the linearization is
+    # valid
     alpha           = 0.1
     a               = 2.0e-9
     t_co            = 1.3e-9
@@ -262,7 +262,7 @@ def main():
     ky = np.fft.fftfreq(ny)
     KX, KY = np.meshgrid(kx, ky, indexing='xy')
     # normalize to 1.0
-    k_mag = np.sqrt(KX ** 2 + KY ** 2) / 0.5  
+    k_mag = np.sqrt(KX ** 2 + KY ** 2) / 0.5
     low_k = k_mag < k_low_cut
     ratio = sim_mode_var / th_mode_var
     median_ratio = float(np.median(ratio[low_k]))

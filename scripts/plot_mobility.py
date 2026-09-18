@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 # Local
 from scripts.plot_pulse_ranking import (_load_box, _make_pulse,
-                                         _shape_colors)
+                                        _shape_colors)
 from src.simulator.pulse_metrics import analytic_charge
 
 #

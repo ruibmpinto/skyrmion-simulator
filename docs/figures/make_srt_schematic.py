@@ -19,7 +19,6 @@ docs/figures/srt_schematic.pdf
 #                                                                       Modules
 # =============================================================================
 # Standard
-import os
 import pathlib
 # Third-party
 import matplotlib.pyplot as plt
@@ -68,7 +67,7 @@ ax.plot(t_nm, pma_term / 1.0e6, '-', color='tab:green',
         lw=1.6, label=r'$+2K_s/t$  (interface PMA)')
 ax.plot(t_nm, shape_arr / 1.0e6, '--', color='tab:red',
         lw=1.6, label=r'$-\frac{1}{2}\mu_0 M_s^2$  '
-                       r'(shape anisotropy)')
+        r'(shape anisotropy)')
 ax.plot(t_nm, K_eff / 1.0e6, '-', color='black', lw=2.0,
         label=r'$K_{\rm eff} = +2K_s/t '
               r'- \frac{1}{2}\mu_0 M_s^2$')

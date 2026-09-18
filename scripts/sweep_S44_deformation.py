@@ -55,7 +55,9 @@ def _run_one_point(args):
     # Fresh parameter namespace per worker.
     p = default_params()
     p.D = cfg['D']
-    p.nx = cfg['nx']; p.ny = cfg['ny']; p.dt = cfg['dt']
+    p.nx = cfg['nx']
+    p.ny = cfg['ny']
+    p.dt = cfg['dt']
     _precompute(p)
     # Demag / relax branch: full FFT demag + convergence-stop, or
     # local K_eff + fixed-time relax.
@@ -177,7 +179,9 @@ def main():
     # D = 0.85e-3             # legacy repo calibration (old kernels)
     # Paper Set A (supp. 1.1): D = 0.76 mJ/m^2, H_k,top = 36 mT.
     D = 0.76e-3
-    nx = 256; ny = 256; dt = 5.0e-14
+    nx = 256
+    ny = 256
+    dt = 5.0e-14
     relax_time = 500.0e-12
     n_relax_fixed = int(math.ceil(relax_time / dt))
     relax_max_steps = 200_000

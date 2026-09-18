@@ -163,7 +163,7 @@ def _per_layer_speed(trace, metadata, layer):
     cx, cy = unwrap_trajectory(
         trace[f'cx_{layer}'], trace[f'cy_{layer}'],
         L_x=nx * a, L_y=ny * a,
-    periodic_y=True)
+        periodic_y=True)
     v, _vx, _vy = _v_inst(t, cx, cy)
     return t, v
 

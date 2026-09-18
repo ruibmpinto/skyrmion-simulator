@@ -56,7 +56,9 @@ def _run_one_point(args):
     # Set B keeps the measured Hk_top = 12.4 mT (S48 caption).
     p.K_top = 1.294e6
     p.H_RKKY = float(point['H_RKKY'])
-    p.nx = cfg['nx']; p.ny = cfg['ny']; p.dt = cfg['dt']
+    p.nx = cfg['nx']
+    p.ny = cfg['ny']
+    p.dt = cfg['dt']
     _precompute(p)
     # Demag / relax branch: full FFT demag + convergence-stop, or
     # local K_eff + fixed-time relax.
@@ -172,7 +174,9 @@ def main():
     alpha = 0.216
     gamma = 175.9e9
     D = 0.62e-3
-    nx = 256; ny = 256; dt = 5.0e-14
+    nx = 256
+    ny = 256
+    dt = 5.0e-14
     relax_time = 500.0e-12
     n_relax_fixed = int(math.ceil(relax_time / dt))
     relax_max_steps = 200_000

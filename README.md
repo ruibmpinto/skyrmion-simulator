@@ -43,11 +43,24 @@ literature lives in `refs/` and is likewise untracked.
 
 ## Requirements
 
-Python side: Python >= 3.10 with `numpy`, `scipy`, `matplotlib` and
-`pytest`.
+Everything for both halves, including CMake and FFTW3:
 
-C++ side: CMake >= 3.20, a C++17 compiler, FFTW3 (double precision) and
-optionally OpenMP. Full build instructions are in
+```bash
+conda env create -f environment.yml
+conda activate skyrmion-simulator
+```
+
+Python only:
+
+```bash
+pip install -r requirements.txt
+```
+
+The Python side needs `numpy`, `scipy`, `matplotlib` and `pytest`. The
+C++ side additionally needs CMake >= 3.20, a C++17 compiler, FFTW3
+(double precision, >= 3.3.8) and optionally OpenMP; `pip` cannot supply
+those, so use the conda environment or a system package manager. Full
+build instructions are in
 [`src/simulator_cpp/README.md`](src/simulator_cpp/README.md).
 
 ## Running

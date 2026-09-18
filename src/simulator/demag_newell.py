@@ -15,9 +15,9 @@ with Aharoni's (1998) closed-form demag factors, because the
 quadrature converges slowly near the source-coincides-dest
 singularity. Off-diagonals at the self-cell vanish by symmetry.
 
-The mumax3 source-charge convention stores N such that H_dest = +N * M_src; 
-our slab kernel stores N such that H_dest = -mu0 * Ms * N * m_src. 
-The negation is applied at the end so the returned kernel 
+The mumax3 source-charge convention stores N such that H_dest = +N * M_src;
+our slab kernel stores N such that H_dest = -mu0 * Ms * N * m_src.
+The negation is applied at the end so the returned kernel
 matches the slab dict schema.
 
 A convergence assertion compares the kernel at the user-supplied

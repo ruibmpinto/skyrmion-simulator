@@ -111,7 +111,7 @@ def attach_thermal(p, T, R_th, seed):
     p.seed = int(seed)
     # Boltzmann constant (J/K), SI 2019 redefinition exact value.
     p.k_B = 1.380649e-23
-    # Per-cell volume V_cell = a^2 * t_Co, used by the 
+    # Per-cell volume V_cell = a^2 * t_Co, used by the
     # Fluctuation–Dissipation Theorem (FDT) amplitude.
     p.V_cell = float(p.a) * float(p.a) * float(p.t_Co)
     # Guard: a or t_Co set to 0/negative would silently zero sigma.

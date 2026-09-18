@@ -59,7 +59,7 @@ def _vavg(trace, metadata):
     cx, cy = unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
-    periodic_y=True)
+        periodic_y=True)
     # Identify the +/- tail_sigmas * sigma window around t_center.
     FWHM = float(metadata['FWHM'])
     tail = (float(metadata['tail_sigmas'])
@@ -230,13 +230,10 @@ def _plot_snapshots(bucket, out_dir):
                   f'spin field for cfg {cfg_idx}.')
             continue
         m, t = snap_item
-        # not used directly here; nx kept for sanity
-        a = float(m['nx'])  
-        # The simulator's lattice spacing is in the trace
-        # implicitly via metadata: every sweep uses Set A's
-        # default `p.a`. Re-import default_params to recover it
-        # without rerunning the simulation.
-        from src.simulator.parameters import default_params
+        # The simulator's lattice spacing is not stored in the
+        # trace: every sweep uses Set A's default `p.a`, so it is
+        # recovered from default_params without rerunning the
+        # simulation.
         a_default = float(default_params().a)
         m_top = t['snapshot_m_top']
         out_path = os.path.join(

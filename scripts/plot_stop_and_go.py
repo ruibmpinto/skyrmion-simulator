@@ -266,7 +266,7 @@ def _plot_snapshots(anim_path, times_ns, out_path, title):
     print(f'wrote {out_path}')
 # -----------------------------------------------------------------------------
 def _representative_snapshots(root, agg, temps, js, snap_times_ns,
-                             out_subdir):
+                              out_subdir):
     """Render ens0 snapshot rows where ens0 matches the dominant class.
 
     For each (T, J) the ensemble-dominant class is the argmax of the

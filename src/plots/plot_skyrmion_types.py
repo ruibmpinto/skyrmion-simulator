@@ -25,7 +25,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib.patches import FancyArrowPatch, Arc
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 #

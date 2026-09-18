@@ -81,7 +81,7 @@ def _unwrapped(trace, metadata):
     return unwrap_trajectory(
         trace['cx_top'], trace['cy_top'],
         L_x=nx * a, L_y=ny * a,
-    periodic_y=True)
+        periodic_y=True)
 
 
 def _v_inst(t, cx, cy):

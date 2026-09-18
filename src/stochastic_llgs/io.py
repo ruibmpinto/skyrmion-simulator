@@ -68,7 +68,7 @@ def save_trajectory(out_path, payload, config):
     if parent and not os.path.isdir(parent):
         raise RuntimeError(
             f'save_trajectory: parent directory {parent!r} does not exist.')
-    
+
     record = dict(payload)
     record['meta_schema_version'] = _SCHEMA_VERSION
     record['meta_timestamp'] = float(time.time())

@@ -86,7 +86,7 @@ def neighbors(m):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Shift left along x: site at (i, j+1) now appears at (i, j),
     # so m_px[i, j] is the +x neighbor of m[i, j].
-    # After rolling, the value at index $j$ equals the original value 
+    # After rolling, the value at index $j$ equals the original value
     # at the neighbor position.
     m_px = np.roll(m, -1, axis=1)
     # Shift right along x: site at (i, j-1) now appears at (i, j),

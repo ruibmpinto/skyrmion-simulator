@@ -31,7 +31,7 @@ import os
 # Third-party
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import FancyArrow, FancyArrowPatch, \
+from matplotlib.patches import FancyArrowPatch, \
     Rectangle, Polygon
 
 #

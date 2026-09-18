@@ -27,7 +27,6 @@ main
 #                                                                       Modules
 # =============================================================================
 # Standard
-import copy
 import os
 import time
 # Third-party
@@ -128,14 +127,14 @@ def _validate_config(config):
         )
     # Newell (periodic or free-BC) needs finite positive accuracy/tol.
     if config['demag_kind'] in ('newell', 'newell_freebc'):
-        if not (config['demag_accuracy'] and
-                float(config['demag_accuracy']) > 0.0):
+        if not (config['demag_accuracy']
+                and float(config['demag_accuracy']) > 0.0):
             raise RuntimeError(
                 'trajectory_worker: demag_kind "newell"/"newell_freebc" '
                 'requires a positive demag_accuracy.'
             )
-        if not (config['demag_tol_conv'] and
-                float(config['demag_tol_conv']) > 0.0):
+        if not (config['demag_tol_conv']
+                and float(config['demag_tol_conv']) > 0.0):
             raise RuntimeError(
                 'trajectory_worker: demag_kind "newell" requires a '
                 'positive demag_tol_conv.'
@@ -645,14 +644,14 @@ def trajectory_worker(config):
         'mz_final_top': m_top[..., 2].astype(np.float32),
         # Drift / Hall fit, top
         'v_x': v_x, 'v_y': v_y,
-        'velocity': float(np.sqrt(v_x ** 2 + v_y ** 2)) \
-            if np.isfinite(v_x) else float('nan'),
+        'velocity': float(np.sqrt(v_x ** 2 + v_y ** 2))
+        if np.isfinite(v_x) else float('nan'),
         'hall_deg': theta_deg, 'sigma_y': sigma_y,
         # Drift / Hall fit, bot
         'v_x_bot': v_x_bot, 'v_y_bot': v_y_bot,
         'velocity_bot': float(
-            np.sqrt(v_x_bot ** 2 + v_y_bot ** 2)) \
-            if np.isfinite(v_x_bot) else float('nan'),
+            np.sqrt(v_x_bot ** 2 + v_y_bot ** 2))
+        if np.isfinite(v_x_bot) else float('nan'),
         'hall_deg_bot': theta_deg_bot,
     }
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

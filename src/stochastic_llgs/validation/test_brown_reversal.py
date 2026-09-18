@@ -29,7 +29,6 @@ import time
 # Third-party
 import numpy as np
 # Local
-from src.stochastic_llgs.parameters_thermal import attach_thermal
 from src.stochastic_llgs.thermal_field import sample_thermal_field
 from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
 from src.stochastic_llgs.validation.macrospin import (
@@ -75,7 +74,7 @@ def brown_tau(delta, alpha, gamma):
 
 # -----------------------------------------------------------------------------
 def run_brown_ensemble(p, m0_top, dt, n_steps, tol_norm,
-                      mz_flip_threshold):
+                       mz_flip_threshold):
     """Run an ensemble of uniaxial trajectories until each
     flips below `mz_flip_threshold` or `n_steps` elapses.
 

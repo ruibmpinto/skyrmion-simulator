@@ -445,7 +445,7 @@ def main():
     ax.axhline(0.0, color='0.7', ls=':')
     ax.axvline(t_cross_ref * 1e12, color='k', ls='--',
                label=f'ref t_x=0 = '
-                     f'{t_cross_ref*1e12:.0f} ps')
+               f'{t_cross_ref*1e12:.0f} ps')
     ax.set_xlabel('t (ps)')
     ax.set_ylabel('<m>')
     ax.set_title('NIST muMAG SP#4 Field 1: m-avg(t)')

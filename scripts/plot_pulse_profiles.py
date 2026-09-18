@@ -25,7 +25,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 # Local
 from src.orchestrator.pulsed_run import make_pulse, shape_names
-from src.simulator.pulse_metrics import analytic_charge
 
 #
 #                                                          Authorship & Credits

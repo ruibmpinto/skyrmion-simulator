@@ -245,7 +245,7 @@ def _build_ic(ic_name, ic_seed, p):
         sign = -1.0 if p.H_ext[2] < 0.0 else 1.0
         m_top = uniform_state(p.nx, p.ny, np.array([0.0, 0.0, sign]),)
         m_bot = uniform_state(p.nx, p.ny, np.array([0.0, 0.0, -sign]),)
-        
+
         return m_top, m_bot
     if ic_name == 'fm_par':
         # Parallel FM aligned with the field. Lets the

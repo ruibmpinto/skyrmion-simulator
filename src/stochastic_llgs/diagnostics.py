@@ -468,8 +468,8 @@ def unwrap_trajectory(cx_series, cy_series, L_x, L_y, periodic_y):
     ambiguous and a `RuntimeError` would have to come from
     the caller's sampling cadence rather than this function.
     """
-    if not (np.isfinite(L_x) and L_x > 0.0 and
-            np.isfinite(L_y) and L_y > 0.0):
+    if not (np.isfinite(L_x) and L_x > 0.0
+            and np.isfinite(L_y) and L_y > 0.0):
         raise RuntimeError(
             f'unwrap_trajectory: L_x and L_y must be finite '
             f'and strictly positive, got '

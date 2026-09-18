@@ -1,0 +1,9 @@
+# Python dependencies for the simulator, analysis scripts and tests.
+#
+# The C++ simulator additionally needs CMake and FFTW3, which pip does
+# not provide. Use environment.yml.
+
+numpy>=2.0
+scipy>=1.13
+matplotlib>=3.8
+pytest>=8.0

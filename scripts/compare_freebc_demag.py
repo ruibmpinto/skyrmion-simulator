@@ -16,7 +16,6 @@ Run (after building/running dump_freebc_demag):
 # Standard
 import os
 import sys
-from types import SimpleNamespace
 # Third-party
 import numpy as np
 # Local
