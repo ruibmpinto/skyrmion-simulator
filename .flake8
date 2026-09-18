@@ -48,7 +48,9 @@ max-complexity = 15
 # E731: Lambda expression
 # C901: McCabe complexity for a block of code
 #       Remark: you may drop this to check code complexity explicitly.
-extend-ignore = E221, E226, E241, E3, E402, E731, C901
+# F541: f-string without placeholders
+# F841: Local variable assigned but never used
+extend-ignore = E221, E226, E241, E3, E402, E731, C901, F541, F841
 
 # Codes checked in addition to the defaults:
 # E242 : Tab after ','
