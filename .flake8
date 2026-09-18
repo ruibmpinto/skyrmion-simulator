@@ -1,0 +1,62 @@
+[flake8]
+
+# Configuration matched to the project Python style guide. Codes that the
+# style guide actively mandates are suppressed; everything else is a real
+# defect and is expected to stay at zero.
+
+# Paths that are not project code: vendored third-party sources, build
+# trees, simulation output and reference literature.
+extend-exclude =
+    build,
+    src/aux,
+    src/simulator_cpp/build,
+    output,
+    refs,
+    _paper,
+    .cache
+
+# Print the total number of errors
+count = True
+
+# Set the maximum length that any line may be
+max-line-length = 80
+
+# Set the maximum length that a comment or docstring line may be
+max-doc-length = 80
+
+# Set the number of spaces used for indentation
+indent-size = 4
+
+# Print the source code generating the error/warning in question
+show-source = True
+
+# Set the maximum allowed McCabe complexity for a block of code
+max-complexity = 15
+
+# Codes suppressed because the style guide requires the pattern that
+# triggers them:
+# E221: Multiple spaces before operator
+#       Style guide aligns values in dictionary and assignment blocks.
+# E226: Missing whitespace around arithmetic operator
+#       Flake8 does not distinguish +, - from *, /, ** cases yet.
+# E3:   Blank lines
+#       Style guide separates defs with '# ---' delimiters instead.
+# E241: Multiple spaces after ',' or ':'
+#       Style guide aligns values in dictionary literals.
+# E402: Module level import not at top of file
+#       Style guide puts the sys.path root insertion before local imports.
+# E731: Lambda expression
+# C901: McCabe complexity for a block of code
+#       Remark: you may drop this to check code complexity explicitly.
+extend-ignore = E221, E226, E241, E3, E402, E731, C901
+
+# Codes checked in addition to the defaults:
+# E242 : Tab after ','
+# E704 : Multiple statements on one line (def)
+# W504 : Line break after binary operator
+# W505 : Doc line too long
+extend-select = E242, E704, W504, W505
+
+# Ignore F401 ('imported but unused') and E402 ('module level import not at
+# top of file') in __init__.py files
+per-file-ignores = __init__.py: F401, E402

@@ -1,0 +1,41 @@
+# Doxygen configuration for the C++ simulator.
+#
+# Run from src/simulator_cpp:
+#     doxygen Doxyfile
+# Output lands in ../../docs/doxygen/html/index.html and is not tracked.
+
+PROJECT_NAME           = "Skyrmion simulator (C++)"
+PROJECT_BRIEF          = "C++17 port of the SAF skyrmion LLGS solver"
+OUTPUT_DIRECTORY       = ../../docs/doxygen
+
+INPUT                  = include src
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp *.cpp *.h
+EXCLUDE                = build
+EXCLUDE_PATTERNS       = */build/* */.cache/*
+
+# List every entity, including the ones whose comments have not yet been
+# converted to the /// form, so coverage gaps are visible rather than
+# silently omitted.
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+EXTRACT_PRIVATE        = NO
+
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+OPTIMIZE_OUTPUT_FOR_C  = NO
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+HTML_OUTPUT            = html
+
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_NO_PARAMDOC       = YES

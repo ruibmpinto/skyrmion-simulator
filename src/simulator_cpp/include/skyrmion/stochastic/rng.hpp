@@ -1,17 +1,19 @@
-// Thermal-noise RNG: stateless counter-based per-site generator.
-// Mirrors src/stochastic_llgs/thermal_field.py::sample_thermal_field.
-//
-// Each Gaussian sample is derived from a splitmix64 hash of the counter
-// (seed, draw_index, site_index) via Box-Muller, so the noise is
-// independent per site and DETERMINISTIC regardless of the OpenMP thread
-// count (the fill parallelizes trivially). One draw_index is consumed per
-// sample_thermal_field call (so successive steps and the two SAF layers
-// draw independent streams). The instantaneous field has std
-// sigma/sqrt(dt) (the discrete Wiener increment has variance sigma^2*dt).
-//
-// Note: the exact stream differs from the previous mt19937 implementation
-// but is statistically identical; validation is FDT/equipartition + T=0,
-// so this is sufficient.
+/// \file
+/// Thermal-noise RNG: stateless counter-based per-site generator.
+/// Mirrors src/stochastic_llgs/thermal_field.py::sample_thermal_field.
+///
+/// Each Gaussian sample is derived from a splitmix64 hash of the counter
+/// (seed, draw_index, site_index) via Box-Muller, so the noise is
+/// independent per site and DETERMINISTIC regardless of the OpenMP
+/// thread count (the fill parallelizes trivially). One draw_index is
+/// consumed per sample_thermal_field call (so successive steps and the
+/// two SAF layers draw independent streams). The instantaneous field
+/// has std sigma/sqrt(dt) (the discrete Wiener increment has variance
+/// sigma^2*dt).
+///
+/// Note: the exact stream differs from the previous mt19937
+/// implementation but is statistically identical; validation is
+/// FDT/equipartition + T=0, so this is sufficient.
 #pragma once
 
 #include "skyrmion/types.hpp"
@@ -24,14 +26,26 @@
 namespace skyrmion {
 namespace stochastic {
 
+/// Counter-based Gaussian generator for the thermal field.
+///
+/// Holds only a seed and a draw counter, so the stream depends on
+/// neither call order across threads nor the OpenMP thread count.
 class ThermalRng {
 public:
+    /// Construct a stream from its seed, with the draw counter at zero.
+    /// \param seed Stream key; distinct seeds give independent noise.
     explicit ThermalRng(std::uint64_t seed) : key_(seed), draw_index_(0) {}
 
-    // Fill f (shape (ny, nx, 3)) with independent Gaussian samples of
-    // std sigma/sqrt(dt). Raises on non-positive sigma or dt; the caller
-    // handles the sigma == 0 (T = 0) zero-noise case (it must not call
-    // this, to keep the deterministic stream and the draw_index in sync).
+    /// Fill f with independent Gaussian samples of std sigma/sqrt(dt)
+    /// and advance the draw counter by one.
+    /// \param f Destination field, shape (ny, nx, 3).
+    /// \param sigma Noise amplitude; must be finite and > 0.
+    /// \param dt Time step; must be finite and > 0.
+    /// \throws std::runtime_error if sigma or dt is non-finite or
+    ///         non-positive.
+    /// \note The caller handles the sigma == 0 (T = 0) zero-noise case
+    ///       and must not call this, so that the deterministic stream
+    ///       and the draw_index stay in sync.
     void sample_thermal_field(Field3& f, Real sigma, Real dt) {
         if (!std::isfinite(sigma) || sigma <= 0.0) {
             throw std::runtime_error(

@@ -164,6 +164,20 @@ Python side. Stochastic-LLG sweeps are a planned follow-up (the
 `sweep::Stepper` interface already accommodates a Heun stochastic
 backend with no driver changes).
 
+## API documentation
+
+```bash
+cd src/simulator_cpp
+doxygen Doxyfile
+```
+
+Output lands in `docs/doxygen/html/index.html` and is not tracked.
+
+Doc comments use the `///` form with `\param`, `\return`, `\throws` and
+`\note`. `EXTRACT_ALL` is on, so headers whose comments are still in the
+plain `//` form are listed without prose rather than omitted; converting
+them is the remaining documentation work.
+
 ## Tests
 
 `tests/` contains one parity test per C++ module. Each test loads a
