@@ -252,6 +252,94 @@ def _plot_metric(box_tag, cache, shapes, temperatures, key, se_key,
 # -------------------------------------------------------------------------
 
 
+def _plot_width_config_table(width_dir, shape, temperatures, widths,
+                             out_path):
+    """Final ens0 m_z per (T, t_pulse) at the shape's cap current.
+
+    One panel per cell: the ens0 top-layer m_z of the width-sweep
+    trajectory, drawn at physical scale and labelled with its stability
+    class (suffix p when the x-extent trips the periodic-image gate).
+    Rows are temperature (decreasing downward), columns pulse duration;
+    the cap current, which the width sweep fixes per temperature, is
+    printed on each row. Mirrors the DC-campaign config table.
+
+    Parameters
+    ----------
+    width_dir : str
+        Width-sweep directory for the box.
+    shape : str
+        Pulse-shape name.
+    temperatures : list[float]
+        Substrate temperatures, one row each (K).
+    widths : list[int]
+        Pulse durations, one column each (ps).
+    out_path : str
+        Destination PNG.
+    """
+    x_gate = 0.5
+    norm = plt.Normalize(vmin=-1.0, vmax=1.0)
+    order = sorted(range(len(temperatures)),
+                   key=lambda k: temperatures[k], reverse=True)
+    nt, nw = len(temperatures), len(widths)
+    fig, axes = plt.subplots(nt, nw, figsize=(2.4 * nw, 2.0 * nt),
+                             squeeze=False)
+    for r, i in enumerate(order):
+        t_sub = temperatures[i]
+        peak_j = _cap_current(width_dir, shape, t_sub)
+        for k, width_ps in enumerate(widths):
+            ax = axes[r][k]
+            ax.set_xticks([])
+            ax.set_yticks([])
+            path = None
+            if peak_j is not None:
+                cand = os.path.join(
+                    width_dir, '%s_tp%04d_T%05.1f_j%.2e_ens000.npz'
+                    % (shape, width_ps, t_sub, peak_j))
+                if os.path.isfile(cand):
+                    path = cand
+            if path is None:
+                ax.text(0.5, 0.5, 'no data', transform=ax.transAxes,
+                        ha='center', va='center', fontsize=11,
+                        color='0.5')
+            else:
+                npz = np.load(path, allow_pickle=True)
+                config = _decode_config(npz)
+                code, metrics = _classify(npz, config)
+                nx, ny = int(config['nx']), int(config['ny'])
+                mz = np.asarray(npz['mz_final_top'],
+                                dtype=float).reshape(ny, nx)
+                a_nm = float(npz['L_x']) / nx * 1e9
+                ax.imshow(mz, origin='lower', cmap='RdBu_r', norm=norm,
+                          extent=[0.0, nx * a_nm, 0.0, ny * a_nm],
+                          aspect='equal')
+                if metrics['dx_lx'] >= x_gate:
+                    code = code + 'p'
+                ax.text(0.03, 0.94, code, transform=ax.transAxes,
+                        ha='left', va='top', fontsize=13,
+                        fontweight='bold',
+                        bbox=dict(facecolor='white', alpha=0.8,
+                                  edgecolor='none', pad=1.5))
+            if k == 0:
+                cap_txt = ('%.1f' % (peak_j / 1e11)
+                           if peak_j is not None else '--')
+                ax.set_ylabel('%.0f\n$J{=}$%s' % (t_sub, cap_txt),
+                              fontsize=13, rotation=0, labelpad=24,
+                              va='center', ha='right')
+            if r == nt - 1:
+                ax.set_xlabel('%d' % width_ps, fontsize=13)
+    fig.supxlabel(r'$t_{\mathrm{pulse}}$ (ps)', fontsize=16)
+    fig.supylabel(r'$T$ (K),  cap $J$ ($10^{11}$ A/m$^2$)',
+                  fontsize=15)
+    fig.suptitle('%s -- final configuration at cap current' % shape,
+                 fontsize=15)
+    fig.subplots_adjust(left=0.11, right=0.99, top=0.93, bottom=0.09,
+                        hspace=0.35, wspace=0.08)
+    fig.savefig(out_path, dpi=130, bbox_inches='tight')
+    plt.close(fig)
+    print('Saved %s' % out_path)
+# -------------------------------------------------------------------------
+
+
 def main():
     """Load the width sweep and write the four width figures."""
     plt.rcParams.update({
@@ -303,6 +391,15 @@ def main():
         box_tag, cache, shapes, temperatures, 'p_surv', None,
         r'$P_{\mathrm{surv}}$', (0.0, 1.05),
         os.path.join(out_dir, 'width_survival_%s.png' % box_tag))
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Final-configuration tables (T x t_pulse) for the two reference
+    # shapes: the compact-reaching square and the elongating sharp-fall
+    # triangle.
+    for shape in ('square', 'tri_sharpfall'):
+        _plot_width_config_table(
+            width_dir, shape, temperatures, widths,
+            os.path.join(out_dir,
+                         'width_config_%s_%s.png' % (shape, box_tag)))
 
 
 # =============================================================================

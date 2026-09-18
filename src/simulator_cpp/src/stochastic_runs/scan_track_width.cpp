@@ -24,6 +24,7 @@
 #include <sstream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace skyrmion;
@@ -46,15 +47,17 @@ int main() {
     // ----- Run configuration (box must match stages 1-2) ---------------------
     // Phase-B campaign cases; select one by the TW_CASE env var.
     // Must match equilibrate_track_width's case table (same order).
-    struct Case { double k_top; double dmi; int nx; int ny;
+    struct Case { double k_top; double dmi; int nx; int ny; double a;
                   const char* tag; };
     const std::vector<Case> cases = {
-        {1.294e6,  0.58e-3, 350, 500, "hk12p4_D0p58_350x500"},
-        {1.294e6,  0.58e-3, 700, 500, "hk12p4_D0p58_700x500"},
-        {1.3106e6, 0.72e-3, 350, 500, "hk36_D0p72_350x500"},
-        {1.3106e6, 0.72e-3, 700, 500, "hk36_D0p72_700x500"},
-        {1.3106e6, 0.72e-3, 1400, 500, "hk36_D0p72_1400x500"},
-        {1.294e6,  0.58e-3, 1400, 500, "hk12p4_D0p58_1400x500"},
+        {1.294e6,  0.58e-3, 350, 500, 2.0e-9, "hk12p4_D0p58_350x500"},
+        {1.294e6,  0.58e-3, 700, 500, 2.0e-9, "hk12p4_D0p58_700x500"},
+        {1.3106e6, 0.72e-3, 350, 500, 2.0e-9, "hk36_D0p72_350x500"},
+        {1.3106e6, 0.72e-3, 700, 500, 2.0e-9, "hk36_D0p72_700x500"},
+        {1.3106e6, 0.72e-3, 1400, 500, 2.0e-9, "hk36_D0p72_1400x500"},
+        {1.294e6,  0.58e-3, 1400, 500, 2.0e-9, "hk12p4_D0p58_1400x500"},
+        {1.3106e6, 0.72e-3, 467, 333, 3.0e-9,
+         "hk36_D0p72_467x333_a3nm"},
     };
     const char* tw_case_env = std::getenv("TW_CASE");
     if (tw_case_env == nullptr || *tw_case_env == '\0') {
@@ -71,18 +74,44 @@ int main() {
         return 1;
     }
     const Case tw = cases[case_idx];
+    // Drive mode: dc (default) = constant 2 ns DC; stopgo = three 1 ns
+    // square pulses at 0/2/4 ns (on/off/on/off/on = 5 ns), seeds reused
+    // from the campaign, output written to a separate stopgo/ dir.
+    const char* drive_env = std::getenv("TW_DRIVE");
+    const std::string drive_mode =
+        (drive_env && *drive_env) ? drive_env : "dc";
+    if (drive_mode != "dc" && drive_mode != "stopgo") {
+        std::fprintf(stderr,
+            "error: TW_DRIVE=%s unknown (expected dc|stopgo).\n",
+            drive_mode.c_str());
+        return 1;
+    }
+    const bool stopgo = (drive_mode == "stopgo");
+    // Transition-temperature study: DC drive at a single current over
+    // fine intermediate temperatures, seeds reused from the campaign,
+    // output to a separate ttrans/ dir.
+    const char* tscan_env = std::getenv("TW_TSCAN");
+    const bool tscan = (tscan_env != nullptr && *tscan_env != '\0');
+    if (tscan && stopgo) {
+        std::fprintf(stderr,
+            "error: TW_TSCAN and TW_DRIVE=stopgo are exclusive.\n");
+        return 1;
+    }
     const int nx = tw.nx, ny = tw.ny;
     const double k_top = tw.k_top;
-    // Lattice constant for the dump grids, read from the same
-    // Params default the trajectories run with.
-    const double cell_a = make_default_params().a;
-    const std::vector<double> j_list = {
-        0.5e11, 1.0e11, 2.0e11, 3.0e11, 4.0e11, 5.0e11};
-    const std::vector<double> t_sub_list = {
-        10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
+    // Lattice constant for the dump grids, from the case (the
+    // trajectories run at this a via cfg.a below).
+    const double cell_a = tw.a;
+    const std::vector<double> j_list = tscan
+        ? std::vector<double>{3.0e11}
+        : std::vector<double>{0.5e11, 1.0e11, 2.0e11, 3.0e11, 4.0e11,
+                              5.0e11};
+    const std::vector<double> t_sub_list = tscan
+        ? std::vector<double>{105.0, 110.0, 115.0, 120.0, 125.0}
+        : std::vector<double>{10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
     const double r_th = 0.0;
     const double dt = 5.0e-14;
-    const int n_drive = 40000;       // 2 ns
+    const int n_drive = stopgo ? 100000 : 40000;  // 5 ns : 2 ns
     const int sample_every = 200;    // 10 ps
     const int snapshot_every = 400;  // 20 ps anim frames
     const int n_ens = 100;
@@ -98,9 +127,17 @@ int main() {
     const double dmi = tw.dmi;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
-    const std::string out_dir =
+    // Thermal seeds are always read from the campaign dir (stage 2).
+    // In stopgo mode the driven trajectories are written to a separate
+    // stopgo/ dir so they never overwrite the 2 ns DC campaign.
+    const std::string campaign_dir =
         std::string("output/stochastic_llgs/scan_track_width/campaign/")
         + tw.tag;
+    const std::string out_dir = stopgo
+        ? std::string("output/stochastic_llgs/scan_track_width/stopgo/")
+          + tw.tag
+        : tscan ? (campaign_dir + "/ttrans")
+                : campaign_dir;
     // -------------------------------------------------------------------------
     std::filesystem::create_directories(out_dir);
     const int fft_threads = fft_threads_from_env();
@@ -126,7 +163,7 @@ int main() {
         char thp[200];
         std::snprintf(thp, sizeof(thp),
                       "%s/m_thermal_T%05.1f_ens%03d.npz",
-                      out_dir.c_str(), tr.T_sub, tr.ens);
+                      campaign_dir.c_str(), tr.T_sub, tr.ens);
         if (!std::filesystem::exists(thp)) {
             std::fprintf(stderr,
                 "error: %s not found. Run equilibrate_track_width "
@@ -139,9 +176,23 @@ int main() {
         cfg.T_sub = tr.T_sub;
         cfg.R_th = r_th;
         cfg.j_current = tr.j;
-        // DC drive, stated explicitly: there is no implied fallback.
-        cfg.drive_pulse =
-            std::make_shared<ConstantPulse>(cfg.j_current);
+        if (stopgo) {
+            // Three 1 ns square pulses at 0/2/4 ns: on/off/on/off/on
+            // over 5 ns, ending while driving.
+            std::vector<std::unique_ptr<Pulse>> squares;
+            squares.push_back(std::make_unique<SquarePulse>(
+                cfg.j_current, 0.0, 1.0e-9));
+            squares.push_back(std::make_unique<SquarePulse>(
+                cfg.j_current, 2.0e-9, 3.0e-9));
+            squares.push_back(std::make_unique<SquarePulse>(
+                cfg.j_current, 4.0e-9, 5.0e-9));
+            cfg.drive_pulse = std::make_shared<SuperpositionPulse>(
+                std::move(squares));
+        } else {
+            // DC drive, stated explicitly: there is no implied fallback.
+            cfg.drive_pulse =
+                std::make_shared<ConstantPulse>(cfg.j_current);
+        }
         cfg.nx = nx; cfg.ny = ny; cfg.dt = dt;
         cfg.n_relax = 0;                 // pre-thermalized; no relax here
         cfg.n_drive = n_drive;
@@ -154,6 +205,7 @@ int main() {
         cfg.tol_norm = tol_norm;
         cfg.D = dmi;
         cfg.K_top = k_top;
+        cfg.a = tw.a;
         cfg.use_demag = true;
         cfg.demag_kind = demag_kind;
         cfg.demag_accuracy = demag_accuracy;

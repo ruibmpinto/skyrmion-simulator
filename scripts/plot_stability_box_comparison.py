@@ -718,6 +718,38 @@ def _plot_equil_boxes(campaign_root, tags, labels, out_path):
 
 
 # -----------------------------------------------------------------------------
+def _amplified_std(v_se, n_surv, p_surv, p_min):
+    """Ensemble std of the drift speed, scaled by 1 / P_surv.
+
+    The aggregate stores the standard error of the mean over the
+    surviving members, SE = std / sqrt(N_surv); the bar drawn here is
+    the ensemble spread std = SE * sqrt(N_surv), inflated by one over
+    the survival probability P_surv = (n_S + n_E) / n_ens, so a cell
+    whose ensemble mostly annihilated carries a larger bar.
+
+    Parameters
+    ----------
+    v_se : numpy.ndarray(2d)
+        Standard error of the drift speed, shape (n_T, n_J).
+    n_surv : numpy.ndarray(2d)
+        Number of surviving members (n_S + n_E), same shape.
+    p_surv : numpy.ndarray(2d)
+        Survival probability, same shape.
+    p_min : float
+        Survival floor below which the cell is not drawn (NaN out).
+
+    Returns
+    -------
+    bar : numpy.ndarray(2d)
+        std / P_surv, NaN where P_surv < p_min.
+    """
+    keep = p_surv >= p_min
+    p = np.where(keep, p_surv, np.nan)
+    n = np.where(keep, n_surv, np.nan)
+    return np.where(keep, v_se * np.sqrt(n) / p, np.nan)
+
+
+# -----------------------------------------------------------------------------
 def _plot_velocity_boxes(cases, labels, out_path):
     """Drift speed versus current for every box on shared limits.
 
@@ -732,14 +764,19 @@ def _plot_velocity_boxes(cases, labels, out_path):
     """
     Ts, Js = cases[0]['Ts'], cases[0]['Js']
     p_min = 0.5
-    v_hi = np.nanmax([np.nanmax(np.where(c['P_surv'] >= p_min,
-                                        c['v_mean'] + c['v_se'], np.nan))
-                      for c in cases])
+    v_hi = np.nanmax([
+        np.nanmax(np.where(
+            c['P_surv'] >= p_min,
+            c['v_mean'] + _amplified_std(
+                c['v_se'], c['n_cmp'] + c['n_elo'], c['P_surv'], p_min),
+            np.nan))
+        for c in cases])
     fig, axes = plt.subplots(1, len(cases), figsize=(5.2*len(cases), 5.2))
     for ax, case, lab in zip(np.atleast_1d(axes), cases, labels):
         keep = case['P_surv'] >= p_min
         v = np.where(keep, case['v_mean'], np.nan)
-        v_se = np.where(keep, case['v_se'], np.nan)
+        v_se = _amplified_std(case['v_se'], case['n_cmp'] + case['n_elo'],
+                              case['P_surv'], p_min)
         for i in range(Ts.size):
             if not np.isfinite(v[i, :]).any():
                 continue
@@ -753,8 +790,9 @@ def _plot_velocity_boxes(cases, labels, out_path):
         ax.set_box_aspect(1)
         ax.legend(fontsize=12, frameon=False)
     np.atleast_1d(axes)[0].set_ylabel(r'$v$ (m/s)')
-    fig.suptitle(r'drift speed (ensemble mean $\pm$ SE)',
-                 fontsize=18)
+    fig.suptitle(
+        r'drift speed (ensemble mean $\pm$ std$/P_{\mathrm{surv}}$)',
+        fontsize=18)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(out_path, dpi=160)
     print(f'Saved: {out_path}')

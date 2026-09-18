@@ -93,6 +93,7 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     if (cfg.skyrmion_dw > 0.0) p.skyrmion_dw = cfg.skyrmion_dw;
     if (cfg.D > 0.0)           p.D = cfg.D;
     if (cfg.K_top > 0.0)       p.K_top = cfg.K_top;
+    if (cfg.a > 0.0)           p.a = cfg.a;
     p.H_ext = {0.0, 0.0, cfg.H_z};
     if (cfg.use_demag) {
         p.demag_kind = cfg.demag_kind;

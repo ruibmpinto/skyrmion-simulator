@@ -45,6 +45,7 @@ struct StochasticConfig {
     Real skyrmion_dw = 0.0;    // 0 => keep default
     Real D = 0.0;              // DMI override (0 => keep default)
     Real K_top = 0.0;          // top anisotropy override (0 => default)
+    Real a = 0.0;              // lattice constant override (0 => default)
     Real H_z = 0.0;            // external field z-component (Tesla)
     // Pre-relaxed starting field; both non-null => seed from these
     // (skip saf_skyrmion), both null => fresh SAF skyrmion seed.

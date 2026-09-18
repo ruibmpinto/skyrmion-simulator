@@ -39,15 +39,17 @@ int main() {
     // Phase-B campaign cases; select one by the TW_CASE env var.
     // Each (K_top, D, box) matches an already-relaxed seed staged as
     // campaign/<tag>/m_eq_<nx>x<ny>.npz.
-    struct Case { double k_top; double dmi; int nx; int ny;
+    struct Case { double k_top; double dmi; int nx; int ny; double a;
                   const char* tag; };
     const std::vector<Case> cases = {
-        {1.294e6,  0.58e-3, 350, 500, "hk12p4_D0p58_350x500"},
-        {1.294e6,  0.58e-3, 700, 500, "hk12p4_D0p58_700x500"},
-        {1.3106e6, 0.72e-3, 350, 500, "hk36_D0p72_350x500"},
-        {1.3106e6, 0.72e-3, 700, 500, "hk36_D0p72_700x500"},
-        {1.3106e6, 0.72e-3, 1400, 500, "hk36_D0p72_1400x500"},
-        {1.294e6,  0.58e-3, 1400, 500, "hk12p4_D0p58_1400x500"},
+        {1.294e6,  0.58e-3, 350, 500, 2.0e-9, "hk12p4_D0p58_350x500"},
+        {1.294e6,  0.58e-3, 700, 500, 2.0e-9, "hk12p4_D0p58_700x500"},
+        {1.3106e6, 0.72e-3, 350, 500, 2.0e-9, "hk36_D0p72_350x500"},
+        {1.3106e6, 0.72e-3, 700, 500, 2.0e-9, "hk36_D0p72_700x500"},
+        {1.3106e6, 0.72e-3, 1400, 500, 2.0e-9, "hk36_D0p72_1400x500"},
+        {1.294e6,  0.58e-3, 1400, 500, 2.0e-9, "hk12p4_D0p58_1400x500"},
+        {1.3106e6, 0.72e-3, 467, 333, 3.0e-9,
+         "hk36_D0p72_467x333_a3nm"},
     };
     const char* tw_case_env = std::getenv("TW_CASE");
     if (tw_case_env == nullptr || *tw_case_env == '\0') {
@@ -66,11 +68,17 @@ int main() {
     const Case tw = cases[case_idx];
     const int nx = tw.nx, ny = tw.ny;
     const double k_top = tw.k_top;
-    // Lattice constant for the dump grids, read from the same
-    // Params default the trajectories run with.
-    const double cell_a = make_default_params().a;
-    const std::vector<double> t_sub_list = {
-        10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
+    // Lattice constant for the dump grids and the physics (set on p
+    // before precompute below), from the case.
+    const double cell_a = tw.a;
+    // Intermediate-T mode (T6): equilibrate the temperatures that
+    // bracket the 50->100 K width-speed transition, at the driving
+    // study's ensemble size, so the width sweep can seed from them.
+    const char* tscan_env = std::getenv("TW_TSCAN");
+    const bool tscan = (tscan_env != nullptr && *tscan_env != '\0');
+    const std::vector<double> t_sub_list = tscan
+        ? std::vector<double>{105.0, 110.0, 115.0, 120.0, 125.0}
+        : std::vector<double>{10.0, 50.0, 100.0, 130.0, 160.0, 200.0};
     const int n_ens = 100;
     const double r_th = 0.0;
     const double dt = 5.0e-14;
@@ -123,6 +131,7 @@ int main() {
         const Cell c = grid[idx];
         Params p = make_default_params();
         p.nx = nx; p.ny = ny; p.dt = dt;
+        p.a = cell_a;
         p.D = dmi;
         p.K_top = k_top;
         p.demag_kind = demag_kind;
@@ -134,7 +143,8 @@ int main() {
         p.H_DL = 0.0; p.H_FL = 0.0;
         // Thermal noise at this temperature (no Joule heating, J = 0).
         const long long seed = seed_base + 1000LL * c.ens
-                               + 1000000LL * c.t_idx;
+                               + 1000000LL * c.t_idx
+                               + (tscan ? 500000000LL : 0LL);
         attach_thermal(p, c.T_sub, r_th, seed);
 
         std::unique_ptr<DemagState> demag(new DemagState(p, fft_threads));

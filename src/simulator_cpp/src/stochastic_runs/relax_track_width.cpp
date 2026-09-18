@@ -13,14 +13,44 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 using namespace skyrmion;
 using namespace skyrmion::sweep;
 using namespace skyrmion::stochastic;
 
 int main() {
-    // ----- Run configuration (must match scan_track_width box) ---------------
-    const int nx = 350, ny = 500;
+    // ----- Run configuration -------------------------------------------------
+    // Phase-B campaign cases; select one by the TW_CASE env var. Must
+    // match equilibrate_track_width and scan_track_width (same order).
+    struct Case { double k_top; double dmi; int nx; int ny; double a;
+                  const char* tag; };
+    const std::vector<Case> cases = {
+        {1.294e6,  0.58e-3, 350, 500, 2.0e-9, "hk12p4_D0p58_350x500"},
+        {1.294e6,  0.58e-3, 700, 500, 2.0e-9, "hk12p4_D0p58_700x500"},
+        {1.3106e6, 0.72e-3, 350, 500, 2.0e-9, "hk36_D0p72_350x500"},
+        {1.3106e6, 0.72e-3, 700, 500, 2.0e-9, "hk36_D0p72_700x500"},
+        {1.3106e6, 0.72e-3, 1400, 500, 2.0e-9, "hk36_D0p72_1400x500"},
+        {1.294e6,  0.58e-3, 1400, 500, 2.0e-9, "hk12p4_D0p58_1400x500"},
+        {1.3106e6, 0.72e-3, 467, 333, 3.0e-9,
+         "hk36_D0p72_467x333_a3nm"},
+    };
+    const char* tw_case_env = std::getenv("TW_CASE");
+    if (tw_case_env == nullptr || *tw_case_env == '\0') {
+        std::fprintf(stderr,
+            "error: TW_CASE unset; expected 0..%zu.\n",
+            cases.size() - 1);
+        return 1;
+    }
+    const int case_idx = std::atoi(tw_case_env);
+    if (case_idx < 0 || case_idx >= static_cast<int>(cases.size())) {
+        std::fprintf(stderr,
+            "error: TW_CASE=%d out of range [0, %zu].\n",
+            case_idx, cases.size() - 1);
+        return 1;
+    }
+    const Case tw = cases[case_idx];
+    const int nx = tw.nx, ny = tw.ny;
     const double dt = 5.0e-14;
     // Racetrack: periodic x, free top/bottom (y) demag (Racetrack)
     // over the full box; the track width is the transverse box extent
@@ -29,26 +59,30 @@ int main() {
     const DemagKind demag_kind = DemagKind::Racetrack;
     const double demag_accuracy = 4.0;
     const double demag_tol_conv = 0.02;
-    // DMI below D_c, chosen from the coarse sweep to relax to the
-    // ~185 nm target track skyrmion; seed radius 103 nm (diameter
-    // 206 nm). Must match equilibrate & scan stages.
-    const double dmi = 0.545e-3;
+    // Seed radius 103 nm (diameter 206 nm) starts inside the target
+    // track-skyrmion basin; the relaxed size is set by the case D, not
+    // this seed. Must match equilibrate & scan stages.
     const double skyrmion_radius = 103.0e-9;
     const int relax_max_steps = 200000;
     const double relax_alpha = 1.0;
     const double relax_tol_torque = 1.0e-5;
     const double relax_tol_dE = 1.0e-8;
     const int relax_check_every = 1000;
-    const std::string out_dir = "output/stochastic_llgs/scan_track_width";
+    // Write directly into the campaign dir that stages 2-3 read from.
+    const std::string out_dir =
+        std::string("output/stochastic_llgs/scan_track_width/campaign/")
+        + tw.tag;
     // -------------------------------------------------------------------------
     std::filesystem::create_directories(out_dir);
-    // Box-tagged so the 350x500 and 500x350 equilibria never collide.
+    // Box-tagged so different boxes within a case never collide.
     const std::string m_eq_path = out_dir + "/m_eq_"
         + std::to_string(nx) + "x" + std::to_string(ny) + ".npz";
 
     Params p = make_default_params();
     p.nx = nx; p.ny = ny; p.dt = dt;
-    p.D = dmi;
+    p.a = tw.a;
+    p.D = tw.dmi;
+    p.K_top = tw.k_top;
     p.skyrmion_R = skyrmion_radius;
     p.demag_kind = demag_kind;
     p.demag_accuracy = demag_accuracy;

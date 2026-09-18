@@ -957,18 +957,18 @@ def main():
     fig_root_local = 'output/figures_sllg/track_width'
     fig_root_t7 = ('/Volumes/T7/skyrmion_simulator/output/'
                    'figures_sllg/track_width')
-    a = 2.0e-9                 # m, lattice constant
+    a = 3.0e-9                 # m, lattice constant
     anim_glob = 'anim_T*.npz'
     # Stage toggles.
-    do_equil = True            # thermal D1/D2-vs-t (needs equil_series)
+    do_equil = False           # thermal D1/D2-vs-t (needs equil_series)
     do_drive = True            # aggregate panels + stability maps
-    do_gif = True              # per-cell config stills + GIFs (slow)
+    do_gif = False             # per-cell config stills + GIFs (slow)
     overwrite = False          # re-render existing stills / GIFs
     # Restrict to these tags; empty => every case dir present with an
     # aggregate.npz (skips cases still running on the cluster). The
     # 350x500 / 700x500 cases are already processed, so scope to the
     # remaining 1400x500 boxes.
-    only_tags = ['hk36_D0p72_1400x500', 'hk12p4_D0p58_1400x500']
+    only_tags = ['hk36_D0p72_467x333_a3nm']
     # ======================= End User Configuration =========================
     case_dirs = sorted(
         d for d in glob.glob(os.path.join(campaign_root, '*'))

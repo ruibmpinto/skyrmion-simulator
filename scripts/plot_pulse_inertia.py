@@ -359,7 +359,37 @@ def _member_class(npz, config):
 # -------------------------------------------------------------------------
 
 
-def _plot_edge(prod_dir, shape, t_sub, currents, edge, t_win,
+def _full_vrange(prod_dir, shape, t_sub, currents):
+    """Speed range over the complete v(t) of every current.
+
+    Parameters
+    ----------
+    prod_dir : str
+        Production directory for the box.
+    shape : str
+        Pulse-shape name.
+    t_sub : float
+        Temperature to draw (K).
+    currents : list[float]
+        Peak currents overlaid on the panel (A/m^2).
+
+    Returns
+    -------
+    ylim : tuple[float]
+        Padded (low, high) speed limits (m/s) covering all traces.
+    """
+    lo, hi = float('inf'), float('-inf')
+    for peak_j in currents:
+        path = _cell_paths(prod_dir, shape, t_sub, peak_j)[0]
+        _t, v, _config, _ = _load_member(path)
+        lo = min(lo, float(np.min(v)))
+        hi = max(hi, float(np.max(v)))
+    pad = 0.05 * (hi - lo) if hi > lo else 1.0
+    return (lo - pad, hi + pad)
+# -------------------------------------------------------------------------
+
+
+def _plot_edge(prod_dir, shape, t_sub, currents, edge, t_win, ylim,
                out_path):
     """Plot the velocity transient on one edge, one trace per J.
 
@@ -377,6 +407,9 @@ def _plot_edge(prod_dir, shape, t_sub, currents, edge, t_win,
         Which transient to draw.
     t_win : float
         Window length past the edge (s).
+    ylim : tuple[float]
+        Shared (low, high) speed limits (m/s), common with the
+        full-trace overview.
     out_path : str
         Destination PNG.
     """
@@ -388,20 +421,24 @@ def _plot_edge(prod_dir, shape, t_sub, currents, edge, t_win,
         path = _cell_paths(prod_dir, shape, t_sub, peak_j)[0]
         t, v, config, _ = _load_member(path)
         t_pulse = float(config['t_pulse'])
+        # The rise is drawn from pulse start (t = 0). The fall keeps
+        # absolute time so its x-axis coincides with the full-trace
+        # overview: the falling edge sits at t_pulse there and here.
         if edge == 'rise':
             window = (t >= 0.0) & (t <= t_win)
             t_ref = 0.0
         else:
             window = (t >= t_pulse) & (t <= t_pulse + t_win)
-            t_ref = t_pulse
+            t_ref = 0.0
         color = cmap(
             (peak_j - j_min) / max(j_max - j_min, 1.0e-30))
         ax.plot((t[window] - t_ref) * 1e12, v[window],
                 color=color, marker='o', markersize=3,
                 label='%.1f' % (peak_j / 1.0e11))
-    ax.set_xlabel(r'$t - t_{\mathrm{%s}}$ (ps)'
-                  % ('rise' if edge == 'rise' else 'fall'))
+    ax.set_xlabel(r'$t - t_{\mathrm{rise}}$ (ps)' if edge == 'rise'
+                  else r'$t$ (ps)')
     ax.set_ylabel(r'$|v|$ (m/s)')
+    ax.set_ylim(ylim)
     ax.legend(title=r'$J$ ($10^{11}$ A/m$^2$)', loc='best',
               frameon=False, fontsize=9, ncol=2)
     ax.set_box_aspect(1)
@@ -412,7 +449,7 @@ def _plot_edge(prod_dir, shape, t_sub, currents, edge, t_win,
 # -------------------------------------------------------------------------
 
 
-def _plot_full(prod_dir, shape, t_sub, currents, out_path):
+def _plot_full(prod_dir, shape, t_sub, currents, ylim, out_path):
     """Plot the complete v(t) with the pulse window shaded.
 
     Parameters
@@ -425,6 +462,9 @@ def _plot_full(prod_dir, shape, t_sub, currents, out_path):
         Temperature to draw (K).
     currents : list[float]
         Peak currents to overlay (A/m^2).
+    ylim : tuple[float]
+        Shared (low, high) speed limits (m/s), common with the edge
+        zoom panels.
     out_path : str
         Destination PNG.
     """
@@ -445,6 +485,7 @@ def _plot_full(prod_dir, shape, t_sub, currents, out_path):
                label='pulse on')
     ax.set_xlabel(r'$t$ (ps)')
     ax.set_ylabel(r'$|v|$ (m/s)')
+    ax.set_ylim(ylim)
     ax.legend(title=r'$J$ ($10^{11}$ A/m$^2$)', loc='best',
               frameon=False, fontsize=9, ncol=2)
     ax.set_box_aspect(1)
@@ -455,9 +496,9 @@ def _plot_full(prod_dir, shape, t_sub, currents, out_path):
 # -------------------------------------------------------------------------
 
 
-def _plot_invtau_vs_j(prod_dir, shape, t_sub, currents, rise_fit_win,
-                      fall_win, out_path):
-    """Plot 1/tau_rise and 1/tau_fall versus peak current.
+def _invtau_vs_j_data(prod_dir, shape, t_sub, currents, rise_fit_win,
+                      fall_win):
+    """Rise/fall 1/tau (1/ns) versus peak current.
 
     Parameters
     ----------
@@ -472,8 +513,13 @@ def _plot_invtau_vs_j(prod_dir, shape, t_sub, currents, rise_fit_win,
     rise_fit_win, fall_win : float
         Fit-window lengths for the rise and fall edges (s). The rise
         window ends before the high-current overshoot.
-    out_path : str
-        Destination PNG.
+
+    Returns
+    -------
+    j_arr : numpy.ndarray(1d)
+        Peak currents in 10^11 A/m^2.
+    inv_rise, inv_fall : numpy.ndarray(1d)
+        Rise and fall 1/tau (1/ns); NaN where the fit failed.
     """
     j_arr, inv_rise, inv_fall = [], [], []
     for peak_j in currents:
@@ -489,17 +535,34 @@ def _plot_invtau_vs_j(prod_dir, shape, t_sub, currents, rise_fit_win,
             print('  WARN fall fit failed: %s J=%.2e'
                   % (shape, peak_j))
         j_arr.append(peak_j / 1.0e11)
-        inv_rise.append(1.0 / tau_r if np.isfinite(tau_r)
+        inv_rise.append(1e-9 / tau_r if np.isfinite(tau_r)
                         else float('nan'))
-        inv_fall.append(1.0 / tau_f if np.isfinite(tau_f)
+        inv_fall.append(1e-9 / tau_f if np.isfinite(tau_f)
                         else float('nan'))
+    return (np.array(j_arr), np.array(inv_rise), np.array(inv_fall))
+# -------------------------------------------------------------------------
+
+
+def _plot_invtau_vs_j(j_arr, inv_rise, inv_fall, ylim, out_path):
+    """Plot 1/tau_rise and 1/tau_fall versus peak current.
+
+    Parameters
+    ----------
+    j_arr : numpy.ndarray(1d)
+        Peak currents in 10^11 A/m^2.
+    inv_rise, inv_fall : numpy.ndarray(1d)
+        Rise and fall 1/tau (1/ns).
+    ylim : tuple[float]
+        Shared (low, high) y-limits, common with the vs-T panel.
+    out_path : str
+        Destination PNG.
+    """
     fig, ax = plt.subplots()
-    ax.plot(j_arr, np.array(inv_rise) * 1e-9, 'o-', color='C0',
-            label='rise')
-    ax.plot(j_arr, np.array(inv_fall) * 1e-9, 's-', color='C3',
-            label='fall')
+    ax.plot(j_arr, inv_rise, 'o-', color='C0', label='rise')
+    ax.plot(j_arr, inv_fall, 's-', color='C3', label='fall')
     ax.set_xlabel(r'$J$ ($10^{11}$ A/m$^2$)')
     ax.set_ylabel(r'$1/\tau$ (1/ns)')
+    ax.set_ylim(ylim)
     ax.legend(loc='best', frameon=False)
     ax.set_box_aspect(1)
     fig.tight_layout()
@@ -509,12 +572,12 @@ def _plot_invtau_vs_j(prod_dir, shape, t_sub, currents, rise_fit_win,
 # -------------------------------------------------------------------------
 
 
-def _plot_invtau_vs_t(prod_dir, shape, temperatures, common_j,
-                      rise_fit_win, fall_win, out_path):
-    """Plot 1/tau versus temperature at a common peak current.
+def _invtau_vs_t_data(prod_dir, shape, temperatures, common_j,
+                      rise_fit_win, fall_win):
+    """Pooled 1/tau (1/ns) versus temperature at a common current.
 
     Pools the rise and fall time constants over all surviving
-    ensemble members; the error bar is their standard deviation.
+    ensemble members; the spread is their standard deviation.
 
     Parameters
     ----------
@@ -529,8 +592,12 @@ def _plot_invtau_vs_t(prod_dir, shape, temperatures, common_j,
     rise_fit_win, fall_win : float
         Fit-window lengths for the rise and fall edges (s). The rise
         window ends before the high-current overshoot.
-    out_path : str
-        Destination PNG.
+
+    Returns
+    -------
+    t_arr, mean_inv, std_inv : numpy.ndarray(1d)
+        Temperature (K), pooled mean 1/tau (1/ns), and its standard
+        deviation (1/ns).
     """
     t_arr, mean_inv, std_inv = [], [], []
     for t_sub in temperatures:
@@ -559,11 +626,29 @@ def _plot_invtau_vs_t(prod_dir, shape, temperatures, common_j,
         print('  T=%3.0f K: 1/tau = %.3f +/- %.3f 1/ns '
               '(n_fit=%d, n_skip=%d)'
               % (t_sub, mean_inv[-1], std_inv[-1], len(taus), n_skip))
+    return (np.array(t_arr), np.array(mean_inv), np.array(std_inv))
+# -------------------------------------------------------------------------
+
+
+def _plot_invtau_vs_t(t_arr, mean_inv, std_inv, ylim, out_path):
+    """Plot 1/tau versus temperature at a common peak current.
+
+    Parameters
+    ----------
+    t_arr, mean_inv, std_inv : numpy.ndarray(1d)
+        Temperature (K), pooled mean 1/tau (1/ns), and its standard
+        deviation (1/ns).
+    ylim : tuple[float]
+        Shared (low, high) y-limits, common with the vs-J panel.
+    out_path : str
+        Destination PNG.
+    """
     fig, ax = plt.subplots()
     ax.errorbar(t_arr, mean_inv, yerr=std_inv, fmt='o-', color='C2',
                 capsize=4)
     ax.set_xlabel(r'$T$ (K)')
     ax.set_ylabel(r'$1/\tau$ (1/ns)')
+    ax.set_ylim(ylim)
     ax.set_box_aspect(1)
     fig.tight_layout()
     fig.savefig(out_path)
@@ -679,20 +764,35 @@ def main():
     print('S48: %s %s, T=0 currents (1e11) = %s'
           % (box_tag, shape,
              ', '.join('%.1f' % (j / 1e11) for j in currents)))
-    _plot_full(prod_dir, shape, 0.0, currents,
+    # The full-trace speed range is shared by the overview (A) and the
+    # rise/fall zoom panels (B, C) so all three read on one y-scale.
+    ylim_v = _full_vrange(prod_dir, shape, 0.0, currents)
+    _plot_full(prod_dir, shape, 0.0, currents, ylim_v,
                os.path.join(out_dir, 'S48_A_vt_full.png'))
     _plot_edge(prod_dir, shape, 0.0, currents, 'rise', rise_plot_win,
-               os.path.join(out_dir, 'S48_B_vt_rise.png'))
+               ylim_v, os.path.join(out_dir, 'S48_B_vt_rise.png'))
     _plot_edge(prod_dir, shape, 0.0, currents, 'fall', fall_win,
-               os.path.join(out_dir, 'S48_C_vt_fall.png'))
-    _plot_invtau_vs_j(prod_dir, shape, 0.0, currents, rise_fit_win,
-                      fall_win,
-                      os.path.join(out_dir, 'S48_D_invtau.png'))
+               ylim_v, os.path.join(out_dir, 'S48_C_vt_fall.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Temperature dependence at the common current (panel E).
+    # 1/tau summaries: compute vs-J (panel D) and vs-T (panel E) first,
+    # then fix one shared y-range so both panels of the figure match.
+    j_arr, inv_rise, inv_fall = _invtau_vs_j_data(
+        prod_dir, shape, 0.0, currents, rise_fit_win, fall_win)
     print('S48_E: 1/tau vs T at J = %.2e A/m^2' % common_j)
-    _plot_invtau_vs_t(prod_dir, shape, temperatures, common_j,
-                      rise_fit_win, fall_win,
+    t_arr, mean_inv, std_inv = _invtau_vs_t_data(
+        prod_dir, shape, temperatures, common_j, rise_fit_win,
+        fall_win)
+    lo = float(np.nanmin([
+        np.nanmin(inv_rise), np.nanmin(inv_fall),
+        np.nanmin(mean_inv - std_inv)]))
+    hi = float(np.nanmax([
+        np.nanmax(inv_rise), np.nanmax(inv_fall),
+        np.nanmax(mean_inv + std_inv)]))
+    pad = 0.05 * (hi - lo) if hi > lo else 1.0
+    ylim_invtau = (lo - pad, hi + pad)
+    _plot_invtau_vs_j(j_arr, inv_rise, inv_fall, ylim_invtau,
+                      os.path.join(out_dir, 'S48_D_invtau.png'))
+    _plot_invtau_vs_t(t_arr, mean_inv, std_inv, ylim_invtau,
                       os.path.join(out_dir, 'S48_E_invtau_T.png'))
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Appendix diagnostic: fit windows, ground truth and fit on one

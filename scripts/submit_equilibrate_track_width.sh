@@ -3,7 +3,7 @@
 #SBATCH --output=logs/%x_%A_%a.out
 #SBATCH --error=logs/%x_%A_%a.err
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=2
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=2048
 #SBATCH --array=0-599%1000
@@ -17,8 +17,8 @@ mkdir -p logs
 # from the relaxed-box snapshot), equilibrates at its T until the LCC
 # size plateaus, and caches m_thermal_T{T}_ens{ens}.npz. The drive
 # stage reuses each cached state across all 6 current values.
-# Select the (K_top, D, box) case with the exported TW_CASE env var:
-#   sbatch --export=ALL,TW_CASE=<0..3> scripts/submit_equilibrate_track_width.sh
+# Select the (K_top, D, box, a) case with the exported TW_CASE env var:
+#   sbatch --export=ALL,TW_CASE=<0..6> scripts/submit_equilibrate_track_width.sh
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 module load stack/2024-06 gcc/12.2.0
@@ -26,10 +26,10 @@ module load stack/2024-06 gcc/12.2.0
 # present when you built (build_tw was built against fftw/3.3.10).
 module load fftw/3.3.10
 
-export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-16}"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-2}"
 export OMP_PROC_BIND=close
 export OMP_PLACES=cores
-: "${TW_CASE:?TW_CASE must be exported (0-3)}"
+: "${TW_CASE:?TW_CASE must be exported (0-6)}"
 
 BIN=src/simulator_cpp/build_tw/equilibrate_track_width
 if [[ ! -x "${BIN}" ]]; then

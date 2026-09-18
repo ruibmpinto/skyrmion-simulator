@@ -14,12 +14,14 @@
   {../output/figures_sllg/track_width/hk36_D0p72_350x500/}%
   {../output/figures_sllg/track_width/hk36_D0p72_700x500/}%
   {../output/figures_sllg/track_width/hk36_D0p72_1400x500/}%
+  {../output/figures_sllg/track_width/}%
   {../output/figures_driving_T/}%
   {../output/figures_driving_T/inertia/}%
   {../output/figures_driving_T/campaign_dc/}%
   {../output/figures_driving_T/ranking/}%
   {../output/figures_driving_T/stability/}%
-  {../output/figures_driving_T/width/}}
+  {../output/figures_driving_T/width/}%
+  {../output/figures_driving_T/pulses_seq3/}}
 
 \newcommand{\Q}{\lvert Q\rvert}
 
@@ -31,6 +33,9 @@ $L_x\in\{700,1400,2800\}$~nm}
 
 \begin{document}
 \maketitle
+
+\tableofcontents
+\clearpage
 
 \section{Setup}
 Three racetracks differing only in length $L_x$ along the periodic
@@ -220,13 +225,39 @@ define an angle.}
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{velocity_boxes.png}
-\caption{Drift speed versus current density, ensemble mean $\pm$ SE,
-for cells with $P_{\mathrm{surv}}\ge0.5$; common axis limits across
+\caption{Drift speed versus current density, ensemble mean $\pm$
+std$/P_{\mathrm{surv}}$, for cells with $P_{\mathrm{surv}}\ge0.5$;
+common axis limits across
 the three tracks. The curves and their mild sublinearity are the same
 in all three boxes; only the extent of the surviving region differs
 (the $T=100$~K branch reaches $J=4\times10^{11}$ in the shortest track
 only).}
 \end{figure}
+
+The error bar is the ensemble standard deviation scaled by
+$1/P_{\mathrm{surv}}$, with std $=\mathrm{SE}\sqrt{N_{\mathrm{surv}}}$
+recovered from the stored standard error. It reaches $\sim\!7\%$ of the
+mean at the weakest drives and shrinks with current. Values ($v$, std
+in m/s) for the $700\times500$ track (drawn cells,
+$P_{\mathrm{surv}}\ge0.5$):
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+$T$ (K) & $J$ ($10^{11}$) & $v_{\mathrm{mean}}$ & $N_{\mathrm{surv}}$ &
+std & std$/P_{\mathrm{surv}}$ & bar/$v$ \\
+\hline
+10 & 0.5--5 & 53--372 & 100 & 1.95--0.66 & 1.95--0.66 & $\le 3.7\%$ \\
+\hline
+50 & 0.5--4 & 62--355 & 100 & 3.85--2.65 & 3.85--2.65 & $\le 6.2\%$ \\
+\hline
+50 & 5 & 403 & 56 & 1.92 & 3.43 & $0.85\%$ \\
+\hline
+100 & 0.5--3 & 75--359 & 95--100 & 4.59--5.34 & 4.59--5.34 &
+$\le 7.1\%$ \\
+\hline
+\end{tabular}
+\end{center}
 
 \begin{figure}[H]
 \centering
@@ -292,6 +323,104 @@ $T=100$~K branch sits at $D_x\approx450$--$580$~nm, above the $350$~nm
 gate of the shortest track but below the $700$ and $1400$~nm gates of
 the longer ones -- one and the same object, classified differently.}
 \end{figure}
+
+\clearpage
+\section{Transition temperature at fixed current}
+On the $700\times500$ racetrack ($L_x\times L_y=1400\times1000$~nm) the
+drive was held at $J=3\times10^{11}$~A/m$^2$ and the temperature swept
+over $T\in\{105,110,115,120,125\}$~K ($100$ realizations per cell) to
+locate the temperature at which the driven skyrmion collapses to a
+labyrinth.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{transition_temperature_config_row.png}
+\caption{ens0 final top-layer $m_z$ at each temperature (fixed
+$J=3\times10^{11}$~A/m$^2$). The label above each panel is the
+single-realization classifier verdict (E elongated, L labyrinth); the
+robust ensemble statistics are in the next figure.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{transition_temperature.png}
+\caption{Left: ensemble class composition versus temperature (the 1D
+stability map); no compact (S) survivors at this current. Centre:
+survival probability $P_{\mathrm{surv}}(T)$, crossing one half at
+$T_c\approx116$~K. Right: skyrmion Hall angle versus temperature.}
+\end{figure}
+
+The survival probability falls from $0.86$ at $105$~K to $0$ at
+$125$~K, crossing one half at $T_c\approx116$~K. Every survivor is an
+elongated (E) skyrmion -- the compact (S) class is absent at this
+current -- and the skyrmion Hall angle grows in magnitude from
+$\approx0$ to $-2.6^\circ$ as the object approaches collapse.
+
+\clearpage
+\section{Lattice-resolution check: $a=3$~nm versus $a=2$~nm}
+The production grid uses cell size $a=2$~nm. To separate discretization
+artifacts from physical behavior, the $700\times500$ case
+($L_x\times L_y\approx1400\times1000$~nm) was repeated on a coarser
+$467\times333$ grid at $a=3$~nm, holding the physical box and the
+continuum parameters ($D$, $H_{k,\mathrm{top}}$, $M_s$) fixed. The
+skyrmion is then resolved by $\sim1.5\times$ fewer cells per axis.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{hk36_a3_vs_a2_comparison.png}
+\caption{Top: survival maps $P_{\mathrm{surv}}(T,J)$ at $a=2$~nm (left,
+$700\times500$) and $a=3$~nm (right, $467\times333$). Bottom: drift
+speed $\langle v\rangle$ (left) and skyrmion Hall angle
+$\theta_{\mathrm{H}}$ (right) versus current for the two lattices at
+$T=10$ and $100$~K; solid lines and circles are $a=2$~nm, dashed lines
+and squares $a=3$~nm. The transport curves overlap; the survival
+boundary instead extends to higher temperature and current at
+$a=3$~nm.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]%
+{hk36_D0p72_700x500/anim_T010.0_j4.00e+11_configs.png}\\[4pt]
+\includegraphics[width=0.92\linewidth]%
+{hk36_D0p72_467x333_a3nm/anim_T010.0_j4.00e+11_configs.png}
+\caption{Final top-layer configuration (ens0) at $T=10$~K,
+$J=4\times10^{11}$. Top: $a=2$~nm; bottom: $a=3$~nm. The two lattices
+give the same object -- a single elongated skyrmion drifted to the
+track edge and wrapped across its periodic-$x$ image. Both are
+classified \textbf{E} and both survive; the configurations are
+indistinguishable, matching the low-$T$ transport agreement above.}
+\end{figure}
+
+The skyrmion Hall angle is small and positive, rising from $\approx0$
+at $J=0.5\times10^{11}$ to $\approx2.5^\circ$ at $J=3\times10^{11}$.
+The near-cancellation is the SAF signature: the two
+antiferromagnetically coupled layers carry opposite topological charge,
+so their Magnus forces oppose. The finite residual grows with velocity
+because the interlayer lock is elastic rather than rigid, so the layers
+deform slightly under drive and the cancellation is imperfect; its sign
+follows the driven top-layer charge and the SOT/DMI convention.
+Crucially $\theta_{\mathrm{H}}(a=3~\mathrm{nm})$ matches
+$\theta_{\mathrm{H}}(a=2~\mathrm{nm})$ to within $\sim0.1^\circ$ across
+the shared grid, so it is physical, not a discretization artifact.
+
+The survival boundary, by contrast, is not grid-converged. $a=3$~nm
+survives to higher temperature and current than
+$a=2$~nm; at $T=130$~K it keeps a skyrmion up to $J=3\times10^{11}$,
+where $a=2$~nm has already melted to labyrinth ($P_{\mathrm{surv}}<0.1$
+at every current). The
+drift speed and mobility are grid-converged to within $1\%$ (identical
+$v(J)$ and $v/J$ at $T=10$~K). The
+coarse mesh cannot represent the short-wavelength thermal fluctuations
+of the domain wall that drive the elongation-to-labyrinth instability,
+so it suppresses them: the relaxed thermal size grows far less at
+$a=3$~nm (mean $D_1^{\mathrm{relaxed}}$ at $T=200$~K is ${\sim}770$~nm
+versus ${\sim}1220$~nm at $a=2$~nm), and the object resists thermal
+expansion to persist to higher $T$ and $J$. The rigid-body observables
+(drift speed, Hall angle, low-$T$ size) are therefore converged, but the
+thermal stability boundary is a mesh-sensitive quantity: $a=2$~nm is the
+reference, and $a=3$~nm should not be used to place the critical current
+or the labyrinth onset.
 
 \clearpage
 \section{Interlayer coupling under drive}
@@ -723,6 +852,14 @@ on the pulse, and it widens only at
 high current, where the square's mobility drops below the triangles' as
 it over-drives.
 
+The linear-response relation $v=\mu J$ is the skyrmion analogue of Ohmic
+transport in a conductor. There a carrier drifts as $v_d=\mu_e E$ and the
+conductivity is $\sigma=n q\,\mu_e$ with resistivity $\rho=1/\sigma$; the
+mobility fixes the drift speed per unit driving field. Here the drive
+current density $J$ plays the role of the field and the skyrmion mobility
+$\mu$ the role of $\mu_e$, so $1/\mu$ reads as an effective skyrmion
+resistivity -- the charge that must be delivered per unit of travel.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.72\linewidth]{mobility_range_hk36_D0p72_700x500.png}
@@ -819,6 +956,21 @@ starts thermally swollen and approaches the $\sim\!700$~nm track-half
 
 \begin{figure}[H]
 \centering
+\includegraphics[width=\linewidth]{width_config_square_hk36_D0p72_700x500.png}
+\caption{Final ens0 top-layer $m_z$ of the square pulse on the
+$T$--$t_{\mathrm{pulse}}$ grid, each row at its cap current (left).
+Label: stability class (S compact, E elongated; suffix p, periodic
+x-extent).}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{width_config_tri_sharpfall_hk36_D0p72_700x500.png}
+\caption{As above, sharp-fall triangle.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
 \includegraphics[width=\linewidth]{width_survival_hk36_D0p72_700x500.png}
 \caption{Surviving-skyrmion fraction versus duration. Curves not shown
 sit at $P_{\mathrm{surv}}=1$. At the cap current, extending the pulse
@@ -901,7 +1053,267 @@ effective damping is temperature-independent.}
 The picture is a single overdamped relaxation time $\tau\approx100$~ps
 ($1/\tau\approx10$/ns), independent of drive current and of
 temperature, and equal on turn-on and turn-off. There is no inertial
-oscillation. Here the coupling is fixed and the response is overdamped. 
+oscillation. Here the coupling is fixed and the response is overdamped.
+
+
+\clearpage 
+
+\section{Pulse response -- three consecutive pulses}
+
+The single drive is replaced by a sequence of three identical pulses
+applied one after another (period equal to the pulse duration, a
+$4\,t_{\mathrm{pulse}}$ window) on the production grid, $L_x=1400$~nm. A
+shaped pulse returns toward zero at each edge, so the sequence is three
+distinct pulses; the two references shown here are the gaussian and the
+sharp-fall triangle. The single-pulse metrics (efficiency, speed,
+deformation) are repeated for the sequence, and the per-pulse structure
+is resolved in the velocity and deformation waveforms and in the
+displacement added by each pulse.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{seq3_train_schematic_hk36_D0p72_700x500.png}
+\caption{Applied drive $J(t)/J_{\mathrm{peak}}$ of three consecutive
+pulses, for the gaussian and sharp-fall triangle shapes. Each pulse
+returns toward zero at its edge, so the sequence is three distinct
+pulses. Dotted lines mark the pulse boundaries.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_rank_d_per_charge_hk36_D0p72_700x500.png}
+\caption{Displacement per delivered charge $d/\!\int J\,dt$ versus peak
+current, one trace per pulse shape, at $T=0,10,50,100$~K, for the
+sequence of three consecutive pulses on the $L_x=1400$~nm track.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_rank_d_per_action_hk36_D0p72_700x500.png}
+\caption{Displacement per Ohmic action $d/\!\int J^2 dt$ versus peak
+current, one trace per pulse shape, at $T=0,10,50,100$~K, for the
+sequence of three consecutive pulses.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_speed_max_hk36_D0p72_700x500.png}
+\caption{Peak drive speed $v_{\mathrm{max}}$ versus peak current, one
+trace per pulse shape, at $T=0,10,50,100$~K, over the sequence of three
+consecutive pulses.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_speed_avg_hk36_D0p72_700x500.png}
+\caption{Mean drive speed $v_{\mathrm{avg}}$ versus peak current, one
+trace per pulse shape, at $T=0,10,50,100$~K, over the sequence of three
+consecutive pulses.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_vt_train_gaussian_hk36_D0p72_700x500.png}
+\caption{Three consecutive Gaussian pulses: ensemble-mean drift speed
+$\langle|v|\rangle(t)$, one trace per peak current, at
+$T=0,10,50,100$~K; dotted lines mark the pulse boundaries. Each pulse
+drives a separate velocity hump.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_vt_train_tri_sharpfall_hk36_D0p72_700x500.png}
+\caption{Three consecutive sharp-fall triangle pulses: ensemble-mean
+drift speed $\langle|v|\rangle(t)$, one trace per peak current, at
+$T=0,10,50,100$~K; dotted lines mark the pulse boundaries.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_perpulse_disp_gaussian_hk36_D0p72_700x500.png}
+\caption{Three consecutive Gaussian pulses: cumulative displacement
+after each pulse, one trace per peak current, at $T=0,10,50,100$~K.
+Evenly spaced steps mean each pulse adds the same travel.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_perpulse_disp_tri_sharpfall_hk36_D0p72_700x500.png}
+\caption{Three consecutive sharp-fall triangle pulses: cumulative
+displacement after each pulse, one trace per peak current, at
+$T=0,10,50,100$~K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_d1t_train_gaussian_hk36_D0p72_700x500.png}
+\caption{Three consecutive Gaussian pulses: ensemble-mean major ellipse
+axis $\langle D_1\rangle(t)$, one trace per peak current, at
+$T=0,10,50,100$~K; dotted lines mark the pulse boundaries.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_d1t_train_tri_sharpfall_hk36_D0p72_700x500.png}
+\caption{Three consecutive sharp-fall triangle pulses: ensemble-mean
+major ellipse axis $\langle D_1\rangle(t)$, one trace per peak current,
+at $T=0,10,50,100$~K.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{seq3_config_tri_sharpfall_hk36_D0p72_700x500.png}
+\caption{Final ens0 top-layer $m_z$ of the sharp-fall triangle on the
+$T\times J$ grid after three consecutive pulses. Rows are temperature
+(decreasing downward), columns peak current; the label is the stability
+class (S compact, E elongated; suffix p, periodic x-extent).}
+\end{figure}
+
+\clearpage
+\section{Pulse response -- stop and go}
+The same $700\times500$ racetrack ($L_x\times L_y=1400\times1000$~nm) is
+driven in a stop-and-go duty cycle: three $1$~ns ON phases separated by
+$1$~ns OFF phases at a fixed current, over a $5$~ns window
+(Fig.~\ref{fig:sag-schedule}). For every temperature and current the
+$100$-member ensemble is driven, and three observables are followed
+through the cycle -- the interlayer alignment
+$\langle m_{\mathrm{top}}\cdot m_{\mathrm{bot}}\rangle(t)$, the drift
+speed $\langle|v|\rangle(t)$, and the field configuration -- to see how
+the SAF lock and the skyrmion respond as the drive switches on and off,
+and whether they recover during the off phases.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\linewidth]{stop_and_go/stop_and_go_schedule.png}
+\caption{Loading cycle. Applied current $J(t)/J_0$: three $1$~ns ON
+phases (0--1, 2--3, 4--5~ns) separated by $1$~ns OFF phases, over the
+$5$~ns window.}
+\label{fig:sag-schedule}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stop_and_go/stop_and_go_alignment.png}
+\caption{Interlayer alignment
+$\langle m_{\mathrm{top}}\cdot m_{\mathrm{bot}}\rangle(t)$ for the ens0
+realization, at the lowest and highest current of each temperature;
+dotted lines mark the phase boundaries and the dashed line the perfect
+AFM lock. The lock loosens (toward $0$) during each ON phase and
+re-tightens toward $-1$ during each OFF phase. The $T=100$~K,
+$J=5\times10^{11}$ trace rings during the first ON phase.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stop_and_go/stop_and_go_speed.png}
+\caption{Ensemble-mean drift speed $\langle|v|\rangle(t)$ over the
+surviving members, one trace per peak current, at $T=10,50,100$~K
+(higher temperatures leave no survivors); dotted lines mark the phase
+boundaries. The speed ramps to a plateau during each ON phase and
+decays to a residual during each OFF phase.}
+\end{figure}
+
+The ens0 field cycle at the phase boundaries ($t=0,1,\dots,5$~ns) is
+shown below for every cell whose ens0 realization matches its
+ensemble-dominant class, one figure per $(T,J)$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j5.00e+10_S.png}
+\caption{$T=10$~K, $J=0.5\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j1.00e+11_S.png}
+\caption{$T=10$~K, $J=1\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j2.00e+11_S.png}
+\caption{$T=10$~K, $J=2\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j3.00e+11_E.png}
+\caption{$T=10$~K, $J=3\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j4.00e+11_E.png}
+\caption{$T=10$~K, $J=4\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T010.0_j5.00e+11_E.png}
+\caption{$T=10$~K, $J=5\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j5.00e+10_S.png}
+\caption{$T=50$~K, $J=0.5\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j1.00e+11_S.png}
+\caption{$T=50$~K, $J=1\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j2.00e+11_E.png}
+\caption{$T=50$~K, $J=2\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j3.00e+11_E.png}
+\caption{$T=50$~K, $J=3\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j4.00e+11_E.png}
+\caption{$T=50$~K, $J=4\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T050.0_j5.00e+11_E.png}
+\caption{$T=50$~K, $J=5\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T100.0_j5.00e+10_E.png}
+\caption{$T=100$~K, $J=0.5\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T100.0_j1.00e+11_E.png}
+\caption{$T=100$~K, $J=1\times10^{11}$.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{stop_and_go/T100.0_j3.00e+11_L.png}
+\caption{$T=100$~K, $J=3\times10^{11}$.}
+\end{figure}
+
+The interlayer lock recovers each off phase -- the alignment returns
+toward $-1$ whenever the current is removed -- but the shape does not:
+the elongation accumulates under the repeated $1$~ns pulses, so the
+off windows are too short for full re-compaction. Survivors thin out
+above $\sim100$~K, and by $130$~K the ensemble is labyrinth-dominated.
+Per-$(T,J)$ snapshot rows representative of each cell's dominant class
+(S, E or L) are collected in the \texttt{stop\_and\_go} figure folder.
 
 \begin{comment}
 \clearpage

@@ -109,33 +109,39 @@ enum class Shape {
 // T = 10 K value.
 struct ShapeSpec { Shape shape; const char* tag; double j_cap[3][4]; };
 
-// Build the drive profile. `t_p` is the pulse duration; the pulse always
-// starts at t = 0 because the drive phase does. `peak_j` is the peak
-// amplitude for every shape, so shapes are compared at matched peak and
-// duration; the delivered charge and action differ between shapes by
-// construction and are recomputed from the profile during analysis.
-std::shared_ptr<Pulse> make_pulse(Shape shape, double peak_j, double t_p,
-                                  double gauss_fwhm) {
+// Build one drive pulse of duration `t_p` starting at `t_offset`. A
+// single pulse uses t_offset = 0 (the drive phase starts at t = 0); the
+// train stage builds three of these at offsets 0, t_p, 2*t_p and sums
+// them. `peak_j` is the peak amplitude for every shape, so shapes are
+// compared at matched peak and duration; the delivered charge and action
+// differ between shapes by construction and are recomputed from the
+// profile during analysis. Returns unique_ptr so the pulses compose into
+// a SuperpositionPulse; a single pulse moves into cfg.drive_pulse.
+std::unique_ptr<Pulse> make_pulse(Shape shape, double peak_j, double t_p,
+                                  double gauss_fwhm, double t_offset) {
+    const double t0 = t_offset;
+    const double t1 = t_offset + t_p;
     switch (shape) {
     case Shape::Square:
-        return std::make_shared<SquarePulse>(peak_j, 0.0, t_p);
+        return std::make_unique<SquarePulse>(peak_j, t0, t1);
     case Shape::HalfSine:
-        return std::make_shared<HalfSinePulse>(peak_j, 0.0, t_p);
+        return std::make_unique<HalfSinePulse>(peak_j, t0, t1);
     case Shape::TriSharpRise:
         // Peak at the leading edge: instantaneous rise, linear fall.
-        return std::make_shared<TrianglePulse>(peak_j, 0.0, 0.0, t_p);
+        return std::make_unique<TrianglePulse>(peak_j, t0, t0, t1);
     case Shape::TriSharpFall:
         // Peak at the trailing edge: linear rise, instantaneous fall.
-        return std::make_shared<TrianglePulse>(peak_j, 0.0, t_p, t_p);
+        return std::make_unique<TrianglePulse>(peak_j, t0, t1, t1);
     case Shape::TriSymmetric:
-        return std::make_shared<TrianglePulse>(peak_j, 0.0, 0.5*t_p, t_p);
+        return std::make_unique<TrianglePulse>(
+            peak_j, t0, 0.5*(t0 + t1), t1);
     case Shape::Gaussian:
-        // Centred in the window. Unlike the others the Gaussian has no
-        // finite support, so a little current leaks into the settle
-        // interval; the analysis integrates the profile over the whole
-        // simulated window rather than assuming it stops at t_p.
-        return std::make_shared<GaussianPulse>(
-            peak_j, 0.5*t_p, gauss_fwhm);
+        // Centred in the pulse. Unlike the others the Gaussian has no
+        // finite support, so a little current leaks past the pulse; the
+        // analysis integrates the profile over the whole simulated
+        // window rather than assuming it stops at t_p.
+        return std::make_unique<GaussianPulse>(
+            peak_j, t0 + 0.5*t_p, gauss_fwhm);
     }
     // Unreachable for a valid enumerator; refuse rather than guess.
     throw std::runtime_error("make_pulse: unhandled shape.");
@@ -202,6 +208,8 @@ int main() {
     bool apply_caps = false;
     bool extend_only_unfailed = false;
     bool width_sweep = false;
+    bool train3 = false;
+    bool tscan = false;
     // Pulse durations for the width stage, in seconds. 500 ps is
     // absent: that slice is the completed production run.
     const std::vector<double> t_pulse_list = {
@@ -260,17 +268,42 @@ int main() {
         peak_j_list = {9.0e11, 1.0e12};
         apply_caps = true;
         n_ens = 25;
+    } else if (ps_stage == "train3") {
+        // Three identical pulses back to back (period = t_pulse): the
+        // response to a pulse TRAIN rather than a single pulse. Same
+        // production ladder and caps; the caps were measured for a
+        // single pulse, so cells near the cap may fail under 3x the
+        // delivered charge -- part of what the train probes.
+        peak_j_list = {0.5e11, 1.0e11, 2.0e11, 3.0e11, 4.0e11,
+                       5.0e11, 6.0e11, 8.0e11};
+        apply_caps = true;
+        train3 = true;
+        n_ens = 25;
+    } else if (ps_stage == "width_tscan") {
+        // T6: locate the 50->100 K width-speed transition for the
+        // square pulse. Square only, at the intermediate temperatures
+        // {55,65,75,85,95} K (seeded by equilibrate's TW_TSCAN mode),
+        // driven at two FIXED currents (the 100 K cap 3e11 and its
+        // half 1e11) so temperature is the only variable across the
+        // sweep. Sweeps t_pulse like the width stage.
+        width_sweep = true;
+        tscan = true;
+        n_ens = 25;
     } else {
         std::fprintf(stderr,
                      "error: PS_STAGE=%s unknown; expected "
                      "\"pilot\", \"pilot_hi\", \"pilot_hi_all\", "
-                     "\"production\", \"production_ext\" or "
-                     "\"width\".\n",
+                     "\"production\", \"production_ext\", \"width\", "
+                     "\"train3\" or \"width_tscan\".\n",
                      ps_stage.c_str());
         return 1;
     }
     // T_sub = 0 is the deterministic baseline; the rest are thermal.
-    const std::vector<double> t_sub_list = {0.0, 10.0, 50.0, 100.0};
+    // The tscan stage instead sweeps the intermediate temperatures that
+    // bracket the 50->100 K width-speed transition (all > 0).
+    const std::vector<double> t_sub_list = tscan
+        ? std::vector<double>{55.0, 65.0, 75.0, 85.0, 95.0}
+        : std::vector<double>{0.0, 10.0, 50.0, 100.0};
     const double cell_a = make_default_params().a;
     const double dt = 5.0e-14;
     // Default pulse duration, used by every stage except "width",
@@ -323,6 +356,8 @@ int main() {
     std::vector<Traj> grid;
     int cell_idx = 0;
     for (std::size_t si = 0; si < shapes.size(); ++si) {
+        // T6 drives the square pulse only.
+        if (tscan && shapes[si].shape != Shape::Square) continue;
         for (std::size_t ti = 0; ti < t_sub_list.size(); ++ti) {
             const double T_sub = t_sub_list[ti];
             // Cap in A/m^2 for this (shape, T); the half-unit tolerance
@@ -371,27 +406,35 @@ int main() {
                 cap = cap_units*1.0e11 + 0.05e11;
             }
             if (width_sweep) {
-                // Two currents only: the cap, and the largest ladder
-                // rung at or below half the cap. Taking a rung rather
-                // than cap/2 exactly keeps the value on the measured
-                // grid and errs low, so the half-cap cell is certain to
-                // survive at every width.
-                const double cap_units =
-                    shapes[si].j_cap[case_idx][ti];
-                double half_units = 0.0;
-                for (double rung : {0.5, 1.0, 2.0, 3.0, 4.0, 5.0,
-                                    6.0, 8.0}) {
-                    if (rung <= 0.5*cap_units) half_units = rung;
+                double j_pair[2];
+                if (tscan) {
+                    // Fixed currents across the intermediate T: the
+                    // 100 K square cap and its half. Temperature is the
+                    // only variable, and both survive at every T here.
+                    j_pair[0] = 3.0e11;
+                    j_pair[1] = 1.0e11;
+                } else {
+                    // Two currents: the cap, and the largest ladder rung
+                    // at or below half the cap. A rung rather than cap/2
+                    // keeps the value on the measured grid and errs low,
+                    // so the half-cap cell survives at every width.
+                    const double cap_units =
+                        shapes[si].j_cap[case_idx][ti];
+                    double half_units = 0.0;
+                    for (double rung : {0.5, 1.0, 2.0, 3.0, 4.0, 5.0,
+                                        6.0, 8.0}) {
+                        if (rung <= 0.5*cap_units) half_units = rung;
+                    }
+                    if (half_units <= 0.0) {
+                        std::fprintf(stderr,
+                            "error: no ladder rung at or below half the "
+                            "cap for shape %s at T=%.0f K (cap %.3g).\n",
+                            shapes[si].tag, T_sub, cap_units);
+                        return 1;
+                    }
+                    j_pair[0] = cap_units*1.0e11;
+                    j_pair[1] = half_units*1.0e11;
                 }
-                if (half_units <= 0.0) {
-                    std::fprintf(stderr,
-                        "error: no ladder rung at or below half the cap "
-                        "for shape %s at T=%.0f K (cap %.3g).\n",
-                        shapes[si].tag, T_sub, cap_units);
-                    return 1;
-                }
-                const double j_pair[2] = {cap_units*1.0e11,
-                                          half_units*1.0e11};
                 for (double peak_j : j_pair) {
                     for (double t_p : t_pulse_list) {
                         const int members =
@@ -432,8 +475,11 @@ int main() {
         // fixed relative truncation at every width.
         const double t_p_i = tr.t_pulse;
         const double gauss_fwhm_i = 0.5*t_p_i;
+        // Single pulse: window = pulse + equal settle = 2*t_p. Train:
+        // three back-to-back pulses (3*t_p) plus one t_p settle = 4*t_p.
+        const int n_pulses = train3 ? 3 : 1;
         const int n_drive_i = static_cast<int>(
-            std::llround(2.0*t_p_i/dt));
+            std::llround((n_pulses + 1)*t_p_i/dt));
         const int snapshot_every_i =
             std::max(1, n_drive_i/20);
 
@@ -486,8 +532,19 @@ int main() {
         cfg.equilibrate = false;         // seed is already equilibrated
         cfg.m_init_top = &seed.m_top;
         cfg.m_init_bot = &seed.m_bot;
-        cfg.drive_pulse = make_pulse(sp.shape, tr.peak_j, t_p_i,
-                                     gauss_fwhm_i);
+        if (train3) {
+            std::vector<std::unique_ptr<Pulse>> train;
+            for (int k = 0; k < n_pulses; ++k) {
+                train.push_back(make_pulse(
+                    sp.shape, tr.peak_j, t_p_i, gauss_fwhm_i,
+                    static_cast<double>(k)*t_p_i));
+            }
+            cfg.drive_pulse = std::make_shared<SuperpositionPulse>(
+                std::move(train));
+        } else {
+            cfg.drive_pulse = make_pulse(sp.shape, tr.peak_j, t_p_i,
+                                         gauss_fwhm_i, 0.0);
+        }
         // Exactly one member per cell carries the field stream.
         const bool dump = (tr.ens == 0);
         cfg.dump_snapshots = dump;
@@ -507,6 +564,7 @@ int main() {
                 << ",\"ens_idx\":" << tr.ens
                 << ",\"t_pulse\":" << t_p_i
                 << ",\"t_settle\":" << t_p_i
+                << ",\"n_pulses\":" << n_pulses
                 << ",\"gauss_fwhm\":" << gauss_fwhm_i
                 << ",\"nx\":" << nx << ",\"ny\":" << ny
                 << ",\"dt\":" << dt
