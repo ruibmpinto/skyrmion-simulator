@@ -3,6 +3,47 @@
 C++17 port of `src/simulator/`. Outputs are numpy `.npz` archives consumed
 by the Python plotting and animation scripts under `scripts/`.
 
+## Scope
+
+This port exists to run the synthetic-antiferromagnet (SAF) campaigns at
+production speed on a cluster. It is not a general micromagnetic solver,
+and the Python implementation remains the reference: the 24 CTest
+binaries verify parity against Python-computed references, not against
+the literature. The literature benchmarks (muMAG standard problems,
+Cortes-Ortuno DMI, Rohart-Thiaville, Kittel FMR) exist only in Python.
+
+Layer-generic primitives do exist — `effective_field(m, m_other, ...)`
+in `fields.hpp` and `llgs_rhs(m, H_eff, ...)` in `integrator.hpp` act on
+a single field, and `RHSSingleKeff` with `rk4_step_single` advance one
+layer. A single-layer run is selected by passing an empty `Field3` as
+`m_bot`, which `sweep::relax` and `HeunStochasticStepper::step` detect
+via `m_bot.n_sites() == 0`.
+
+That single-layer path is deliberately narrow, and the following limits
+are enforced rather than incidental:
+
+- Demag is rejected. `sweep/relax.cpp` and `stochastic/heun.cpp` throw
+  if single-layer mode is combined with a non-null `DemagState`. Only
+  the uniform thin-film correction folded into `C_anis` applies.
+- No energy. `total_energy` requires both layers and a non-optional
+  `DemagState&`; `relax` returns `E_final = NaN` on this path and
+  converges on the torque criterion alone.
+- No snapshots. `SnapshotBuffer::append` raises on an empty `m_bot`.
+- `H_RKKY` is not zeroed automatically: the single path passes the layer
+  as its own partner, so the term is dynamically inert but not zero for
+  an energy consumer.
+- No production binary uses it; it is covered by unit tests only.
+
+The bilayer is structural on the demag path, not parametric. The Newell
+builder assembles exactly two blocks, self at `Z = 0` and inter at
+`Z = t_Co + d_Ru`, and `DemagKernels` holds one `*_self` and one
+`*_inter` set. `d_Ru = 0` places the layers in contact; it does not
+remove one. A third layer would require rewriting the demag module.
+
+Further constraints that apply to both layer counts: square cells (a
+single lattice constant `a` serves both axes), one cell through
+thickness, and a four-neighbour square stencil.
+
 ## Dependencies
 
 - CMake >= 3.20

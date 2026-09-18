@@ -1,45 +1,91 @@
 # Skyrmion simulator
 
-Micromagnetic and atomistic-style simulator for magnetic skyrmions in
-synthetic antiferromagnets (SAF), built to study current-driven skyrmion
-motion on a racetrack at finite temperature.
+A micromagnetic solver for magnetic skyrmions.
 
-The physical system is a Pt/Co/Ru/Pt/Co/Ru stack: two ferromagnetic Co
-layers coupled antiferromagnetically through RKKY exchange. Skyrmions in
-the two layers carry opposite topological charge, so the Magnus force
-cancels and the skyrmion Hall angle vanishes.
+It integrates the Landau-Lifshitz-Gilbert-Slonczewski (LLGS) equation on
+a square lattice with symmetric exchange, interfacial Dzyaloshinskii-
+Moriya interaction, uniaxial anisotropy, dipolar (demagnetizing) fields,
+Zeeman coupling and spin-orbit-torque driving. Finite temperature uses
+Brown's stochastic LLGS equation with a multiplicative Gaussian
+white-noise thermal field, integrated in the Stratonovich sense by a
+stochastic Heun predictor-corrector.
 
-The code solves the Landau-Lifshitz-Gilbert-Slonczewski (LLGS) equation
-on a two-layer square lattice with symmetric exchange, interfacial
-Dzyaloshinskii-Moriya interaction, uniaxial anisotropy, RKKY interlayer
-coupling, dipolar (demagnetizing) fields, Zeeman coupling and
-spin-orbit-torque driving. Finite temperature is handled by Brown's
-stochastic LLGS equation with a multiplicative Gaussian white-noise
-thermal field, integrated in the Stratonovich sense by a stochastic Heun
-predictor-corrector.
+The solver runs a single ferromagnetic layer or a coupled bilayer. The
+bilayer case adds one term, the RKKY interlayer field, and the study the
+code was written for is a synthetic antiferromagnet (SAF): a
+Pt/Co/Ru/Pt/Co/Ru stack whose two Co layers carry skyrmions of opposite
+topological charge, so the Magnus force cancels and the skyrmion Hall
+angle vanishes.
 
-## Repository layout
+## Code organisation
 
-Two implementations of the same physics live side by side. The Python
-package is the reference: readable, validated against the literature, and
-the place where new physics is prototyped. The C++ port is the production
-engine used for cluster campaigns.
+The code separates into three layers of decreasing generality.
 
-| Path | Contents |
-| --- | --- |
-| `src/simulator/` | Python reference solver: lattice, fields, energy, demag (Newell and slab kernels), integrator, pulses, observables |
-| `src/stochastic_llgs/` | Finite-temperature layer: thermal field, stochastic Heun integrator, Joule heating, skyrmion tracking, stability classifier |
-| `src/phase_diagram/` | Ground-state relaxation sweeps and phase classification |
-| `src/orchestrator/` | Run driver, observers and I/O for pulsed-drive experiments |
-| `src/plots/` | Shared plotting helpers and figure styles |
-| `src/simulator_cpp/` | C++17 port (CMake, 61 targets, 24 CTest suites). See its own `README.md` |
-| `src/aux/libnpy/` | Vendored third-party npy/npz I/O. See `src/aux/README.md` |
-| `scripts/` | Sweep drivers, analysis and plotting scripts, SLURM submission scripts |
-| `tests/` | Cross-implementation regression tests |
-| `docs/` | Theory notes, benchmark report and study write-ups (LaTeX and Markdown sources) |
+**Solver.** `src/simulator/` and `src/stochastic_llgs/` implement
+general micromagnetics. Each field term acts on one layer —
+`exchange_field(m, ...)`, `dmi_field(m, ...)`, `anisotropy_field(m, ...)`,
+`zeeman_field(...)` — and `effective_field` assembles them for one
+layer. `llgs_rhs` and `rk4_step_single` advance one layer. No module in
+this layer references the racetrack geometry or the campaign protocols.
+
+**Bilayer.** The interlayer coupling is one term, `rkky_field(m_other,
+H_RKKY)`, together with the pair wrappers
+(`effective_field_demag_pair`, `rk4_step`, `total_energy`) and the
+two-block demag kernel. Passing `None` as the partner layer reduces
+these to the single-layer solver; passing an array gives the bilayer.
+
+**Application.** `src/phase_diagram/`, `src/orchestrator/`, most of
+`scripts/`, and the racetrack geometry, track-width campaign, pulse
+protocols, equilibration-to-plateau criterion and stability classifier
+constitute one study built on the solver rather than part of it.
+
+The generality of the solver layer is established by the single-layer
+literature benchmarks listed below, which run with no partner layer and
+no RKKY coupling. `src/simulator/validation/_helpers.py` provides the
+corresponding single-layer entry points `make_single_fm_params`,
+`relax_single_fm` and `integrate_single_fm`.
+
+| Path | Layer | Contents |
+| --- | --- | --- |
+| `src/simulator/` | solver | Lattice, field terms, energy, demag (Newell and slab kernels), RK4 integrator, pulse waveforms, observables |
+| `src/stochastic_llgs/` | solver | Thermal field, stochastic Heun integrator, Joule heating, skyrmion tracking |
+| `src/phase_diagram/` | application | Ground-state relaxation sweeps and phase classification |
+| `src/orchestrator/` | application | Run driver, observers and I/O for pulsed-drive experiments |
+| `src/plots/` | application | Shared plotting helpers and figure styles |
+| `src/simulator_cpp/` | production | C++17 port of the SAF path, for cluster campaigns. See its own `README.md` |
+| `src/aux/libnpy/` | vendored | Third-party npy/npz I/O. See `src/aux/README.md` |
+| `scripts/` | application | Sweep drivers, analysis and plotting, SLURM submission |
+| `tests/` | — | Cross-implementation regression tests |
+| `docs/` | — | Theory notes, benchmark report, study write-ups (LaTeX and Markdown) |
+
+The Python package is the reference implementation: readable, validated
+against the literature, and where new physics is prototyped. The C++ port
+covers the SAF production path only and is pinned to Python by parity
+tests; it is not a general solver. See `src/simulator_cpp/README.md` for
+what it does and does not support.
 
 Simulation output is written to `output/` and is not tracked; reference
 literature lives in `refs/` and is likewise untracked.
+
+## Single layer or bilayer
+
+The partner layer is the second argument everywhere it appears. `None`
+means there is no second layer:
+
+```python
+# Single ferromagnetic layer: no RKKY term, self-demag only.
+H = effective_field(m, None, p.C_ex, p.C_dmi, p.C_anis_top,
+                    p.H_ext, p.H_RKKY)
+H_top, _ = effective_field_demag_pair(m_top, None, p, kernels)
+
+# Coupled bilayer: RKKY plus the inter-layer demag block.
+H_top, H_bot = effective_field_demag_pair(m_top, m_bot, p, kernels)
+```
+
+The parameter names carry the SAF stack the code was built for
+(`K_top`/`K_bot`, `t_Co`, `d_Ru`, `H_RKKY`), and `default_params()`
+returns that stack's measured values. They are defaults, not
+assumptions: override them for any other material.
 
 ## Requirements
 
@@ -104,16 +150,33 @@ import `src.*` and rely on the root being on `sys.path`.
 `tests/` holds cross-implementation regression tests (demag kernel
 equivalence, observables, pulse refactor parity). The `validation/`
 directories hold physics benchmarks that assert against published
-results: muMAG standard problems #4 and #5, the Cortes-Ortuno DMI
-standard problem, Bogdanov-Hubert and Rohart-Thiaville skyrmion profiles,
-1D domain-wall profiles, FMR dispersion, Rohart 2013 confinement, Rohart
-2016 Arrhenius collapse, Tomasello 2018 skyrmion size versus temperature,
-Gungordu-Banerjee phase diagrams, and Thiele velocity against Pham 2024.
-Thermal correctness is checked by Brown reversal rates, equipartition and
-Langevin diffusion tests.
+results.
 
-The C++ suite runs 24 CTest binaries that compare against Python-computed
-references at `atol=1e-12`, `rtol=1e-10`.
+Single ferromagnetic layer, no RKKY coupling. These exercise the solver
+layer alone:
+
+| Benchmark | Reference | Single-layer route |
+| --- | --- | --- |
+| `test_mumag_sp4.py` | muMAG standard problem #4 | `rk4_step_single` |
+| `test_mumag_sp5.py` | muMAG standard problem #5, STT vortex | `rk4_step_single` |
+| `test_dmi_standard_problem.py` | Cortes-Ortuno 2018 DMI standard problem | `H_RKKY = 0` |
+| `test_skyrmion_profile_bh.py` | Bogdanov-Hubert / Rohart-Thiaville profile | `relax_single_fm` |
+| `test_dw_profile_1d.py` | Analytic 1D domain-wall width | `rk4_step_single` |
+| `test_fmr_dispersion.py` | Kittel FMR dispersion | `integrate_single_fm` |
+| `test_confined_skyrmion_radius_rt2013.py` | Rohart 2013 confinement in a dot | `H_RKKY = 0`, disk mask |
+| `test_skyrmion_size_vs_T_tomasello2018.py` | Tomasello 2018 size versus temperature | reuses the Rohart 2013 dot |
+| `test_skyrmion_arrhenius.py` | Rohart 2016 Arrhenius collapse | single FM layer |
+
+Bilayer: `test_thiele_v_sot.py` (Thiele velocity against Pham 2024) and
+the Gungordu-Banerjee phase diagrams.
+
+Thermal correctness: Brown reversal rates, equipartition and Langevin
+diffusion, on a macrospin.
+
+The C++ suite runs 24 CTest binaries. These are parity tests against
+Python-computed references at `atol=1e-12`, `rtol=1e-10`. They are not
+independent literature benchmarks; the literature comparisons above
+exist only in the Python implementation.
 
 ## Documentation
 
