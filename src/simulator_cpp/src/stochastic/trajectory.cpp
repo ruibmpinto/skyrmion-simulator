@@ -149,7 +149,7 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     p.H_DL = 0.0; p.H_FL = 0.0;
     if (snaps) dump(m_top, m_bot, 0, 0.0, 0);
     int n_relax_used = 0;
-    bool equil_converged = true;
+    bool equil_converged = false;
     double d1_relaxed = kNaN, d2_relaxed = kNaN;
     {
         if (cfg.equilibrate) {

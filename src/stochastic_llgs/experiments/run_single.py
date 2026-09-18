@@ -391,7 +391,7 @@ def trajectory_worker(config):
                 h_top, h_bot, tol_norm, t=step * dt,
             )
         n_relax_used = n_relax
-        equil_converged = True
+        equil_converged = False
         # Single post-relax ellipse measurement for the observable.
         try:
             d1_relaxed, d2_relaxed, _ = skyrmion_ellipse_lcc(

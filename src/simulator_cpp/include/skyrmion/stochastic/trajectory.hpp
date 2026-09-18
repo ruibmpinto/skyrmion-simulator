@@ -139,7 +139,7 @@ struct StochasticPayload {
     /// ellipse was never defined.
     double D1_relaxed_top = 0.0, D2_relaxed_top = 0.0;
     int    n_relax_used = 0;  ///< Relax steps actually taken
-    bool   equil_converged = true;  ///< Plateau criterion met
+    bool   equil_converged = false;  ///< Plateau criterion met
     /// Effective temperature T_sub + R_th j^2 (K) and the thermal
     /// field amplitude sigma_noise (T*sqrt(s)) it produced.
     double T_effective = 0.0, sigma_noise = 0.0;

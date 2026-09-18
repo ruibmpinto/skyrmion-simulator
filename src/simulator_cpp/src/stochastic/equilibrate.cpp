@@ -26,7 +26,7 @@ EquilResult equilibrate_to_plateau(
     int check = 0;
     const auto t_start = std::chrono::steady_clock::now();
     EquilResult r;
-    r.converged = true;
+    r.converged = false;
     while (r.n_used < max_steps) {
         for (int s = 0; s < check_every; ++s) {
             stepper.step(m_top, m_bot, t, p.dt, p);
