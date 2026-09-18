@@ -9,6 +9,43 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+             Debug Release RelWithDebInfo)
+
+# -------------------- Build options -------------------------------------------
+
+# Warnings are errors by default: the build is warning-clean and must stay
+# so. Turn this off only to get past a new compiler's spurious diagnostic.
+option(SKYRMION_WERROR "Treat compiler warnings as errors" ON)
+
+# AddressSanitizer + UndefinedBehaviorSanitizer. Off by default because
+# they cost roughly 2x runtime; intended for a Debug build:
+#   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+#         -DSKYRMION_SANITIZE=ON -DSKYRMION_NATIVE_ARCH=OFF
+option(SKYRMION_SANITIZE "Build with address and UB sanitizers" OFF)
+
+# -march=native pins the binary to the build machine. Required for the
+# production runs; turn it off for portable or sanitizer builds.
+option(SKYRMION_NATIVE_ARCH "Optimize for the build machine's CPU" ON)
+
+# Applies the project-wide compile options to one target. Every target
+# gets the same set, so they are defined in exactly one place.
+function(skyrmion_target_options target)
+    target_compile_options(${target} PRIVATE
+        -O3 -fno-math-errno -Wall -Wextra -Wpedantic)
+    if(SKYRMION_NATIVE_ARCH)
+        target_compile_options(${target} PRIVATE -march=native)
+    endif()
+    if(SKYRMION_WERROR)
+        target_compile_options(${target} PRIVATE -Werror)
+    endif()
+    if(SKYRMION_SANITIZE)
+        target_compile_options(${target} PRIVATE
+            -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(${target} PRIVATE
+            -fsanitize=address,undefined)
+    endif()
+endfunction()
 
 # -------------------- Dependencies --------------------------------------------
 
@@ -26,6 +63,27 @@ find_library(FFTW3_THREADS_LIBRARY NAMES fftw3_threads
              HINTS /opt/homebrew/lib /opt/local/lib /usr/local/lib)
 if(NOT FFTW3_INCLUDE_DIR OR NOT FFTW3_LIBRARY)
     message(FATAL_ERROR "FFTW3 not found. brew install fftw, or set FFTW3_INCLUDE_DIR/FFTW3_LIBRARY.")
+endif()
+
+# Minimum supported FFTW3. The version is only verified here; the include
+# path and library above remain what is actually used, so this check never
+# changes which FFTW is linked.
+set(SKYRMION_FFTW3_MIN_VERSION 3.3.8)
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(PC_FFTW3 QUIET fftw3)
+endif()
+if(PC_FFTW3_VERSION)
+    if(PC_FFTW3_VERSION VERSION_LESS SKYRMION_FFTW3_MIN_VERSION)
+        message(FATAL_ERROR
+                "FFTW3 ${PC_FFTW3_VERSION} is too old; "
+                "${SKYRMION_FFTW3_MIN_VERSION} or newer is required.")
+    endif()
+    message(STATUS "FFTW3 ${PC_FFTW3_VERSION} "
+                   "(minimum ${SKYRMION_FFTW3_MIN_VERSION})")
+else()
+    message(STATUS "FFTW3 version not reported by pkg-config; "
+                   "assuming >= ${SKYRMION_FFTW3_MIN_VERSION}")
 endif()
 
 find_package(OpenMP)
@@ -84,57 +142,47 @@ if(OpenMP_CXX_FOUND)
     target_compile_definitions(skyrmion_core PUBLIC SKYRMION_OPENMP=1)
 endif()
 
-target_compile_options(skyrmion_core PRIVATE
-    -O3 -march=native -fno-math-errno
-    -Wall -Wextra -Wpedantic -Wno-unused-parameter)
+skyrmion_target_options(skyrmion_core)
+target_compile_options(skyrmion_core PRIVATE -Wno-unused-parameter)
 
 # -------------------- Executable ----------------------------------------------
 
 add_executable(skyrmion_sim src/main.cpp)
 target_link_libraries(skyrmion_sim PRIVATE skyrmion_core)
-target_compile_options(skyrmion_sim PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(skyrmion_sim)
 
 # Tool: dump Newell kernel to .npz for cross-validation against Python.
 add_executable(dump_newell_kernel tools/dump_newell_kernel.cpp)
 target_link_libraries(dump_newell_kernel PRIVATE skyrmion_core)
-target_compile_options(dump_newell_kernel PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(dump_newell_kernel)
 
 add_executable(diff_slab_field tools/diff_slab_field.cpp)
 target_link_libraries(diff_slab_field PRIVATE skyrmion_core)
-target_compile_options(diff_slab_field PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(diff_slab_field)
 
 add_executable(sweep_parity tools/sweep_parity.cpp)
 target_link_libraries(sweep_parity PRIVATE skyrmion_core)
-target_compile_options(sweep_parity PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(sweep_parity)
 
 add_executable(profile_run tools/profile_run.cpp)
 target_link_libraries(profile_run PRIVATE skyrmion_core)
-target_compile_options(profile_run PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(profile_run)
 
 add_executable(tw_check tools/tw_check.cpp)
 target_link_libraries(tw_check PRIVATE skyrmion_core)
-target_compile_options(tw_check PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(tw_check)
 
 add_executable(dump_freebc_demag tools/dump_freebc_demag.cpp)
 target_link_libraries(dump_freebc_demag PRIVATE skyrmion_core)
-target_compile_options(dump_freebc_demag PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(dump_freebc_demag)
 
 add_executable(bench_demag_method tools/bench_demag_method.cpp)
 target_link_libraries(bench_demag_method PRIVATE skyrmion_core)
-target_compile_options(bench_demag_method PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(bench_demag_method)
 
 add_executable(sweep_dmi_racetrack tools/sweep_dmi_racetrack.cpp)
 target_link_libraries(sweep_dmi_racetrack PRIVATE skyrmion_core)
-target_compile_options(sweep_dmi_racetrack PRIVATE
-    -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+skyrmion_target_options(sweep_dmi_racetrack)
 
 # -------------------- Sweep analyses ------------------------------------------
 
@@ -155,8 +203,7 @@ set(SWEEP_BINARIES
 foreach(s ${SWEEP_BINARIES})
     add_executable(${s} src/sweeps/${s}.cpp)
     target_link_libraries(${s} PRIVATE skyrmion_core)
-    target_compile_options(${s} PRIVATE
-        -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+    skyrmion_target_options(${s})
 endforeach()
 
 # -------------------- Stochastic-LLGS production runs -------------------------
@@ -174,8 +221,7 @@ set(STOCHASTIC_BINARIES
 foreach(s ${STOCHASTIC_BINARIES})
     add_executable(${s} src/stochastic_runs/${s}.cpp)
     target_link_libraries(${s} PRIVATE skyrmion_core)
-    target_compile_options(${s} PRIVATE
-        -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+    skyrmion_target_options(${s})
 endforeach()
 
 # -------------------- Stochastic-LLGS validation gates ------------------------
@@ -190,8 +236,7 @@ set(VALIDATION_BINARIES
 foreach(s ${VALIDATION_BINARIES})
     add_executable(${s} src/validation/${s}.cpp)
     target_link_libraries(${s} PRIVATE skyrmion_core)
-    target_compile_options(${s} PRIVATE
-        -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+    skyrmion_target_options(${s})
 endforeach()
 
 # -------------------- Parity tests --------------------------------------------
@@ -211,7 +256,25 @@ foreach(t ${SKYRMION_TESTS})
     target_link_libraries(test_${t} PRIVATE skyrmion_core)
     target_compile_definitions(test_${t} PRIVATE
         REFERENCE_NPZ="${TEST_REF_PATH}")
-    target_compile_options(test_${t} PRIVATE
-        -O3 -march=native -fno-math-errno -Wall -Wextra -Wpedantic)
+    skyrmion_target_options(test_${t})
     add_test(NAME test_${t} COMMAND test_${t})
 endforeach()
+
+# -------------------- Install -------------------------------------------------
+
+include(GNUInstallDirs)
+
+install(TARGETS skyrmion_core skyrmion_sim
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/skyrmion
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FILES_MATCHING PATTERN "*.hpp")
+
+# The sweep, production-run and validation binaries are entry points
+# whose run configuration is compiled in, so they install alongside the
+# main simulator rather than being treated as build-tree-only tools.
+install(TARGETS ${SWEEP_BINARIES} ${STOCHASTIC_BINARIES}
+                ${VALIDATION_BINARIES}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

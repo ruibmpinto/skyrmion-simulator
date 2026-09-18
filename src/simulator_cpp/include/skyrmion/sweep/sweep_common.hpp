@@ -1,8 +1,9 @@
-// Shared helpers for the per-analysis sweep binaries: SLURM array
-// dispatch and a single-grid-point runner that covers the common
-// saf_skyrmion + (convergence | fixed-time) relax + drive pattern used
-// by the S41-S49 analyses. Each binary builds its grid + pulse +
-// metadata and calls run_point.
+/// \file
+/// Shared helpers for the per-analysis sweep binaries: SLURM array
+/// dispatch and a single-grid-point runner that covers the common
+/// saf_skyrmion + (convergence | fixed-time) relax + drive pattern used
+/// by the S41-S49 analyses. Each binary builds its grid + pulse +
+/// metadata and calls run_point.
 #pragma once
 
 #include "skyrmion/demag.hpp"
@@ -27,9 +28,14 @@
 namespace skyrmion {
 namespace sweep {
 
-// Resolve which grid indices this process runs. If SLURM_ARRAY_TASK_ID
-// is set, run only that index (and validate range); otherwise run the
-// whole grid [0, n).
+/// Resolve which grid indices this process runs. If SLURM_ARRAY_TASK_ID
+/// is set, run only that index (and validate range); otherwise run the
+/// whole grid [0, n).
+/// \param n Number of points in the binary's grid.
+/// \return Either the single SLURM-selected index or every index in
+///         [0, n), in order.
+/// \throws std::runtime_error if SLURM_ARRAY_TASK_ID is set but falls
+///         outside [0, n).
 inline std::vector<int> resolve_indices(int n) {
     const char* env = std::getenv("SLURM_ARRAY_TASK_ID");
     if (env == nullptr) {
@@ -46,38 +52,47 @@ inline std::vector<int> resolve_indices(int n) {
     return {idx};
 }
 
+/// Everything one grid point of an S41-S49 sweep needs.
 struct PointConfig {
-    Params* p = nullptr;               // built + precomputed by caller
-    std::shared_ptr<Pulse> pulse;      // drive pulse
-    bool use_demag = true;             // demag vs local-K_eff field model
-    bool convergence_relax = true;     // convergence-stop vs fixed-time relax
-    int  n_drive = 0;
-    int  sample_every = 1;
-    int  n_relax_fixed = 0;            // fixed-time relax length (driver Phase 1)
-    int  relax_max_steps = 200000;
-    double relax_alpha = 1.0;
-    double relax_tol_torque = 1.0e-5;
-    double relax_tol_dE = 1.0e-8;
-    int  relax_check_every = 1000;
-    double record_snapshot_at = -1.0;  // single trace snapshot; <0 none
-    // Field-snapshot stream (for animation).
+    Params* p = nullptr;               ///< built + precomputed by caller
+    std::shared_ptr<Pulse> pulse;      ///< drive pulse
+    bool use_demag = true;             ///< demag vs local-K_eff field model
+    bool convergence_relax = true; ///< convergence-stop vs fixed-time relax
+    int  n_drive = 0;                  ///< Drive steps
+    int  sample_every = 1;             ///< Observable cadence, in steps
+    int  n_relax_fixed = 0;   ///< fixed-time relax length (driver Phase 1)
+    int  relax_max_steps = 200000;     ///< Step budget of the quench
+    double relax_alpha = 1.0;          ///< Gilbert damping for the quench
+    double relax_tol_torque = 1.0e-5;  ///< Torque gate (T); see relax()
+    double relax_tol_dE = 1.0e-8;      ///< Relative-energy gate (demag)
+    int  relax_check_every = 1000;     ///< Steps between quench checks
+    double record_snapshot_at = -1.0;  ///< single trace snapshot; <0 none
+    /// Field-snapshot stream (for animation).
     bool dump_snapshots = false;
-    int  snapshot_every_drive = 1000;
-    int  snapshot_every_relax = 0;
-    int  max_snapshot_frames = 500;
-    std::string trace_path;
-    std::string snapshot_path;
-    Metadata metadata;                 // figure-specific; relax_* added here
-    // Progress-line cadence. print_every (steps) takes precedence when
-    // > 0; otherwise it is derived from print_dt (s) via dt, so every
-    // binary prints on a fixed simulated-time interval by default.
+    int  snapshot_every_drive = 1000;  ///< Drive frame cadence (steps)
+    int  snapshot_every_relax = 0;     ///< Relax frame cadence (steps)
+    int  max_snapshot_frames = 500;    ///< Snapshot buffer capacity
+    std::string trace_path;            ///< Output trace .npz path
+    std::string snapshot_path;         ///< Output snapshot .npz path
+    Metadata metadata;                 ///< figure-specific; relax_* added here
+    /// Progress-line cadence. print_every (steps) takes precedence when
+    /// > 0; otherwise it is derived from print_dt (s) via dt, so every
+    /// binary prints on a fixed simulated-time interval by default.
     double print_dt = 100.0e-12;       // 100 ps
-    int print_every = 0;               // explicit step override; 0 => print_dt
+    int print_every = 0;             ///< explicit step override; 0 => print_dt
 };
 
-// Run one grid point: build the saf_skyrmion IC, relax (convergence or
-// fixed-time), drive, write the trace .npz and (optionally) a snapshot
-// .npz for animation.
+/// Run one grid point: build the saf_skyrmion IC, relax (convergence or
+/// fixed-time), drive, write the trace .npz and (optionally) a snapshot
+/// .npz for animation.
+///
+/// On the convergence path the quench outcome is appended to
+/// cfg.metadata (relax_mode, relax_converged, relax_n_steps,
+/// relax_tau_max_final, relax_E_final) before the trace is written.
+/// \param cfg Grid-point configuration; its Params are precomputed and
+///        its metadata extended in place.
+/// \throws std::runtime_error propagated from relax, run_trace or the
+///         .npz writers.
 inline void run_point(PointConfig& cfg) {
     Params& p = *cfg.p;
     precompute(p);
@@ -175,12 +190,17 @@ inline void run_point(PointConfig& cfg) {
     }
 }
 
-// Gaussian sigma from FWHM.
+/// Gaussian sigma from FWHM.
+/// \param fwhm Full width at half maximum, in the caller's unit
+///        (seconds for the pulse widths used by the sweeps).
+/// \return sigma = fwhm / (2 sqrt(2 ln 2)), in the same unit.
 inline double fwhm_to_sigma(double fwhm) {
     return fwhm / (2.0 * std::sqrt(2.0 * std::log(2.0)));
 }
 
-// "<stem>_snapshots.npz" beside the trace file.
+/// "<stem>_snapshots.npz" beside the trace file.
+/// \param trace_path Trace .npz path; a trailing ".npz" is stripped.
+/// \return The snapshot archive path for that trace.
 inline std::string snapshot_path_of(const std::string& trace_path) {
     const auto pos = trace_path.rfind(".npz");
     const std::string stem = (pos == std::string::npos)
@@ -188,7 +208,10 @@ inline std::string snapshot_path_of(const std::string& trace_path) {
     return stem + "_snapshots.npz";
 }
 
-// Python D-tag: f'D{int(round(D*1e5)):03d}e-3' (e.g. 0.85e-3 -> D085e-3).
+/// Python D-tag: f'D{int(round(D*1e5)):03d}e-3' (e.g. 0.85e-3 ->
+/// D085e-3).
+/// \param D Interfacial DMI constant, in J/m^2.
+/// \return The filename tag used by the Python sweep outputs.
 inline std::string d_tag(double D) {
     char buf[32];
     std::snprintf(buf, sizeof(buf), "D%03de-3",
