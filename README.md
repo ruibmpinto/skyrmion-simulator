@@ -80,10 +80,13 @@ C++ sweep and scan binaries follow the same convention.
 ## Tests and validation
 
 ```bash
-pytest tests src/simulator/validation src/stochastic_llgs/validation \
-    src/phase_diagram/validation
+python -m pytest tests src/simulator/validation \
+    src/stochastic_llgs/validation src/phase_diagram/validation
 cd src/simulator_cpp && python tests/run_tests.py
 ```
+
+Invoke pytest as `python -m pytest` from the repository root: the tests
+import `src.*` and rely on the root being on `sys.path`.
 
 `tests/` holds cross-implementation regression tests (demag kernel
 equivalence, observables, pulse refactor parity). The `validation/`

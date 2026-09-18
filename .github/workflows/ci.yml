@@ -35,7 +35,9 @@ jobs:
       - name: Install dependencies
         run: pip install numpy scipy matplotlib pytest
       - name: Run cross-implementation regression tests
-        run: pytest tests -q
+        # python -m, not bare pytest: the tests import src.* and need the
+        # repository root on sys.path.
+        run: python -m pytest tests -q
 
   cpp:
     name: C++ build and CTest
