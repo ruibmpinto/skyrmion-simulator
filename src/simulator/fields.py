@@ -402,8 +402,10 @@ def effective_field(m, m_other, C_ex, C_dmi, C_anis,
     m : numpy.ndarray(3d)
         Spin configuration of this layer,
         shape (ny, nx, 3).
-    m_other : numpy.ndarray(3d)
-        Spin configuration of the other layer.
+    m_other : {numpy.ndarray(3d), None}
+        Spin configuration of the partner layer. None for a
+        single-layer magnet, which drops the RKKY term; H_RKKY
+        is then ignored.
     C_ex : float
         Exchange prefactor in Tesla.
     C_dmi : float
@@ -443,15 +445,20 @@ def effective_field(m, m_other, C_ex, C_dmi, C_anis,
         m, C_dmi, mask=mask, neighbors_eff=neighbors_eff)
     H += anisotropy_field(m, C_anis, mask=mask)
     H_ze = zeeman_field(H_ext, shape)
-    H_rk = rkky_field(m_other, H_RKKY)
+    # m_other=None is the single-layer case: there is no partner
+    # layer, so the RKKY term is absent rather than cancelled.
+    H_rk = None if m_other is None else rkky_field(m_other, H_RKKY)
     if mask is not None:
         # Zeeman and RKKY have no spatial derivative, so the
         # only mask effect is to zero them outside the
         # magnetic region.
         m_mask = mask[..., np.newaxis]
         H_ze = H_ze * m_mask
-        H_rk = H_rk * m_mask
-    H += H_ze + H_rk
+        if H_rk is not None:
+            H_rk = H_rk * m_mask
+    H += H_ze
+    if H_rk is not None:
+        H += H_rk
     return H
 
 
@@ -502,8 +509,12 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     ----------
     m_top : numpy.ndarray(3d)
         Top-layer spins, shape (ny, nx, 3).
-    m_bot : numpy.ndarray(3d)
-        Bottom-layer spins, shape (ny, nx, 3).
+    m_bot : {numpy.ndarray(3d), None}
+        Bottom-layer spins, shape (ny, nx, 3). None for a
+        single-layer magnet: the RKKY and bottom-layer terms are
+        dropped and H_top reduces to the self-demag of a
+        standalone layer, since the inter-layer kernel acts on a
+        zero source.
     p : SimpleNamespace
         Parameters namespace.
     kernels : dict
@@ -521,8 +532,9 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     -------
     H_top : numpy.ndarray(3d)
         Effective field on the top layer in Tesla.
-    H_bot : numpy.ndarray(3d)
-        Effective field on the bottom layer in Tesla.
+    H_bot : {numpy.ndarray(3d), None}
+        Effective field on the bottom layer in Tesla, or None
+        when m_bot is None.
 
     Notes
     -----
@@ -537,6 +549,13 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     # the full box, the local analogue of the free-y demag. Realised
     # through the shared RT ghost cells, so no separate edge term.
     free_y = (kernels.get('kind') == 'racetrack')
+    # m_bot=None is the single-layer case: no partner layer, so no
+    # RKKY and no bottom-layer field. The demag still needs a second
+    # source array, and a zero one contributes N_inter . 0 = 0, so
+    # H_top reduces to the self-demag of a standalone layer.
+    is_single = m_bot is None
+    if is_single:
+        m_bot = np.zeros_like(m_top)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Local-in-space terms. With a free-BC mask or free-y, and non-zero
     # DMI, compute shared RT 2013 Eq. (6) ghost cells once per layer and
@@ -561,21 +580,26 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
     H_ze_t = zeeman_field(p.H_ext, shape)
     H_rk_t = rkky_field(m_bot, p.H_RKKY)
     # Bottom-layer local terms; RKKY on bottom is driven by m_top.
-    H_bot = exchange_field(
-        m_bot, p.C_ex, mask=mask, neighbors_eff=nbrs_bot)
-    H_bot += dmi_field(
-        m_bot, p.C_dmi, mask=mask, neighbors_eff=nbrs_bot)
-    H_bot += anisotropy_field(m_bot, C_bot_bare, mask=mask)
-    H_ze_b = zeeman_field(p.H_ext, shape)
-    H_rk_b = rkky_field(m_top, p.H_RKKY)
+    # Skipped entirely in single-layer mode, where m_bot is the zero
+    # placeholder needed only as a demag source.
+    if not is_single:
+        H_bot = exchange_field(
+            m_bot, p.C_ex, mask=mask, neighbors_eff=nbrs_bot)
+        H_bot += dmi_field(
+            m_bot, p.C_dmi, mask=mask, neighbors_eff=nbrs_bot)
+        H_bot += anisotropy_field(m_bot, C_bot_bare, mask=mask)
+        H_ze_b = zeeman_field(p.H_ext, shape)
+        H_rk_b = rkky_field(m_top, p.H_RKKY)
     if mask is not None:
         m_mask = mask[..., np.newaxis]
         H_ze_t = H_ze_t * m_mask
-        H_ze_b = H_ze_b * m_mask
         H_rk_t = H_rk_t * m_mask
-        H_rk_b = H_rk_b * m_mask
+        if not is_single:
+            H_ze_b = H_ze_b * m_mask
+            H_rk_b = H_rk_b * m_mask
     H_top += H_ze_t + H_rk_t
-    H_bot += H_ze_b + H_rk_b
+    if not is_single:
+        H_bot += H_ze_b + H_rk_b
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Long-range demag (one FFT pair per component per layer).
     # With a mask, the cells outside the magnetic region are
@@ -597,5 +621,7 @@ def effective_field_demag_pair(m_top, m_bot, p, kernels, mask=None):
         H_dem_top = H_dem_top * mask[..., np.newaxis]
         H_dem_bot = H_dem_bot * mask[..., np.newaxis]
     H_top += H_dem_top
+    if is_single:
+        return H_top, None
     H_bot += H_dem_bot
     return H_top, H_bot
