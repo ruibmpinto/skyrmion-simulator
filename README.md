@@ -225,6 +225,11 @@ docstrings on every module, class and function, no type hints in
 signatures, no module-level globals. `flake8` is configured in `.flake8`
 and enforced in CI.
 
+## Contributing
+
+Bug reports, questions and pull requests are welcome. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Citation
 
 If you use this code in academic work, please cite it:
