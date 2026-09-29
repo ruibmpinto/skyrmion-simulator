@@ -42,7 +42,12 @@ docs/stochastic_llgs/stochastic_llgs.pdf
 refs/
 
 # Manuscript sources: tracked in the manuscript repository, not here
-_paper/
+_paper*/
 
-# Local agent configuration
+# Local agent and editor configuration
 .claude/
+.vscode/
+
+# Local working notes and cluster run logs: kept on disk, never published
+tasks/
+CLUSTER_RUNS.md

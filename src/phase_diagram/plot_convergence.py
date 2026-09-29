@@ -42,7 +42,7 @@ from src.phase_diagram.plot_phase_diagram import _axes_units, load
 #
 #                                                   Authorship & Credits
 # =====================================================================
-__author__ = 'Rui Barreira (rui_pinto@brown.edu)'
+__author__ = 'Rui Barreira (rbarreira@ethz.ch)'
 __credits__ = ['Rui Barreira']
 __status__ = 'Development'
 

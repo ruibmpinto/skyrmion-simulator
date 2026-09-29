@@ -1,5 +1,5 @@
 #!/bin/bash
-# Submit every S41-S49 sweep to Euler as separate array jobs.
+# Submit every S41-S49 sweep to the SLURM cluster as separate array jobs.
 # Run from the project root: bash scripts/submit_S41_S49_all.sh
 #
 # All array jobs are independent; SLURM will schedule them in

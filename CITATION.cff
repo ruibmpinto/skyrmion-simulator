@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "skyrmion-simulator: Micromagnetic and stochastic LLGS simulator for skyrmions in synthetic antiferromagnets"
+type: software
+authors:
+  - family-names: Barreira
+    given-names: Rui
+    email: rbarreira@ethz.ch
+repository-code: "https://github.com/ruibmpinto/skyrmion-simulator"
+license: MIT
+date-released: "2026-09-29"
+keywords:
+  - micromagnetics
+  - skyrmions
+  - synthetic antiferromagnet
+  - stochastic LLGS
+  - spin-orbit torque

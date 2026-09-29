@@ -37,7 +37,7 @@ from src.simulator.parameters import default_params
 #
 #                                                          Authorship & Credits
 # =============================================================================
-__author__ = 'Rui Barreira (rui_pinto@brown.edu)'
+__author__ = 'Rui Barreira (rbarreira@ethz.ch)'
 __credits__ = ['Rui Barreira']
 __status__ = 'Development'
 

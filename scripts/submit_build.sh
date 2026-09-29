@@ -1,4 +1,4 @@
-cd <scratch>/skyrmion/src/simulator_cpp/
+cd "$(dirname "${BASH_SOURCE[0]}")/../src/simulator_cpp/"
 
 module load stack/.2024-06-silent gcc/12.2.0
 

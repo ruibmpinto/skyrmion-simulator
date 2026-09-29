@@ -45,7 +45,7 @@ from scripts.plot_pulse_ranking import _classify, _decode_config
 #
 #                                                          Authorship & Credits
 # =============================================================================
-__author__ = 'Rui Barreira (rui_pinto@brown.edu)'
+__author__ = 'Rui Barreira (rbarreira@ethz.ch)'
 __credits__ = ['Rui Barreira']
 __status__ = 'Development'
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Submit every stochastic-LLGS production scan (Q1-Q4) to Euler
+# Submit every stochastic-LLGS production scan (Q1-Q4) to the SLURM cluster
 # as separate array jobs. Run from the project root:
 #   bash scripts/submit_sllg_all.sh
 #

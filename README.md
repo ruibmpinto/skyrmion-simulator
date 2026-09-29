@@ -200,9 +200,38 @@ docstrings on every module, class and function, no type hints in
 signatures, no module-level globals. `flake8` is configured in `.flake8`
 and enforced in CI.
 
+## Citation
+
+If you use this code in academic work, please cite it:
+
+```bibtex
+@software{barreira_skyrmion_simulator_2026,
+  author  = {Barreira, Rui},
+  title   = {{skyrmion-simulator}: Micromagnetic and stochastic {LLGS}
+             simulator for skyrmions in synthetic antiferromagnets},
+  year    = {2026},
+  url     = {https://github.com/ruibmpinto/skyrmion-simulator},
+  license = {MIT}
+}
+```
+
+The same metadata is in [`CITATION.cff`](CITATION.cff), which GitHub
+exposes through the "Cite this repository" button.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
 
 `src/aux/libnpy/` is vendored third-party code under its own license; see
 `src/aux/libnpy/LICENSE`.
+
+The MIT license does not cover the published figures reproduced for
+benchmark comparison. They remain the copyright of their publishers and
+are included solely for scientific comparison:
+
+| File | Source |
+| --- | --- |
+| `docs/benchmarks/refs/ref_nist_sp4.png` | muMAG Standard Problem #4, NIST, <https://www.ctcms.nist.gov/~rdm/mumag.org.html> |
+| `docs/benchmarks/refs/ref_pham_s49.png` | V. T. Pham et al., Science 384, 307 (2024), Fig. S49, [doi:10.1126/science.add5751](https://doi.org/10.1126/science.add5751) |
+| `docs/benchmarks/refs/ref_gungordu_fig3.png` | U. Güngördü et al., Phys. Rev. B 93, 064428 (2016), Fig. 3, [doi:10.1103/PhysRevB.93.064428](https://doi.org/10.1103/PhysRevB.93.064428) |
+| `docs/benchmarks/refs/ref_tomasello_fig1b.png`, `docs/figures/validation/tomasello_fig1b_digitization.png`, `docs/figures/validation/tomasello_fig2_digitization.png` | R. Tomasello et al., Phys. Rev. B 97, 060402(R) (2018), Figs. 1(b) and 2, [doi:10.1103/PhysRevB.97.060402](https://doi.org/10.1103/PhysRevB.97.060402) |

@@ -36,8 +36,8 @@ from src.stochastic_llgs.stability import classify_field
 #
 #                                                          Authorship & Credits
 # =============================================================================
-__author__ = 'Rui Pinto (rui_pinto@brown.edu)'
-__credits__ = ['Rui Pinto', ]
+__author__ = 'Rui Barreira (rbarreira@ethz.ch)'
+__credits__ = ['Rui Barreira', ]
 __status__ = 'Development'
 # =============================================================================
 #
