@@ -1,5 +1,5 @@
 // S41 D-sweep, local-K_eff field model (no FFT demag). Port of
-// scripts/sweep_D_S41_local.py. Same protocol as sweep_D_S41 with the
+// studies/saf_racetrack/scripts/sweep_D_S41_local.py. Same protocol as sweep_D_S41 with the
 // field model pinned to K_eff.
 #include "skyrmion/sweep/sweep_common.hpp"
 

@@ -1,5 +1,5 @@
 /// \file
-/// LLGS time integration. Mirrors src/simulator/integrator.py.
+/// LLGS time integration. Mirrors src/skyrmion_simulator/simulator/integrator.py.
 ///
 /// Two RHS variants:
 ///   RHSLocalKeff : local-K_eff effective field (no explicit demag).

@@ -27,15 +27,15 @@ import sys
 # Third-party
 import numpy as np
 # Local
-from src.simulator.analysis import (
+from skyrmion_simulator.simulator.analysis import (
     dw_angle,
     skyrmion_ellipse,
 )
-from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rhs_local_keff, rk4_step
-from src.simulator.parameters import default_params
-from src.simulator.pulses import ConstantPulse
-from src.simulator.topological_torque import (
+from skyrmion_simulator.simulator.initial_conditions import saf_skyrmion
+from skyrmion_simulator.simulator.integrator import rhs_local_keff, rk4_step
+from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse
+from skyrmion_simulator.simulator.topological_torque import (
     sot_thiele_speed,
     tsh_thiele_speed,
 )

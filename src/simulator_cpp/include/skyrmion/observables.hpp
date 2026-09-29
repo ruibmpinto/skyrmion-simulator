@@ -1,7 +1,7 @@
 /// \file
 /// Skyrmion observables: topological charge, center, diameter, ellipse,
-/// domain-wall angle. Mirrors src/simulator/main.py::topological_charge
-/// and src/simulator/analysis.py.
+/// domain-wall angle. Mirrors src/skyrmion_simulator/simulator/main.py::topological_charge
+/// and src/skyrmion_simulator/simulator/analysis.py.
 #pragma once
 
 #include "skyrmion/types.hpp"

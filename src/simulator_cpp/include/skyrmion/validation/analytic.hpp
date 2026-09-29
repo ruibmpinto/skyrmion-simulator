@@ -1,6 +1,6 @@
 /// \file
 /// Closed-form targets for the stochastic-LLGS validation gates. These
-/// mirror the analytic formulas in src/stochastic_llgs/validation/*.py
+/// mirror the analytic formulas in src/skyrmion_simulator/stochastic_llgs/validation/*.py
 /// (Langevin magnetization, Neel-Brown reversal time, discrete magnon
 /// stiffness). They are deterministic and bit-checkable against Python.
 #pragma once

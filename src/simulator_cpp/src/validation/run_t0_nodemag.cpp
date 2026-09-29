@@ -1,5 +1,5 @@
 // T = 0 reproducibility gate, no demag. Port of
-// src/stochastic_llgs/validation/test_t0_limit_nodemag.py.
+// src/skyrmion_simulator/stochastic_llgs/validation/test_t0_limit_nodemag.py.
 //
 // Drives a SAF skyrmion twice: deterministic RK4 (rhs_local_keff) and
 // zero-noise Heun (sigma = 0, so the predictor-corrector degenerates to

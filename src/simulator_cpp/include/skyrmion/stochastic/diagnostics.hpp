@@ -1,7 +1,7 @@
 /// \file
 /// Trajectory post-processing: PBC unwrap, annihilation detection, and
 /// the linear-fit Hall angle. Port of the corresponding helpers in
-/// src/stochastic_llgs/diagnostics.py.
+/// src/skyrmion_simulator/stochastic_llgs/diagnostics.py.
 #pragma once
 
 #include "skyrmion/types.hpp"

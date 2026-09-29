@@ -1,7 +1,8 @@
 """Cross-check the C++ Newell kernel against the Python reference.
 
-Builds the same kernel via src.simulator.demag_newell at matching nx,
-ny, accuracy and compares the half-spectrum FFTW r2c slice element-wise.
+Builds the same kernel via skyrmion_simulator.simulator.demag_newell at
+matching nx, ny, accuracy and compares the half-spectrum FFTW r2c slice
+element-wise.
 
 Functions
 ---------
@@ -56,7 +57,8 @@ def main():
     # Build Python reference
     sys.path.insert(0, str(repo_root))
     from types import SimpleNamespace
-    from src.simulator.demag_newell import precompute_demag_kernels_newell
+    from skyrmion_simulator.simulator.demag_newell import \
+        precompute_demag_kernels_newell
     p = SimpleNamespace()
     p.nx = nx
     p.ny = ny

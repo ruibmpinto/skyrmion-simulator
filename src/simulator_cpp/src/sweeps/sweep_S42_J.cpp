@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S42: Gaussian pulses, FWHM=500 ps, J sweep.
-// Port of scripts/sweep_S42_J.py. One binary, grid baked in; SLURM
+// Port of studies/saf_racetrack/scripts/sweep_S42_J.py. One binary, grid baked in; SLURM
 // array (or full serial loop) picks the grid point(s).
 #include "skyrmion/sweep/sweep_common.hpp"
 

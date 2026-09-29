@@ -1,7 +1,7 @@
 /// \file
 /// Thermal-noise parameters and Joule self-heating for the stochastic
-/// LLGS solver. Mirrors src/stochastic_llgs/parameters_thermal.py and
-/// src/stochastic_llgs/joule_heating.py.
+/// LLGS solver. Mirrors src/skyrmion_simulator/stochastic_llgs/parameters_thermal.py and
+/// src/skyrmion_simulator/stochastic_llgs/joule_heating.py.
 #pragma once
 
 #include "skyrmion/parameters.hpp"

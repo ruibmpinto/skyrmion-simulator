@@ -1,6 +1,6 @@
 /// \file
 /// Stratonovich-Heun stepper for the stochastic SAF LLGS. Port of
-/// src/stochastic_llgs/integrator_sllg.py::heun_stochastic_step.
+/// src/skyrmion_simulator/stochastic_llgs/integrator_sllg.py::heun_stochastic_step.
 ///
 /// A predictor-corrector RK2 (NOT rk4_step): assemble H from m only,
 /// add the pre-sampled thermal field, evaluate llgs_rhs; the SAME

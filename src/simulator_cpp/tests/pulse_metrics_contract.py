@@ -22,11 +22,11 @@ _REPO = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO))
 
 # Local (after path setup)
-from src.simulator.pulses import (
+from skyrmion_simulator.simulator.pulses import (
     ConstantPulse, GaussianPulse, HalfSinePulse, SquarePulse,
     TrianglePulse,
 )
-from src.simulator.pulse_metrics import (
+from skyrmion_simulator.simulator.pulse_metrics import (
     analytic_action, analytic_charge, pulse_action, pulse_charge,
 )
 

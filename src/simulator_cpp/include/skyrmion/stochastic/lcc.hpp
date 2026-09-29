@@ -1,7 +1,7 @@
 /// \file
 /// Largest-connected-component (LCC) core diagnostics under periodic
 /// boundary conditions. Port of the LCC helpers in
-/// src/stochastic_llgs/diagnostics.py: a 4-connectivity labelling with
+/// src/skyrmion_simulator/stochastic_llgs/diagnostics.py: a 4-connectivity labelling with
 /// union-find fusion across both wraps, then the single largest
 /// component. These strip thermal-noise blobs from the
 /// diameter/centre estimates.
@@ -55,7 +55,7 @@ Center2D skyrmion_center_lcc_pbc(const Field3& m, Real a, int core_polarity);
 /// Major/minor diameters (D1 >= D2) and major-axis angle of the LCC
 /// via PBC-aware second moments. Thermal-noise-robust counterpart of
 /// skyrmion_ellipse. Raises if the LCC has fewer than 3 sites. Port of
-/// src/stochastic_llgs/diagnostics.py::skyrmion_ellipse_lcc.
+/// src/skyrmion_simulator/stochastic_llgs/diagnostics.py::skyrmion_ellipse_lcc.
 ///
 /// Site positions are unwrapped about the per-axis circular mean, so a
 /// component straddling a wrap collapses into one contiguous window

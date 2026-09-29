@@ -59,7 +59,7 @@ Theory, Implementation Plan, and Reasoning}
 \section{Motivation and questions to answer}
 %======================================================================
 
-The deterministic LLGS simulator in \texttt{src/simulator/} reproduces
+The deterministic LLGS simulator in \texttt{src/skyrmion\_simulator/simulator/} reproduces
 the $T = 0$ dynamics of a SAF skyrmion under SOT drive but cannot
 address the following physics questions:
 
@@ -231,7 +231,7 @@ constraint to machine precision.
 \subsection{Drive: SOT plus Joule heating}
 
 The drive is the existing Slonczewski damping-like plus field-like
-spin--orbit torque encoded in \texttt{src/simulator/integrator.py}:
+spin--orbit torque encoded in \texttt{src/skyrmion\_simulator/simulator/integrator.py}:
 %
 \begin{equation}
 \bm{\tau}_{\text{SOT}}(t) =
@@ -364,17 +364,17 @@ the rest of the ensemble.
 \subsection{Scope and constraints}
 
 \begin{itemize}[leftmargin=2em]
-    \item All new code lives in \texttt{src/stochastic\_llgs/}.
+    \item All new code lives in \texttt{src/skyrmion\_simulator/stochastic\_llgs/}.
     Existing files are \emph{read} and imported but never modified.
     \item Reuse \texttt{effective\_field} from
-    \texttt{src/simulator/fields.py}, \texttt{llgs\_rhs} from
-    \texttt{src/simulator/integrator.py}, and
+    \texttt{src/skyrmion\_simulator/simulator/fields.py}, \texttt{llgs\_rhs} from
+    \texttt{src/skyrmion\_simulator/simulator/integrator.py}, and
     \texttt{effective\_field\_demag\_pair} from
-    \texttt{src/phase\_diagram/fields\_demag.py}. Reuse
+    \texttt{src/skyrmion\_simulator/phase\_diagram/fields\_demag.py}. Reuse
     \texttt{skyrmion\_center} and \texttt{skyrmion\_diameter} from
-    \texttt{src/simulator/analysis.py}, \texttt{topological\_charge}
-    from \texttt{src/simulator/main.py}, and \texttt{saf\_skyrmion}
-    from \texttt{src/simulator/initial\_conditions.py}.
+    \texttt{src/skyrmion\_simulator/simulator/analysis.py}, \texttt{topological\_charge}
+    from \texttt{src/skyrmion\_simulator/simulator/main.py}, and \texttt{saf\_skyrmion}
+    from \texttt{src/skyrmion\_simulator/simulator/initial\_conditions.py}.
     \item No \texttt{argparse}. Every runnable module has a
     \texttt{main()} that opens with a labeled User Configuration
     block of snake\_case Python variables.
@@ -399,7 +399,7 @@ the rest of the ensemble.
 \subsection{File layout (new code only)}
 
 \begin{lstlisting}
-src/stochastic_llgs/
+src/skyrmion_simulator/stochastic_llgs/
   __init__.py
   parameters_thermal.py     # attach T, R_th, sigma to a p that
                             # the caller has already populated
@@ -432,7 +432,7 @@ src/stochastic_llgs/
     fields_jax.py
     integrator_diffrax.py
 
-scripts/
+studies/saf_racetrack/scripts/
   submit_sllg_scan_tj.sh        # SLURM array, 1 cpu/task,
   submit_sllg_scan_arrhenius.sh #     %1000 throttle
   submit_sllg_scan_radius.sh    # 8 cpus/task (scipy.fft demag)
@@ -490,11 +490,11 @@ The stochastic stepper accepts an optional
 calls \texttt{effective\_field} (no demag) for each layer. When a
 populated dict from \texttt{precompute\_demag\_kernels(p)} is
 supplied, the stepper calls \texttt{effective\_field\_demag\_pair}
-from \texttt{src/phase\_diagram/fields\_demag.py}.
+from \texttt{src/skyrmion\_simulator/phase\_diagram/fields\_demag.py}.
 
 \textbf{Phase 3a (no-demag baseline).} Set $T=0$,
 \texttt{demag\_kernels=None}, and run the same SOT-driven analysis
-as \texttt{src/simulator/analysis.py:run\_analysis}. \textbf{Pass:}
+as \texttt{src/skyrmion\_simulator/simulator/analysis.py:run\_analysis}. \textbf{Pass:}
 equilibrium diameter, drift velocity, Hall angle, $Q$ each agree
 with the deterministic RK4 to within 2\%.
 
@@ -539,7 +539,7 @@ existing code is modified. \textbf{Pass:} 2\% on each observable.
 Shared configuration: lattice $256 \times 256$,
 $\Delta t = 5\times 10^{-14}$~s. Joule heating is uniform and
 global, $T = T_{\text{sub}} + R_{\text{th}} \jcur^2$. Material
-defaults set in \texttt{src/simulator/parameters.py}: $D = 0.85
+defaults set in \texttt{src/skyrmion\_simulator/simulator/parameters.py}: $D = 0.85
 \times 10^{-3}$~J/m$^2$ (updated from the Pham 2024 Set A value
 of $0.62 \times 10^{-3}$), $R_{\text{sk}} = 93.25$~nm, $dw = 27$~nm.
 All $T$ values held to $T \le 350$~K in the user-config blocks (see
@@ -658,7 +658,7 @@ $\kB T / 2$ within 20\% for modes with $k < \pi/(4a)$.
 \subsection{$T=0$ deterministic limit (Phase 3a, no demag)}
 
 Set $T = 0$, \texttt{demag\_kernels = None}, and run the same
-SOT-driven analysis as \texttt{src/simulator/analysis.py:run\_analysis}.
+SOT-driven analysis as \texttt{src/skyrmion\_simulator/simulator/analysis.py:run\_analysis}.
 \textbf{Pass:} equilibrium diameter, drift velocity, Hall angle, and
 $Q$ each agree with the deterministic RK4 to within 2\%.
 
@@ -714,12 +714,12 @@ flat trajectory grid (one entry per (cell, ens\_idx)). At run time
 it reads \texttt{SLURM\_ARRAY\_TASK\_ID}; if set, the script
 restricts the grid to that single index and runs exactly one
 trajectory. Out-of-range indices raise \texttt{RuntimeError}. This
-matches the pattern of \texttt{scripts/sweep\_S41\_v\_time.py} and
+matches the pattern of \texttt{studies/saf\_racetrack/scripts/sweep\_S41\_v\_time.py} and
 the other figure-reproduction sweeps. Each task writes its own
 NPZ to \texttt{output/stochastic\_llgs/<scan>/}, named by the cell
 coordinates and the ensemble index.
 
-\paragraph{Submit scripts.} One \texttt{scripts/submit\_sllg\_<scan>.sh}
+\paragraph{Submit scripts.} One \texttt{studies/saf\_racetrack/scripts/submit\_sllg\_<scan>.sh}
 per scan, plus a master \texttt{submit\_sllg\_all.sh} that dispatches
 all four. Per-task resource layout:
 \begin{itemize}[leftmargin=2em, nosep]
@@ -728,7 +728,7 @@ all four. Per-task resource layout:
     \texttt{--array=0-N\%1000} concurrency cap (N = 1349, 1799).
     \item \texttt{scan\_radius}, \texttt{pair\_potential}: demag ON,
     \texttt{scipy.fft.fft2(workers=-1)} threading in
-    \texttt{src/simulator/demag.py}, so
+    \texttt{src/skyrmion\_simulator/simulator/demag.py}, so
     \texttt{--cpus-per-task=8} and no throttle (N = 119).
 \end{itemize}
 All four set \texttt{SWEEP\_NPROC=1} (one trajectory per task; the
@@ -740,11 +740,11 @@ runs).
     \item Pull per-trajectory NPZs from the cluster
     (\texttt{rsync ... <cluster>:<scratch>/skyrmion/output/}
     \texttt{stochastic\_llgs/}).
-    \item \texttt{python -m scripts.aggregate\_sllg <scan>} walks
+    \item \texttt{python -m studies.saf\_racetrack.scripts.aggregate\_sllg <scan>} walks
     the per-task files and writes
     \texttt{aggregate.npz} (one script, one positional argument
     selecting the scan; no argparse).
-    \item \texttt{python -m scripts.analyze\_sllg\_<scan>} reads
+    \item \texttt{python -m studies.saf\_racetrack.scripts.analyze\_sllg\_<scan>} reads
     the aggregate, produces the per-question figure and the
     answer NPZ (Pareto front, Arrhenius fit, $v(R)$ +
     inter-layer offset, $V(r)$).
@@ -775,10 +775,10 @@ runs).
     estimate total cost of the production grid. If above budget,
     trigger Phase 6.
     \item \textbf{Production scans.} Submit
-    \texttt{scripts/submit\_sllg\_all.sh} on the cluster.
+    \texttt{studies/saf\_racetrack/scripts/submit\_sllg\_all.sh} on the cluster.
     \item \textbf{Aggregate + analyze.}
-    \texttt{python -m scripts.aggregate\_sllg <scan>} then
-    \texttt{python -m scripts.analyze\_sllg\_<scan>} for each scan.
+    \texttt{python -m studies.saf\_racetrack.scripts.aggregate\_sllg <scan>} then
+    \texttt{python -m studies.saf\_racetrack.scripts.analyze\_sllg\_<scan>} for each scan.
     Per-figure outputs land in \texttt{output/figures\_sllg/}.
     Q4 is answered jointly from \texttt{scan\_tj} (driven survival
     and Pareto front) and \texttt{scan\_arrhenius} (zero-drive

@@ -1481,7 +1481,7 @@ form~\cite{khvalkovskiy2013}; the cross-coupling between DL and FL
 through $\alpha$ arises entirely from
 Step~3's $\alpha\,\mb{m}\times\mb{F}$ term and vanishes at $\alpha=0$.
 %
-The implementation in \texttt{src/simulator/integrator.py}
+The implementation in \texttt{src/skyrmion\_simulator/simulator/integrator.py}
 (\texttt{llgs\_rhs}) precomputes
 $\gamma' = \gamma/(1+\alpha^2)$,
 $c_{\text{DL}} = H_{\text{DL}} + \alpha H_{\text{FL}}$,
@@ -2091,7 +2091,7 @@ everywhere and absorbs the demag into the anisotropy:
 \Keff = K - \frac{1}{2}\mu_0 \Ms^2.
 \end{equation}
 %
-The main RK4 loop in \texttt{src/simulator/main.py} uses this
+The main RK4 loop in \texttt{src/skyrmion\_simulator/simulator/main.py} uses this
 approximation; it never calls \texttt{demag.py}. It is dimensionally
 correct only when:
 \begin{enumerate}[leftmargin=2em, nosep]
@@ -2103,7 +2103,7 @@ The second assumption \textbf{fails inside the domain wall}, where
 $\mb{m}$ is in-plane, creates surface magnetic charges, and induces
 non-local stray fields between in-plane spins.
 
-The full FFT demag (in \texttt{src/simulator/demag.py}) computes
+The full FFT demag (in \texttt{src/skyrmion\_simulator/simulator/demag.py}) computes
 $\hat N(\mb{k})$ exactly via FFT, including in-plane components and
 the inter-layer dipolar kernel across the Ru spacer. MuMax3 does
 this by default; the simulator's main loop does not. This is the
@@ -2435,7 +2435,7 @@ is available but disabled, $R_\mathrm{th}=0$, in the baseline runs).
 \centering
 \small
 \caption{Campaign~II: finite-temperature stochastic-LLGS scans
-(\texttt{src/stochastic\_llgs/production/}). Each scan answers one
+(\texttt{src/skyrmion\_simulator/stochastic\_llgs/production/}). Each scan answers one
 open question of Sec.~\ref{sec:gap}.}
 \label{tab:campaign2}
 \begin{tabular}{@{}lllc@{}}
@@ -3490,7 +3490,7 @@ and the unit-norm constraint $|\mb{m}|=1$ is conserved
 introduces a small $\mathcal{O}(\Delta t^5)$ drift that is removed
 by an explicit renormalization step
 $\mb{m} \leftarrow \mb{m}/|\mb{m}|$ at the end of each step (see
-\texttt{normalize()} in \texttt{src/simulator/integrator.py}).
+\texttt{normalize()} in \texttt{src/skyrmion\_simulator/simulator/integrator.py}).
 
 %======================================================================
 \begin{thebibliography}{1}

@@ -1,8 +1,8 @@
 # Simulator validation report
 
-Cross-checks of the SAF skyrmion simulator (`src/simulator/`),
-the phase-diagram pipeline (`src/phase_diagram/`), and the
-stochastic-LLGS module (`src/stochastic_llgs/`) against
+Cross-checks of the SAF skyrmion simulator (`src/skyrmion_simulator/simulator/`),
+the phase-diagram pipeline (`src/skyrmion_simulator/phase_diagram/`), and the
+stochastic-LLGS module (`src/skyrmion_simulator/stochastic_llgs/`) against
 published references. Each test lives in a `validation/`
 sub-folder of the corresponding module and is runnable as
 `python -m <module>.validation.<test>`.
@@ -20,7 +20,7 @@ For every benchmark this report records:
 
 A guiding rule for the whole suite: **the benchmark wires up
 its own parameters and geometry, but the physics it exercises
-is the production code in `src/simulator` / `src/stochastic_llgs`
+is the production code in `src/skyrmion_simulator/simulator` / `src/skyrmion_simulator/stochastic_llgs`
 (field assembly, integrators, torques).** Where a benchmark
 seems to re-implement physics it is a thin wrapper delegating
 to a production function; this is noted per test.
@@ -172,13 +172,13 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   function of R/Δ at fixed Δ = 24.5 nm: the SOT-driven speed
   v_SOT = π H_DL R γ / (2α(R/Δ+Δ/R)) and the topological-spin-
   Hall speed v_TSH (λ² = 3, 50 nm²). Production driver:
-  `scripts/sweep_S49_TSH.py`.
+  `studies/saf_racetrack/scripts/sweep_S49_TSH.py`.
 - **Material parameters (Set B)**: α = 0.216, γ = 175.9 GHz/T,
   D = 0.62 mJ/m², Δ = 24.5 nm, R/Δ = 1…5 (imposed), λ² ∈
   {3, 50} nm². Analytic curves at the paper's J0 = 8×10¹¹.
 - **Setup**: (1) **analytic gate** — evaluate the production
   `sot_thiele_speed` and `tsh_thiele_speed`
-  (`src/simulator/topological_torque.py`) over R/Δ = 1…5 and
+  (`src/skyrmion_simulator/simulator/topological_torque.py`) over R/Δ = 1…5 and
   check them against the independently-derived closed form,
   monotonicity/saturation, and λ² linearity. (2) **LLGS
   spot-check** — relax one SAF skyrmion, drive with DC SOT,
@@ -440,23 +440,23 @@ Stratonovich-Heun integrator) that #8 relies on:
 ## How to reproduce
 ```bash
 # simulator core
-python -m src.simulator.validation.test_dmi_standard_problem
-python -m src.simulator.validation.test_skyrmion_profile_bh
-python -m src.simulator.validation.test_mumag_sp4
-python -m src.simulator.validation.test_mumag_sp5
-python -m src.simulator.validation.test_dw_profile_1d
-python -m src.simulator.validation.test_fmr_dispersion
-python -m src.simulator.validation.test_thiele_v_sot
+python -m skyrmion_simulator.simulator.validation.test_dmi_standard_problem
+python -m skyrmion_simulator.simulator.validation.test_skyrmion_profile_bh
+python -m skyrmion_simulator.simulator.validation.test_mumag_sp4
+python -m skyrmion_simulator.simulator.validation.test_mumag_sp5
+python -m skyrmion_simulator.simulator.validation.test_dw_profile_1d
+python -m skyrmion_simulator.simulator.validation.test_fmr_dispersion
+python -m skyrmion_simulator.simulator.validation.test_thiele_v_sot
 # phase diagram (sweeps are cluster array jobs)
-python -m src.phase_diagram.validation.test_confined_skyrmion_radius_rt2013
-python -m src.phase_diagram.validation.plot_gungordu_overlay
-python -m src.phase_diagram.validation.banerjee_critical_field
+python -m skyrmion_simulator.phase_diagram.validation.test_confined_skyrmion_radius_rt2013
+python -m skyrmion_simulator.phase_diagram.validation.plot_gungordu_overlay
+python -m skyrmion_simulator.phase_diagram.validation.banerjee_critical_field
 # stochastic-LLGS
-python -m src.stochastic_llgs.validation.test_brown_reversal
-python -m src.stochastic_llgs.validation.test_langevin
-python -m src.stochastic_llgs.validation.test_equipartition
-python -m src.stochastic_llgs.validation.test_skyrmion_arrhenius        # reads cluster aggregate
-python -m src.stochastic_llgs.validation.test_skyrmion_arrhenius_dtrend # #8b
+python -m skyrmion_simulator.stochastic_llgs.validation.test_brown_reversal
+python -m skyrmion_simulator.stochastic_llgs.validation.test_langevin
+python -m skyrmion_simulator.stochastic_llgs.validation.test_equipartition
+python -m skyrmion_simulator.stochastic_llgs.validation.test_skyrmion_arrhenius        # reads cluster aggregate
+python -m skyrmion_simulator.stochastic_llgs.validation.test_skyrmion_arrhenius_dtrend # #8b
 ```
 Initial-condition and result figures are written to
 `docs/figures/validation/` when each test runs.

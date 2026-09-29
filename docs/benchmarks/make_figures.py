@@ -2,9 +2,10 @@
 
 Every figure is drawn with a SQUARE plotting area (set_box_aspect)
 and NO grid, per the benchmarks document spec. The physics is the
-production code in src/simulator, src/phase_diagram and
-src/stochastic_llgs; this script only re-wires the per-benchmark
-driver (initial condition, relaxation/integration, measurement)
+production code in src/skyrmion_simulator/simulator,
+src/skyrmion_simulator/phase_diagram and
+src/skyrmion_simulator/stochastic_llgs; this script only re-wires the
+per-benchmark driver (initial condition, relaxation/integration, measurement)
 already validated by the corresponding validation test, importing
 each test's parameter and measurement helpers so no physics is
 re-implemented here.
@@ -39,35 +40,37 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 # Local (production)
-from src.phase_diagram.relaxation import relax
-from src.phase_diagram.sweep import _build_ic
-from src.simulator.demag import precompute_demag_kernels
-from src.simulator.fields import effective_field
-from src.simulator.initial_conditions import (
+from skyrmion_simulator.simulator.relaxation import relax
+from skyrmion_simulator.phase_diagram.sweep import _build_ic
+from skyrmion_simulator.simulator.demag import precompute_demag_kernels
+from skyrmion_simulator.simulator.fields import effective_field
+from skyrmion_simulator.simulator.initial_conditions import (
     saf_skyrmion, skyrmion_profile, uniform_state)
-from src.simulator.integrator import llgs_rhs, rk4_step, rk4_step_single
-from src.simulator.lattice import disk_mask, rect_mask
-from src.simulator.parameters import default_params
-from src.simulator.pulses import ConstantPulse
-from src.simulator.topological_torque import (
+from skyrmion_simulator.simulator.integrator import llgs_rhs, rk4_step, \
+    rk4_step_single
+from skyrmion_simulator.simulator.lattice import disk_mask, rect_mask
+from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse
+from skyrmion_simulator.simulator.topological_torque import (
     sot_thiele_speed, tsh_thiele_speed)
-from src.simulator.validation._helpers import (
+from skyrmion_simulator.simulator.validation._helpers import (
     integrate_single_fm, make_single_fm_params, radial_profile,
     relax_single_fm)
 # Local (validation-test param/measurement helpers; no physics)
-from src.phase_diagram.validation.test_confined_skyrmion_radius_rt2013 \
-    import _make_rt_params, _measure_Rs
-from src.simulator.validation.test_dmi_standard_problem import (
+from skyrmion_simulator.phase_diagram.validation \
+    .test_confined_skyrmion_radius_rt2013 import _make_rt_params, _measure_Rs
+from skyrmion_simulator.simulator.validation.test_dmi_standard_problem import (
     CO_DATA_DIR, _co_2d_params, _measure_rsk_along_radius)
-from src.simulator.validation.test_dw_profile_1d import _make_dw_params
-from src.simulator.validation.test_mumag_sp4 import (
+from skyrmion_simulator.simulator.validation.test_dw_profile_1d import \
+    _make_dw_params
+from skyrmion_simulator.simulator.validation.test_mumag_sp4 import (
     _make_sp4_params, _relax_single_layer, _rk4_single_layer)
-from src.simulator.validation.test_mumag_sp5 import (
+from skyrmion_simulator.simulator.validation.test_mumag_sp5 import (
     _make_sp5_params, _relax_vortex, _rk4_zhang_li)
-from src.simulator.validation.test_thiele_v_sot import (
+from skyrmion_simulator.simulator.validation.test_thiele_v_sot import (
     _make_set_B_params, _rhs_saf_demag)
-from src.stochastic_llgs.validation.test_skyrmion_arrhenius import \
-    censored_tau
+from skyrmion_simulator.stochastic_llgs.validation.test_skyrmion_arrhenius \
+    import censored_tau
 
 #
 #                                                          Authorship & Credits
@@ -846,7 +849,7 @@ def fig_sp4():
         nx = int(round(pad * Lx_mag / a))
         ny = int(round(pad * Ly_mag / a))
         dt = 5.0e-14
-        from src.simulator.lattice import rect_mask
+        from skyrmion_simulator.simulator.lattice import rect_mask
         p = _make_sp4_params(alpha=0.02, nx=nx, ny=ny, a=a, dt=dt)
         mask = rect_mask(nx=nx, ny=ny, a=a, Lx=Lx_mag, Ly=Ly_mag)
         kernels = precompute_demag_kernels(

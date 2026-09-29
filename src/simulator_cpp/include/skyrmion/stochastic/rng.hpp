@@ -1,6 +1,6 @@
 /// \file
 /// Thermal-noise RNG: stateless counter-based per-site generator.
-/// Mirrors src/stochastic_llgs/thermal_field.py::sample_thermal_field.
+/// Mirrors src/skyrmion_simulator/stochastic_llgs/thermal_field.py::sample_thermal_field.
 ///
 /// Each Gaussian sample is derived from a splitmix64 hash of the counter
 /// (seed, draw_index, site_index) via Box-Muller, so the noise is

@@ -55,21 +55,26 @@ def main():
     """Run the Python error-contract checks."""
     repo = pathlib.Path(__file__).resolve().parents[3]
     sys.path.insert(0, str(repo))
-    from src.simulator.parameters import _precompute, default_params
-    from src.simulator.pulses import (
+    from skyrmion_simulator.simulator.parameters import _precompute, \
+        default_params
+    from skyrmion_simulator.simulator.pulses import (
         SquarePulse, GaussianPulse, SuperpositionPulse,
         TrianglePulse, HalfSinePulse)
-    from src.simulator.initial_conditions import (
+    from skyrmion_simulator.simulator.initial_conditions import (
         skyrmion_profile, uniform_state)
-    from src.simulator.analysis import (
+    from skyrmion_simulator.simulator.analysis import (
         skyrmion_center, skyrmion_diameter, skyrmion_ellipse, dw_angle)
-    from src.simulator.integrator import normalize
-    from src.simulator.energy import critical_dmi, pma_anisotropy_field
-    from src.simulator.demag import precompute_demag_kernels
-    from src.simulator.demag_newell import precompute_demag_kernels_newell
-    from src.stochastic_llgs.diagnostics import skyrmion_center_pbc
-    from src.phase_diagram.relaxation import relax
-    from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
+    from skyrmion_simulator.simulator.integrator import normalize
+    from skyrmion_simulator.simulator.energy import critical_dmi, \
+        pma_anisotropy_field
+    from skyrmion_simulator.simulator.demag import precompute_demag_kernels
+    from skyrmion_simulator.simulator.demag_newell import \
+        precompute_demag_kernels_newell
+    from skyrmion_simulator.stochastic_llgs.diagnostics import \
+        skyrmion_center_pbc
+    from skyrmion_simulator.simulator.relaxation import relax
+    from skyrmion_simulator.stochastic_llgs.integrator_sllg import \
+        heun_stochastic_step
 
     res = []
     # ---- Pulses --------------------------------------------------------------

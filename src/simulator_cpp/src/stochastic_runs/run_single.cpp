@@ -1,5 +1,5 @@
 // Single-trajectory stochastic-LLGS production runner. Port of
-// scripts/.../production/run_single.py::main. Run config = named
+// studies/saf_racetrack/scripts/.../production/run_single.py::main. Run config = named
 // variables at the top of main(); no argparse. Optional snapshot dump
 // for animating the thermal trajectory.
 #include "skyrmion/io_npz.hpp"

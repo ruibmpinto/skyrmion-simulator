@@ -5,7 +5,7 @@ antiferromagnets.pdf`, supplementary sections 1.4–1.8 (pages ~30–40).
 
 This document lists every figure to reproduce, the parameter set
 each uses, the sweep variable(s), the observables computed, and
-what the simulator (`src/simulator/`) still needs to support.
+what the simulator (`src/skyrmion_simulator/simulator/`) still needs to support.
 
 ---
 
@@ -13,7 +13,7 @@ what the simulator (`src/simulator/`) still needs to support.
 
 ### Set A — "Table S2 + adjusted DMI" (used for S41–S47)
 
-Matches `src/simulator/parameters.default_params()` *except* `D`:
+Matches `src/skyrmion_simulator/simulator/parameters.default_params()` *except* `D`:
 
 | Symbol         | Value                  | Notes                          |
 |----------------|------------------------|--------------------------------|
@@ -143,7 +143,7 @@ charge-density maps; we already have those from
 - **Total:** 9 × 2 = **18 runs**.
 - **Simulator status:**
   - **New initial condition:** `domain_wall(nx, ny, a, w)` in
-    `src/simulator/initial_conditions.py` — a stripe domain
+    `src/skyrmion_simulator/simulator/initial_conditions.py` — a stripe domain
     crossing the track, with one Néel DW in the middle.
   - **Track geometry:** use the existing PBC lattice but tile so
     the DW is far from itself across the PBC.
@@ -243,14 +243,14 @@ charge-density maps; we already have those from
 
 ### Post-processing scripts needed
 
-1. `scripts/sweep_J.py` — drives the J sweeps (S42, S43b, S44,
+1. `studies/saf_racetrack/scripts/sweep_J.py` — drives the J sweeps (S42, S43b, S44,
    S45, S47).
-2. `scripts/sweep_pulse_width.py` — drives the FWHM sweeps (S43a,
+2. `studies/saf_racetrack/scripts/sweep_pulse_width.py` — drives the FWHM sweeps (S43a,
    S46b).
-3. `scripts/sweep_HRKKY.py` — drives the H_RKKY sweeps (S46a,
+3. `studies/saf_racetrack/scripts/sweep_HRKKY.py` — drives the H_RKKY sweeps (S46a,
    S47ii, S48).
-4. `scripts/fit_inertia.py` — exponential fit of v(t) for S48c.
-5. `scripts/plot_S41.py` … `scripts/plot_S49.py` — one plotting
+4. `studies/saf_racetrack/scripts/fit_inertia.py` — exponential fit of v(t) for S48c.
+5. `studies/saf_racetrack/scripts/plot_S41.py` … `studies/saf_racetrack/scripts/plot_S49.py` — one plotting
    script per figure (or a single dispatcher).
 
 ### Output layout (proposed)
@@ -287,7 +287,7 @@ output/
 2. **Demag:** the paper uses full FFT demag (MuMax3). Our main
    loop uses the local $K_{\text{eff}}$ approximation. Do we
    reproduce S41–S49 with local-demag or with full FFT demag
-   (`src/phase_diagram/fields_demag.py`)? Full demag is more
+   (`src/skyrmion_simulator/phase_diagram/fields_demag.py`)? Full demag is more
    faithful but 10× slower.
 
    Answer: Full demag. 
@@ -315,7 +315,7 @@ output/
 6. **Compute budget:** ~96 dynamics runs at 30 s–5 min each
    depending on lattice size and demag choice. Run locally
    serially (~few hours) or use the HPC array template
-   (`scripts/submit_sweep_array.sh`)?
+   (`studies/saf_racetrack/scripts/submit_sweep_array.sh`)?
 
    Answer: both should be possible.
 

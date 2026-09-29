@@ -19,10 +19,25 @@ angle vanishes.
 
 ## Code organisation
 
-The code separates into three layers of decreasing generality.
+The repository holds an installable Python package, a C++ port, and one
+research study built on the package.
 
-**Solver.** `src/simulator/` and `src/stochastic_llgs/` implement
-general micromagnetics. Each field term acts on one layer —
+```text
+src/skyrmion_simulator/   installable package (pip install .)
+  simulator/              deterministic solver
+  stochastic_llgs/        finite-temperature solver
+  phase_diagram/          ground-state phase-diagram pipeline
+src/simulator_cpp/        C++17 port of the SAF production path
+src/aux/libnpy/           vendored npy/npz I/O for the C++ port
+studies/saf_racetrack/    SAF racetrack study, not installed
+tests/                    cross-implementation regression tests
+docs/                     theory, benchmark report, study write-ups
+```
+
+The package separates into three layers of decreasing generality.
+
+**Solver.** `skyrmion_simulator.simulator` and
+`skyrmion_simulator.stochastic_llgs` implement general micromagnetics. Each field term acts on one layer —
 `exchange_field(m, ...)`, `dmi_field(m, ...)`, `anisotropy_field(m, ...)`,
 `zeeman_field(...)` — and `effective_field` assembles them for one
 layer. `llgs_rhs` and `rk4_step_single` advance one layer. No module in
@@ -34,29 +49,28 @@ H_RKKY)`, together with the pair wrappers
 two-block demag kernel. Passing `None` as the partner layer reduces
 these to the single-layer solver; passing an array gives the bilayer.
 
-**Application.** `src/phase_diagram/`, `src/orchestrator/`, most of
-`scripts/`, and the racetrack geometry, track-width campaign, pulse
-protocols, equilibration-to-plateau criterion and stability classifier
-constitute one study built on the solver rather than part of it.
+**Phase diagrams.** `skyrmion_simulator.phase_diagram` sweeps two
+parameters over a registry of axes, relaxes each cell from an ensemble
+of initial conditions and classifies the ground state.
+
+**Study.** `studies/saf_racetrack/` is one research application built on
+the package: the racetrack geometry, track-width campaign, pulse
+protocols, equilibration-to-plateau criterion, stability classifier and
+all sweep, analysis and SLURM scripts. It is not installed. See
+[`studies/saf_racetrack/README.md`](studies/saf_racetrack/README.md).
 
 The generality of the solver layer is established by the single-layer
 literature benchmarks listed below, which run with no partner layer and
-no RKKY coupling. `src/simulator/validation/_helpers.py` provides the
+no RKKY coupling.
+`skyrmion_simulator.simulator.validation._helpers` provides the
 corresponding single-layer entry points `make_single_fm_params`,
 `relax_single_fm` and `integrate_single_fm`.
 
-| Path | Layer | Contents |
-| --- | --- | --- |
-| `src/simulator/` | solver | Lattice, field terms, energy, demag (Newell and slab kernels), RK4 integrator, pulse waveforms, observables |
-| `src/stochastic_llgs/` | solver | Thermal field, stochastic Heun integrator, Joule heating, skyrmion tracking |
-| `src/phase_diagram/` | application | Ground-state relaxation sweeps and phase classification |
-| `src/orchestrator/` | application | Run driver, observers and I/O for pulsed-drive experiments |
-| `src/plots/` | application | Shared plotting helpers and figure styles |
-| `src/simulator_cpp/` | production | C++17 port of the SAF path, for cluster campaigns. See its own `README.md` |
-| `src/aux/libnpy/` | vendored | Third-party npy/npz I/O. See `src/aux/README.md` |
-| `scripts/` | application | Sweep drivers, analysis and plotting, SLURM submission |
-| `tests/` | — | Cross-implementation regression tests |
-| `docs/` | — | Theory notes, benchmark report, study write-ups (LaTeX and Markdown) |
+| Module | Contents |
+| --- | --- |
+| `simulator` | Lattice, field terms, energy, demag (Newell and slab kernels), RK4 integrator, relaxation, pulse waveforms, observables |
+| `stochastic_llgs` | Thermal field, stochastic Heun integrator, Joule heating, skyrmion tracking |
+| `phase_diagram` | Ground-state relaxation sweeps and phase classification |
 
 The Python package is the reference implementation: readable, validated
 against the literature, and where new physics is prototyped. The C++ port
@@ -64,8 +78,13 @@ covers the SAF production path only and is pinned to Python by parity
 tests; it is not a general solver. See `src/simulator_cpp/README.md` for
 what it does and does not support.
 
-Simulation output is written to `output/` and is not tracked; reference
-literature lives in `refs/` and is likewise untracked.
+Simulation output is written to `output/` at the repository root and is
+not tracked. Scripts read their inputs from the same folder, so to keep
+data on another disk, make `output` a symbolic link to it:
+
+```bash
+ln -s /path/to/data/output output
+```
 
 ## Single layer or bilayer
 
@@ -87,23 +106,27 @@ The parameter names carry the SAF stack the code was built for
 returns that stack's measured values. They are defaults, not
 assumptions: override them for any other material.
 
-## Requirements
+## Installation
 
-Everything for both halves, including CMake and FFTW3:
+Python package, from the repository root:
+
+```bash
+pip install .            # or: pip install -e ".[test]" for development
+```
+
+This needs Python >= 3.10 and installs `numpy`, `scipy` and
+`matplotlib`; the `test` extra adds `pytest`.
+
+Everything for both the Python package and the C++ port, including
+CMake and FFTW3:
 
 ```bash
 conda env create -f environment.yml
 conda activate skyrmion-simulator
+pip install -e .
 ```
 
-Python only:
-
-```bash
-pip install -r requirements.txt
-```
-
-The Python side needs `numpy`, `scipy`, `matplotlib` and `pytest`. The
-C++ side additionally needs CMake >= 3.20, a C++17 compiler, FFTW3
+The C++ side additionally needs CMake >= 3.20, a C++17 compiler, FFTW3
 (double precision, >= 3.3.8) and optionally OpenMP; `pip` cannot supply
 those, so use the conda environment or a system package manager. Full
 build instructions are in
@@ -115,13 +138,14 @@ Deterministic Python run, configured by the variables at the top of
 `main()`:
 
 ```bash
-python -m src.simulator.main
+python -m skyrmion_simulator.simulator.main
 ```
 
-Finite-temperature run:
+Study scripts run as modules from the repository root, for example:
 
 ```bash
-python -m src.stochastic_llgs.experiments.run_single
+python -m studies.saf_racetrack.experiments.run_single
+python -m studies.saf_racetrack.scripts.plot_track_width
 ```
 
 C++ production run:
@@ -139,13 +163,14 @@ C++ sweep and scan binaries follow the same convention.
 ## Tests and validation
 
 ```bash
-python -m pytest tests src/simulator/validation \
-    src/stochastic_llgs/validation src/phase_diagram/validation
+python -m pytest tests
+python -m pytest src/skyrmion_simulator/simulator/validation \
+    src/skyrmion_simulator/stochastic_llgs/validation \
+    src/skyrmion_simulator/phase_diagram/validation
 cd src/simulator_cpp && python tests/run_tests.py
 ```
 
-Invoke pytest as `python -m pytest` from the repository root: the tests
-import `src.*` and rely on the root being on `sys.path`.
+The tests import the installed package, so install it first.
 
 `tests/` holds cross-implementation regression tests (demag kernel
 equivalence, observables, pulse refactor parity). The `validation/`
@@ -199,6 +224,11 @@ Python follows the project style guide: 80-column lines, NumPy-style
 docstrings on every module, class and function, no type hints in
 signatures, no module-level globals. `flake8` is configured in `.flake8`
 and enforced in CI.
+
+## Contributing
+
+Bug reports, questions and pull requests are welcome. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Citation
 

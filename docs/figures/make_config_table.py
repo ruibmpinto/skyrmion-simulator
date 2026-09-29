@@ -25,7 +25,7 @@ from matplotlib.colors import Normalize
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 # Local
-from scripts.plot_track_width import _load_anim
+from studies.saf_racetrack.scripts.plot_track_width import _load_anim
 
 #
 #                                                          Authorship & Credits
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     run_tag = 'box350x500_racetrack_D0p545'
     here = os.path.dirname(os.path.abspath(__file__))
     repo = os.path.abspath(os.path.join(here, '..', '..'))
-    dump_dir = ('/Volumes/T7/skyrmion_simulator/output/'
+    dump_dir = ('output/'
                 'stochastic_llgs/scan_track_width/' + run_tag)
     z = np.load(os.path.join(
         repo, 'output/stochastic_llgs/scan_track_width',

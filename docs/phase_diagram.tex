@@ -11,6 +11,7 @@
 % Search the standard output directory for figures from
 % whichever working dir pdflatex was invoked from.
 \graphicspath{
+    {figures/}
     {../output/phase_diagram/}
     {output/phase_diagram/}
 }
@@ -484,7 +485,7 @@ deliberately seeds the parallel-locked manifold.
     $H_z$-driven antiparallel $\to$ parallel spin-flop.
 \item \texttt{skyrmion}: a single N\'{e}el SAF skyrmion
     (\texttt{saf\_skyrmion} from
-    \texttt{src/simulator/initial\_conditions.py}). Seeds
+    \texttt{src/skyrmion\_simulator/simulator/initial\_conditions.py}). Seeds
     the iSk basin.
 \item \texttt{stripe}: a 1D helical stripe along $\hat{x}$
     of pitch $\lambda = 4\pi \Aex / D$ (the natural DMI
@@ -509,7 +510,7 @@ deliberately seeds the parallel-locked manifold.
 \end{itemize}
 
 The IC builders are in
-\texttt{src/phase\_diagram/initial\_conditions\_ext.py}.
+\texttt{src/skyrmion\_simulator/phase\_diagram/initial\_conditions\_ext.py}.
 Figure~\ref{fig:ic_gallery} renders each IC at one
 representative point in the phase plane along with the
 classifier's verdict on the unrelaxed state.
@@ -566,7 +567,7 @@ the antiparallel FM rather than to the parallel FM.
 
 The sweep iterates over a grid of two configurable axes
 $(\text{axis}_x, \text{axis}_y)$ chosen from the registry
-\texttt{src/phase\_diagram/axis\_specs.py::axes}.
+\texttt{src/skyrmion\_simulator/phase\_diagram/axis\_specs.py::axes}.
 Registered axes are
 $D, H_z, K_{\text{top}}, \HRKKY, \Ms, \Aex, \tCo, \dRu,
 \alpha$; the typical pairs are $(D, H_z)$, $(D, K_{\text{top}})$,
@@ -877,7 +878,7 @@ through Ru thickness).
 \subsection{Generic axis registry}
 
 The sweep is axis-agnostic. Each entry in
-\texttt{src/phase\_diagram/axis\_specs.py::axes} declares a
+\texttt{src/skyrmion\_simulator/phase\_diagram/axis\_specs.py::axes} declares a
 display label, a display scale (SI $\to$ plot units), and
 an override-builder that turns one axis value into a
 \texttt{make\_params(**overrides)} kwarg dict. Adding a new
@@ -924,13 +925,13 @@ Two visualization scripts live alongside the sweep
 pipeline:
 %
 \begin{itemize}[nosep]
-\item \texttt{src/phase\_diagram/show\_ics.py}: render the
+\item \texttt{studies/saf\_racetrack/phase\_diagram/show\_ics.py}: render the
     IC ensemble at one $(D, H_z, K)$ point and classify
     each IC's \emph{unrelaxed} state. Output:
     \texttt{output/phase\_diagram/ic\_gallery.png}.
     Useful for comparing initial vs. final labels in a
     real sweep cell. See Figure~\ref{fig:ic_gallery}.
-\item \texttt{src/phase\_diagram/show\_phases.py}: render
+\item \texttt{studies/saf\_racetrack/phase\_diagram/show\_phases.py}: render
     a schematic phase diagram in reduced units
     $(D/\Dc, H_z/\HK)$ with annotated regions and IC
     target positions. Output:
@@ -961,7 +962,7 @@ computed.}
 
 \subsection{Strict-mode aggregator}
 
-\texttt{src/phase\_diagram/aggregate.py} combines SLURM
+\texttt{src/skyrmion\_simulator/phase\_diagram/aggregate.py} combines SLURM
 array partials. Every partial carries the canonical IC
 list (\texttt{ic\_names\_full}, \texttt{ic\_seeds\_full}),
 the two axis arrays (\texttt{axis\_x\_grid},

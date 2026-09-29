@@ -1,5 +1,5 @@
 // Stochastic (D, H_z) scan (skyrmion-size dependence). Port of
-// scripts/.../production/scan_radius.py. Demag on; each (D, H_z, ens)
+// studies/saf_racetrack/scripts/.../production/scan_radius.py. Demag on; each (D, H_z, ens)
 // grid point is one driven trajectory.
 #include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"

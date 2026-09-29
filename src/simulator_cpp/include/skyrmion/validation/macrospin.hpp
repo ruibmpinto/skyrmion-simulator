@@ -1,6 +1,6 @@
 /// \file
 /// Macrospin ensemble driver for the stochastic-LLGS validation gates.
-/// Port of src/stochastic_llgs/validation/macrospin.py.
+/// Port of src/skyrmion_simulator/stochastic_llgs/validation/macrospin.py.
 ///
 /// Builds a (ny = n_traj, nx = 1) lattice with all spatial couplings
 /// zeroed (C_ex = C_dmi = 0, H_RKKY = 0), so each y-row is an

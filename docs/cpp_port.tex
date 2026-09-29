@@ -36,7 +36,7 @@
 
 \section{Overview}
 
-The micromagnetic SAF skyrmion simulator under \code{src/simulator/}
+The micromagnetic SAF skyrmion simulator under \code{src/skyrmion_simulator/simulator/}
 (Python/NumPy) has been ported to C++17 under
 \code{src/simulator_cpp/}. The C++ build produces a deterministic
 simulator (\code{skyrmion_sim}), thirteen per-analysis sweep binaries,
@@ -151,7 +151,7 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \code{orchestrator.driver.run_one} & \code{sweep::run_trace} & \code{sweep/driver.cpp}\\
 \code{orchestrator.observers.observe_state} & \code{sweep::observe_state} & \code{sweep/observations.cpp}\\
 \code{orchestrator.io.save_trace} & \code{sweep::save_trace} & \code{sweep/trace_io.cpp}\\
-\code{orchestrator.io.load_trace} & Python (bytes-metadata patch) & \code{src/orchestrator/io.py}\\
+\code{orchestrator.io.load_trace} & Python (bytes-metadata patch) & \code{studies/saf_racetrack/orchestrator/io.py}\\
 \code{orchestrator.integrators.step_deterministic} & \code{sweep::RK4LocalKeffStepper} & \code{sweep/stepper.hpp}\\
 \code{orchestrator.integrators.step_demag_deterministic} & \code{sweep::RK4DemagStepper} & \code{sweep/stepper.hpp}\\
 \code{orchestrator.integrators.step_stochastic} & \code{HeunStochasticStepper} & \code{stochastic/heun.cpp}\\
@@ -181,7 +181,7 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \addlinespace
 \multicolumn{3}{l}{\textit{Not ported (kept in Python)}}\\
 \code{topological_torque.*} (analytic Thiele) & --- & ---\\
-\code{scripts/plot_*.py}, \code{animate_*.py} & --- (plotting stays in Python) & ---\\
+\code{studies/saf_racetrack/scripts/plot_*.py}, \code{animate_*.py} & --- (plotting stays in Python) & ---\\
 \end{longtable}
 }
 
@@ -213,19 +213,19 @@ Each sweep script maps one-to-one to a C++ binary
 \endhead
 \bottomrule
 \endfoot
-\code{scripts/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
-\code{scripts/sweep_D_S41.py} & \code{sweep_D_S41}\\
-\code{scripts/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
-\code{scripts/sweep_S42_J.py} & \code{sweep_S42_J}\\
-\code{scripts/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
-\code{scripts/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
-\code{scripts/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
-\code{scripts/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
-\code{scripts/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
-\code{scripts/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
-\code{scripts/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
-\code{scripts/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
-\code{scripts/sweep_breathing.py} & \code{sweep_breathing}\\
+\code{studies/saf_racetrack/scripts/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
+\code{studies/saf_racetrack/scripts/sweep_D_S41.py} & \code{sweep_D_S41}\\
+\code{studies/saf_racetrack/scripts/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
+\code{studies/saf_racetrack/scripts/sweep_S42_J.py} & \code{sweep_S42_J}\\
+\code{studies/saf_racetrack/scripts/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
+\code{studies/saf_racetrack/scripts/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
+\code{studies/saf_racetrack/scripts/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
+\code{studies/saf_racetrack/scripts/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
+\code{studies/saf_racetrack/scripts/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
+\code{studies/saf_racetrack/scripts/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
+\code{studies/saf_racetrack/scripts/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
+\code{studies/saf_racetrack/scripts/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
+\code{studies/saf_racetrack/scripts/sweep_breathing.py} & \code{sweep_breathing}\\
 \end{longtable}
 }
 
@@ -343,8 +343,8 @@ seq 0 8 | xargs -P 4 -I {} \
     env SLURM_ARRAY_TASK_ID={} ./build/sweep_S42_J    # local parallel
 \end{shell}
 Outputs land in \code{output/sweeps_S41_S49/<analysis>/}, the same
-layout as the Python sweeps, so \code{scripts/analyze_*.py} and
-\code{scripts/plot_*.py} read them unchanged (after the one-line
+layout as the Python sweeps, so \code{studies/saf_racetrack/scripts/analyze_*.py} and
+\code{studies/saf_racetrack/scripts/plot_*.py} read them unchanged (after the one-line
 \code{load_trace} patch that accepts the C++ byte-encoded metadata).
 
 \subsection{Running the stochastic scans and validation gates}
@@ -371,7 +371,7 @@ Each grid point writes a per-frame observable trace
 \code{<id>_snapshots.npz} containing the field history in the same
 schema as the simulator. Replay either with:
 \begin{shell}
-python scripts/animate_simulation.py   # edit npz_path at top of main()
+python studies/saf_racetrack/scripts/animate_simulation.py   # edit npz_path at top of main()
 \end{shell}
 
 \subsection{Threading}

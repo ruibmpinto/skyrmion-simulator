@@ -1,6 +1,6 @@
 /// \file
 /// Single-trajectory stochastic-LLGS runner. Port of
-/// src/stochastic_llgs/production/run_single.py::trajectory_worker.
+/// src/skyrmion_simulator/stochastic_llgs/production/run_single.py::trajectory_worker.
 ///
 /// Builds a SAF skyrmion, relaxes under J = 0 (with thermal noise),
 /// drives it at the configured current with uniform Joule heating

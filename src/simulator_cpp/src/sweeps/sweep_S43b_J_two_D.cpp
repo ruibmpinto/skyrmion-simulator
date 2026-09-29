@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S43b: Gaussian pulses, (D x J) grid,
-// FWHM=500 ps. Port of scripts/sweep_S43b_J_two_D.py.
+// FWHM=500 ps. Port of studies/saf_racetrack/scripts/sweep_S43b_J_two_D.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

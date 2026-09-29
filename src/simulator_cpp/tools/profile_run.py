@@ -33,12 +33,13 @@ def main():
     """Time Python RK4 steps for K_eff and slab demag at 64x64."""
     repo = pathlib.Path(__file__).resolve().parents[3]
     sys.path.insert(0, str(repo))
-    from src.simulator.parameters import _precompute, default_params
-    from src.simulator.pulses import ConstantPulse
-    from src.simulator.initial_conditions import saf_skyrmion
-    from src.simulator.integrator import (
+    from skyrmion_simulator.simulator.parameters import _precompute, \
+        default_params
+    from skyrmion_simulator.simulator.pulses import ConstantPulse
+    from skyrmion_simulator.simulator.initial_conditions import saf_skyrmion
+    from skyrmion_simulator.simulator.integrator import (
         rhs_demag, rhs_local_keff, rk4_step)
-    from src.simulator.demag import precompute_demag_kernels
+    from skyrmion_simulator.simulator.demag import precompute_demag_kernels
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     nx = 64
     ny = 64

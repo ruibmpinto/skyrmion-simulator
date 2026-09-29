@@ -1,6 +1,6 @@
 /// \file
 /// NPZ persistence for stochastic-LLGS trajectories. Mirrors
-/// src/stochastic_llgs/io.py::save_trajectory: payload arrays/scalars
+/// src/skyrmion_simulator/stochastic_llgs/io.py::save_trajectory: payload arrays/scalars
 /// plus a `meta_` header (schema version, timestamp, config echo).
 #pragma once
 

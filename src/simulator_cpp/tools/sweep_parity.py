@@ -33,11 +33,13 @@ def main():
     cpp_npz = '/tmp/cpp_sweep_parity.npz'
     repo = pathlib.Path(__file__).resolve().parents[3]
     sys.path.insert(0, str(repo))
-    from src.simulator.parameters import _precompute, default_params
-    from src.simulator.pulses import SquarePulse
-    from src.simulator.initial_conditions import saf_skyrmion
-    from src.orchestrator.driver import run_one
-    from src.orchestrator.integrators import step_deterministic
+    from skyrmion_simulator.simulator.parameters import _precompute, \
+        default_params
+    from skyrmion_simulator.simulator.pulses import SquarePulse
+    from skyrmion_simulator.simulator.initial_conditions import saf_skyrmion
+    from studies.saf_racetrack.orchestrator.driver import run_one
+    from studies.saf_racetrack.orchestrator.integrators import \
+        step_deterministic
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Identical config to tools/sweep_parity.cpp.
     p = default_params()

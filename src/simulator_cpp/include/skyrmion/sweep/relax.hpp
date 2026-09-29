@@ -1,6 +1,6 @@
 /// \file
 /// Convergence-stop relaxation. Port of
-/// src/phase_diagram/relaxation.py::relax with an added local-K_eff
+/// src/skyrmion_simulator/simulator/relaxation.py::relax with an added local-K_eff
 /// path (matching the inlined K_eff relax in sweep_D_S41.py).
 ///
 /// SOT is forcibly disabled (J=0) and Gilbert damping optionally

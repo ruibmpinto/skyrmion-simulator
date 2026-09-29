@@ -32,10 +32,10 @@ import sys
 # Third-party
 import numpy as np
 # Local
-from src.simulator.initial_conditions import saf_skyrmion
-from src.simulator.integrator import rhs_local_keff, rk4_step
-from src.simulator.parameters import default_params
-from src.simulator.pulses import ConstantPulse, SquarePulse
+from skyrmion_simulator.simulator.initial_conditions import saf_skyrmion
+from skyrmion_simulator.simulator.integrator import rhs_local_keff, rk4_step
+from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse, SquarePulse
 
 #
 #                                                          Authorship & Credits

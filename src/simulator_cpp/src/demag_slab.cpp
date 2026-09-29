@@ -1,5 +1,5 @@
 // Analytic slab demag kernel built on the full (ny, nx) c2c grid.
-// Mirrors src/simulator/demag.py _precompute_slab, with 1/(ny*nx)
+// Mirrors src/skyrmion_simulator/simulator/demag.py _precompute_slab, with 1/(ny*nx)
 // pre-scaling baked in so the unnormalised c2c inverse transform
 // yields the physical real-space field.
 #include "skyrmion/demag.hpp"

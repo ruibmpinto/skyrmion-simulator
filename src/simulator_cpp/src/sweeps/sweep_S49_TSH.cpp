@@ -1,6 +1,6 @@
 // Pham et al. (2024) Figure S49: numerical LLGS verification of the
 // topological spin Hall torque on a (R/Delta) x lambda_sq grid, Set B
-// constants. Port of the LLGS part of scripts/sweep_S49_TSH.py; the
+// constants. Port of the LLGS part of studies/saf_racetrack/scripts/sweep_S49_TSH.py; the
 // analytic Thiele curves stay in Python.
 #include "skyrmion/sweep/sweep_common.hpp"
 
