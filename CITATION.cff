@@ -8,6 +8,7 @@ authors:
     email: rbarreira@ethz.ch
 repository-code: "https://github.com/ruibmpinto/skyrmion-simulator"
 license: MIT
+version: 1.0.0
 date-released: "2026-09-29"
 keywords:
   - micromagnetics
