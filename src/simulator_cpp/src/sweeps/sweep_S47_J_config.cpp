@@ -1,6 +1,6 @@
 // Pham et al. (2024) Figure S47: three drive configs x J sweep, with a
 // single spin snapshot recorded at the pulse peak for the highest J of
-// each config. Port of scripts/sweep_S47_J_config.py.
+// each config. Port of studies/saf_racetrack/scripts/sweep_S47_J_config.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

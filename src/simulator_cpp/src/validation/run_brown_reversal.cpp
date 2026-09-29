@@ -1,5 +1,5 @@
 // Brown reversal-time macrospin validation gate. Port of
-// src/stochastic_llgs/validation/test_brown_reversal.py.
+// src/skyrmion_simulator/stochastic_llgs/validation/test_brown_reversal.py.
 //
 // Uniaxial macrospin (no field), each trajectory starts at +z and runs
 // until m_z falls below mz_flip_threshold or n_steps elapses. The

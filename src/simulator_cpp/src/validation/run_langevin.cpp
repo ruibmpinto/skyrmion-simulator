@@ -1,5 +1,5 @@
 // Langevin-function macrospin validation gate. Port of
-// src/stochastic_llgs/validation/test_langevin.py.
+// src/skyrmion_simulator/stochastic_llgs/validation/test_langevin.py.
 //
 // A Zeeman macrospin (no anisotropy, alpha = 1) ensemble; the time- and
 // ensemble-averaged <m_z> is compared to the exact Langevin function

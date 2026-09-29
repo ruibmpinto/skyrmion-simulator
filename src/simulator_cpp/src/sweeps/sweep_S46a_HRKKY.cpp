@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S46a: Gaussian pulse, H_RKKY sweep.
-// Port of scripts/sweep_S46a_HRKKY.py.
+// Port of studies/saf_racetrack/scripts/sweep_S46a_HRKKY.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

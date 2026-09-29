@@ -35,18 +35,18 @@ import sys
 # Third-party
 import numpy as np
 # Local
-from src.simulator.demag import (
+from skyrmion_simulator.simulator.demag import (
     demag_field,
     precompute_demag_kernels,
 )
-from src.simulator.demag_newell import (
+from skyrmion_simulator.simulator.demag_newell import (
     _aharoni_demag_factor,
     _build_layer_pair_kernel,
     _compute_one_pair_tensor,
     _dipole_tensor,
     _newell_tensor_closed,
 )
-from src.simulator.parameters import default_params, _precompute
+from skyrmion_simulator.simulator.parameters import default_params, _precompute
 
 #
 #                                                          Authorship & Credits
@@ -327,7 +327,7 @@ def test_slab_newell_interlayer_cross_terms():
     _precompute(p)
     k_slab = precompute_demag_kernels(p, kind='slab', accuracy=None,
                                       tol_conv=None)
-    from src.simulator.demag_newell import \
+    from skyrmion_simulator.simulator.demag_newell import \
         precompute_demag_kernels_newell
     k_newell = precompute_demag_kernels_newell(p, accuracy=4.0,
                                                tol_conv=0.02)

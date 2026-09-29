@@ -1,6 +1,6 @@
 // Newell finite-prism demag kernel via mumax3-style variable-density
 // Gauss-Legendre numerical integration of the surface-charge formulation.
-// Mirrors src/simulator/demag_newell.py.
+// Mirrors src/skyrmion_simulator/simulator/demag_newell.py.
 //
 // Each lattice cell is treated as a uniformly magnetized rectangular
 // prism (a, a, t_Co). The tensor for one source/dest cell pair is the

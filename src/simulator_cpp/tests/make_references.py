@@ -37,31 +37,33 @@ _REPO = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO))
 
 # Local (after path setup)
-from src.simulator.parameters import default_params
-from src.simulator.pulses import (
+from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import (
     ConstantPulse, SquarePulse, GaussianPulse, SuperpositionPulse,
     TrianglePulse, HalfSinePulse,
 )
-from src.simulator.lattice import lattice_positions, disk_mask
-from src.simulator.initial_conditions import (
+from skyrmion_simulator.simulator.lattice import lattice_positions, disk_mask
+from skyrmion_simulator.simulator.initial_conditions import (
     skyrmion_profile, uniform_state, saf_skyrmion,
 )
-from src.simulator import energy as energy_mod
-from src.simulator.demag import precompute_demag_kernels, demag_field
-from src.simulator.demag_newell import precompute_demag_kernels_newell
-from src.simulator.fields import (
+from skyrmion_simulator.simulator import energy as energy_mod
+from skyrmion_simulator.simulator.demag import precompute_demag_kernels, \
+    demag_field
+from skyrmion_simulator.simulator.demag_newell import \
+    precompute_demag_kernels_newell
+from skyrmion_simulator.simulator.fields import (
     effective_field, effective_field_demag_pair, bare_anis_prefactors,
 )
-from src.simulator.integrator import (
+from skyrmion_simulator.simulator.integrator import (
     normalize, llgs_rhs, rhs_local_keff, rhs_demag, rk4_step,
     rk4_step_single,
 )
-from src.phase_diagram.relaxation import relax
-from src.simulator.main import topological_charge
-from src.simulator.analysis import (
+from skyrmion_simulator.simulator.relaxation import relax
+from skyrmion_simulator.simulator.main import topological_charge
+from skyrmion_simulator.simulator.analysis import (
     skyrmion_center, skyrmion_diameter, skyrmion_ellipse, dw_angle,
 )
-from src.stochastic_llgs.diagnostics import (
+from skyrmion_simulator.stochastic_llgs.diagnostics import (
     skyrmion_center_pbc,
     largest_core_mask_pbc,
     skyrmion_diameter_lcc,
@@ -70,20 +72,21 @@ from src.stochastic_llgs.diagnostics import (
     detect_annihilation,
     hall_angle,
 )
-from src.orchestrator.observers import observe_state
-from src.stochastic_llgs.parameters_thermal import attach_thermal
-from src.stochastic_llgs.joule_heating import T_of_j
-from src.stochastic_llgs.integrator_sllg import heun_stochastic_step
-from src.stochastic_llgs.experiments.pair_potential import (
+from studies.saf_racetrack.orchestrator.observers import observe_state
+from skyrmion_simulator.stochastic_llgs.parameters_thermal import attach_thermal
+from skyrmion_simulator.stochastic_llgs.joule_heating import T_of_j
+from skyrmion_simulator.stochastic_llgs.integrator_sllg import \
+    heun_stochastic_step
+from studies.saf_racetrack.experiments.pair_potential import (
     skyrmion_at_position, two_skyrmion_pair_ic,
 )
-from src.stochastic_llgs.validation.test_langevin import (
+from skyrmion_simulator.stochastic_llgs.validation.test_langevin import (
     langevin_function as py_langevin,
 )
-from src.stochastic_llgs.validation.test_brown_reversal import (
+from skyrmion_simulator.stochastic_llgs.validation.test_brown_reversal import (
     brown_tau as py_brown_tau,
 )
-from src.stochastic_llgs.validation.test_equipartition import (
+from skyrmion_simulator.stochastic_llgs.validation.test_equipartition import (
     magnon_stiffness_grid as py_magnon,
 )
 
@@ -127,7 +130,8 @@ def main():
     p.a = a
     # Re-precompute prefactors after lattice change (parameters._precompute
     # depends on p.a via C_ex).
-    from src.simulator.parameters import _precompute as _precompute_inner
+    from skyrmion_simulator.simulator.parameters import \
+        _precompute as _precompute_inner
     _precompute_inner(p)
     # Scalar params for the C++ side to instantiate Params.
     for k in [

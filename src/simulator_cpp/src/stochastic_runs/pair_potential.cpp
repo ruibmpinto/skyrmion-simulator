@@ -1,5 +1,5 @@
 // Forced-pair inter-skyrmion potential scan. Port of
-// scripts/.../production/pair_potential.py. Two skyrmions are placed a
+// studies/saf_racetrack/scripts/.../production/pair_potential.py. Two skyrmions are placed a
 // distance r_init apart and the pair separation r(t) is recorded under
 // J = 0 + thermal noise + demag. Bespoke IC and observable, so this is
 // a standalone loop (not run_trajectory).

@@ -1,5 +1,5 @@
 // Spin-wave equipartition validation gate. Port of
-// src/stochastic_llgs/validation/test_equipartition.py.
+// src/skyrmion_simulator/stochastic_llgs/validation/test_equipartition.py.
 //
 // A 16x16 single-layer FM patch (SAF bottom decoupled by H_RKKY = 0),
 // no DMI/anisotropy, weak Zeeman along z. Equilibrate at low T, sample

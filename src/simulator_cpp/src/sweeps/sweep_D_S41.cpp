@@ -1,5 +1,5 @@
 // S41 trajectory swept over the DMI constant D (local-K_eff field
-// model by default). Port of scripts/sweep_D_S41.py. SLURM array
+// model by default). Port of studies/saf_racetrack/scripts/sweep_D_S41.py. SLURM array
 // dispatch picks one D; full serial loop when unset.
 #include "skyrmion/sweep/sweep_common.hpp"
 

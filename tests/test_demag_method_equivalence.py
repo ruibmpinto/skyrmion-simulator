@@ -40,13 +40,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 # Local
-from src.simulator import demag_newell
-from src.simulator.demag_newell import (
+from skyrmion_simulator.simulator import demag_newell
+from skyrmion_simulator.simulator.demag_newell import (
     _aharoni_demag_factor,
     _compute_one_pair_tensor,
     _newell_tensor_closed,
 )
-from src.simulator.demag import (
+from skyrmion_simulator.simulator.demag import (
     precompute_demag_kernels, demag_field)
 
 #

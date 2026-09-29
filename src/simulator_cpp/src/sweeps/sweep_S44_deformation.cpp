@@ -1,6 +1,6 @@
 // Pham et al. (2024) Figure S44: skyrmion deformation under Gaussian
 // drive. Panel A (J=8.9e11, fine 2 ps sampling) + panels BC (J sweep,
-// 5 ps sampling). Port of scripts/sweep_S44_deformation.py.
+// 5 ps sampling). Port of studies/saf_racetrack/scripts/sweep_S44_deformation.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S46b: Gaussian pulse, FWHM sweep at fixed
-// H_RKKY. Port of scripts/sweep_S46b_FWHM.py.
+// H_RKKY. Port of studies/saf_racetrack/scripts/sweep_S46b_FWHM.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

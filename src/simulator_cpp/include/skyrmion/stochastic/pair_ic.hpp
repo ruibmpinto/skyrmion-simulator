@@ -1,7 +1,7 @@
 /// \file
 /// Two-skyrmion initial condition for the inter-skyrmion potential
 /// scan. Port of the IC helpers in
-/// src/stochastic_llgs/production/pair_potential.py.
+/// src/skyrmion_simulator/stochastic_llgs/production/pair_potential.py.
 #pragma once
 
 #include "skyrmion/initial_conditions.hpp"   // SAFPair

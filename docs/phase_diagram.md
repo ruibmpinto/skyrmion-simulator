@@ -9,7 +9,7 @@ The phase-diagram subsystem produces T=0 ground-state phase
 diagrams of the Pt/Co/Ru/Co synthetic antiferromagnet (SAF)
 in the (DMI strength, perpendicular field) plane. It
 re-uses the existing micromagnetic primitives in
-`src/simulator/` and adds:
+`src/skyrmion_simulator/simulator/` and adds:
 
 - explicit two-dimensional Fourier-space demagnetizing
   fields (replacing the thin-film K_eff approximation
@@ -20,9 +20,9 @@ re-uses the existing micromagnetic primitives in
 - an FFT-based phase classifier,
 - a parameter-sweep driver and plotting tools.
 
-The package lives in `src/phase_diagram/` plus two
-shared simulator-layer modules `src/simulator/demag.py`
-and `src/simulator/energy.py`.
+The package lives in `src/skyrmion_simulator/phase_diagram/` plus two
+shared simulator-layer modules `src/skyrmion_simulator/simulator/demag.py`
+and `src/skyrmion_simulator/simulator/energy.py`.
 
 ## 2. Theory
 
@@ -83,7 +83,7 @@ infinite slab produces no field outside itself).
 | Lab     | dominant FFT ring with no clean angular order |
 
 Q is the topological charge of the top layer (reused from
-`src.simulator.main.topological_charge`).
+`skyrmion_simulator.simulator.main.topological_charge`).
 
 ## 3. Method
 
@@ -166,15 +166,15 @@ field of view. Hexagonal skyrmion lattices satisfy
 
 | File | Role | Equations |
 |------|------|-----------|
-| `src/simulator/demag.py` | Self/inter-layer 2D Fourier-space demag kernels and FFT field eval. | §2.2 |
-| `src/simulator/energy.py` | `total_energy`, `bare_anis_prefactors`. | §2.1 |
-| `src/phase_diagram/fields_demag.py` | `effective_field_demag_pair` composing per-term fields with bare K. | §2.1, §2.2 |
-| `src/phase_diagram/initial_conditions_ext.py` | `random_state`, `stripe_state`. | §3.2 |
-| `src/phase_diagram/relaxation.py` | `relax`, local RK4 calling `llgs_rhs`. | §3.3 |
-| `src/phase_diagram/classifier.py` | `order_parameters`, `classify`. | §3.4 |
-| `src/phase_diagram/params_helper.py` | `make_params(**overrides)`. | — |
-| `src/phase_diagram/sweep.py` | Parallel sweep driver and CLI. | §3.1 |
-| `src/phase_diagram/plot_phase_diagram.py` | Phase map / order-parameter / texture renderers. | §3 |
+| `src/skyrmion_simulator/simulator/demag.py` | Self/inter-layer 2D Fourier-space demag kernels and FFT field eval. | §2.2 |
+| `src/skyrmion_simulator/simulator/energy.py` | `total_energy`, `bare_anis_prefactors`. | §2.1 |
+| `src/skyrmion_simulator/phase_diagram/fields_demag.py` | `effective_field_demag_pair` composing per-term fields with bare K. | §2.1, §2.2 |
+| `src/skyrmion_simulator/phase_diagram/initial_conditions_ext.py` | `random_state`, `stripe_state`. | §3.2 |
+| `src/skyrmion_simulator/simulator/relaxation.py` | `relax`, local RK4 calling `llgs_rhs`. | §3.3 |
+| `src/skyrmion_simulator/phase_diagram/classifier.py` | `order_parameters`, `classify`. | §3.4 |
+| `src/skyrmion_simulator/simulator/params_helper.py` | `make_params(**overrides)`. | — |
+| `src/skyrmion_simulator/phase_diagram/sweep.py` | Parallel sweep driver and CLI. | §3.1 |
+| `src/skyrmion_simulator/phase_diagram/plot_phase_diagram.py` | Phase map / order-parameter / texture renderers. | §3 |
 
 ### 4.1 Bare-K convention
 
@@ -183,16 +183,16 @@ C_anis = 2 K / Ms − μ₀ Ms (the K_eff thin-film
 correction). With explicit demag this correction is
 counted twice. Phase-diagram code therefore obtains the
 bare prefactor via
-`src.simulator.energy.bare_anis_prefactors(p)` =
+`skyrmion_simulator.simulator.energy.bare_anis_prefactors(p)` =
 `2 K_top / Ms`, `2 K_bot / Ms`.
 
 The K_eff convention on `p.C_anis_*` is left untouched so
-that `src.simulator.fields.effective_field` and any code
+that `skyrmion_simulator.simulator.fields.effective_field` and any code
 that calls it without demag continues to work unchanged.
 
 K may be overridden at sweep time via three variables in
 the "User Configuration" block at the top of
-`src.phase_diagram.sweep.main()`:
+`skyrmion_simulator.phase_diagram.sweep.main()`:
 
 - `K_top`, `K_bot` (J/m³) — explicit raw anisotropies.
 - `Q_PMA` — target quality factor; resolves to
@@ -206,8 +206,8 @@ The resolved values are stored as `K_top_raw`,
 
 The pre-existing simulator modules previously imported
 each other as `from src.X import …` while the files live
-at `src/simulator/X.py`. Each broken import was rewritten
-to `from src.simulator.X import …` (no behavioural change)
+at `src/skyrmion_simulator/simulator/X.py`. Each broken import was rewritten
+to `from skyrmion_simulator.simulator.X import …` (no behavioural change)
 so the package is importable from the project root.
 
 ## 5. Usage
@@ -217,9 +217,9 @@ The sweep and plot entry points take no argparse arguments; configuration lives 
 ### Sweep
 
 ```bash
-python -m src.phase_diagram.sweep                 # local
-sbatch scripts/submit_sweep_array.sh              # SLURM array
-python -m src.phase_diagram.aggregate             # merge partials
+python -m skyrmion_simulator.phase_diagram.sweep                 # local
+sbatch studies/saf_racetrack/scripts/submit_sweep_array.sh              # SLURM array
+python -m skyrmion_simulator.phase_diagram.aggregate             # merge partials
 ```
 
 Top-of-`main()` variables: `grid_name`, `nx`, `ny`, `max_steps`, `tol_torque`, `tol_dE`, `alpha_relax`, `workers`, `sims_per_task`, `out_path`, `partial_dir`, `K_top`, `K_bot`, `Q_PMA`. Default output: `output/phase_diagram/<grid_name>.npz`. SLURM-array mode is triggered automatically when `SLURM_ARRAY_TASK_ID` is set.
@@ -227,7 +227,7 @@ Top-of-`main()` variables: `grid_name`, `nx`, `ny`, `max_steps`, `tol_torque`, `
 ### Plot
 
 ```bash
-python -m src.phase_diagram.plot_phase_diagram
+python -m skyrmion_simulator.phase_diagram.plot_phase_diagram
 ```
 
 Top-of-`main()` variables: `in_path` *or* `grid_name`, `out_dir`, `units`. With `units='reduced'` axes are `(D/D_c, H_z/H_K)` and the NPZ must contain the `D_c`, `H_K` scalars; with `units='absolute'` axes are mJ/m² and T.
@@ -276,7 +276,7 @@ corresponding test runs. Commit hashes link to the run.
 
 ## 8. Known limitations
 
-- **Default material parameters give K_eff ≈ 0** (K_top − μ₀Ms²/2 ≈ 9 kJ/m³, `Q_PMA ≈ 0.007`). With explicit demag the antiparallel SAF "FM" state has zero Zeeman coupling (net moment cancels) and the marginal anisotropy is not enough to suppress demag-driven textures, so FM is *not* the ground state even at large \|H_z\|. To recover a textbook chiral-magnet phase diagram set `Q_PMA = 0.25` (or similar; the physical range for Pt/Co/Ru/Co with engineered interface anisotropy is `Q_PMA ∈ [0.2, 0.5]`) at the top of `src.phase_diagram.sweep.main()`. The sweep then resolves `K_top = K_bot ≈ 1.6 MJ/m³`, `D_c ≈ 2.86 mJ/m²`, `H_K ≈ 0.45 T`.
+- **Default material parameters give K_eff ≈ 0** (K_top − μ₀Ms²/2 ≈ 9 kJ/m³, `Q_PMA ≈ 0.007`). With explicit demag the antiparallel SAF "FM" state has zero Zeeman coupling (net moment cancels) and the marginal anisotropy is not enough to suppress demag-driven textures, so FM is *not* the ground state even at large \|H_z\|. To recover a textbook chiral-magnet phase diagram set `Q_PMA = 0.25` (or similar; the physical range for Pt/Co/Ru/Co with engineered interface anisotropy is `Q_PMA ∈ [0.2, 0.5]`) at the top of `skyrmion_simulator.phase_diagram.sweep.main()`. The sweep then resolves `K_top = K_bot ≈ 1.6 MJ/m³`, `D_c ≈ 2.86 mJ/m²`, `H_K ≈ 0.45 T`.
 - The 7-IC ensemble explores both antiparallel (`fm_anti`) and parallel (`fm_par`) FM basins, exposing the spin-flop transition at `\|H_z\| > H_RKKY ≈ 0.21 T`. Without the `fm_par` seed the parallel branch is invisible to the sweep.
 - T=0 only. Thermal fluctuations would require a stochastic LLG, not implemented.
 - Thin-film demag uses the `(1 - e^{-kt})/(kt)` shape function, accurate when the in-plane texture varies on scales ≫ a but not exact for the discretized lattice. Future work: full Newell tensor.

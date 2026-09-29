@@ -1,7 +1,7 @@
 # skyrmion C++ simulator
 
-C++17 port of `src/simulator/`. Outputs are numpy `.npz` archives consumed
-by the Python plotting and animation scripts under `scripts/`.
+C++17 port of `src/skyrmion_simulator/simulator/`. Outputs are numpy `.npz` archives consumed
+by the Python plotting and animation scripts under `studies/saf_racetrack/scripts/`.
 
 ## Scope
 
@@ -112,7 +112,7 @@ Phase contract:
 After a run, generate an mp4 of the m_z field:
 
 ```bash
-python scripts/animate_simulation.py
+python studies/saf_racetrack/scripts/animate_simulation.py
 ```
 
 (see the Python scripts' headers for configuration variables).
@@ -127,7 +127,7 @@ Three options via `Params.demag_kind`:
 | `DemagKind::Slab` | Analytic thin-film slab kernel applied via FFTW r2c/c2r.                           |
 | `DemagKind::Newell` | mumax3-style finite-prism Newell kernel with Aharoni (0,0) override + convergence gate. |
 
-The Newell kernel matches the Python `src/simulator/demag_newell.py`
+The Newell kernel matches the Python `src/skyrmion_simulator/simulator/demag_newell.py`
 to ~1e-13 relative error (verified by `tools/compare_newell_kernel.py`).
 `Params.demag_accuracy` (default 8) sets the mumax3 quadrature density
 and `Params.demag_tol_conv` (default 2e-2) is the convergence gate
@@ -157,7 +157,7 @@ time.
 
 ## Sweep analyses
 
-One executable per `scripts/sweep_*.py` analysis, built alongside the
+One executable per `studies/saf_racetrack/scripts/sweep_*.py` analysis, built alongside the
 main simulator:
 
 ```
@@ -170,8 +170,8 @@ sweep_S49_TSH     sweep_breathing
 Each binary has its grid + run config as named variables at the top of
 `main()` (no argparse). It writes the same output layout as the Python
 sweeps (`output/sweeps_S41_S49/<analysis>/…npz`), so the existing
-`scripts/analyze_*.py` and `scripts/plot_*.py` read the results
-unchanged (after the one-line `src/orchestrator/io.py::load_trace` patch that
+`studies/saf_racetrack/scripts/analyze_*.py` and `studies/saf_racetrack/scripts/plot_*.py` read the results
+unchanged (after the one-line `studies/saf_racetrack/orchestrator/io.py::load_trace` patch that
 accepts the C++ uint8-bytes metadata).
 
 Each grid point emits:
@@ -181,7 +181,7 @@ Each grid point emits:
 - `<grid_id>_snapshots.npz` — field snapshots for animation (same
   schema as the simulator's `snapshots.npz`), **only when**
   `dump_snapshots = true` in the binary's config. Replay with
-  `scripts/animate_simulation.py`.
+  `studies/saf_racetrack/scripts/animate_simulation.py`.
 
 Run one grid point or the whole grid:
 

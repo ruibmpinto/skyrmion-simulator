@@ -1,6 +1,6 @@
 // Skyrmion breathing-mode test: relax to equilibrium, apply a small
 // radial m_z perturbation, then watch the free LLG dynamics ring back.
-// Port of scripts/sweep_breathing.py (local-K_eff path). Custom IC, so
+// Port of studies/saf_racetrack/scripts/sweep_breathing.py (local-K_eff path). Custom IC, so
 // this binary drives sweep::run_trace directly rather than run_point.
 #include "skyrmion/integrator.hpp"
 #include "skyrmion/sweep/sweep_common.hpp"

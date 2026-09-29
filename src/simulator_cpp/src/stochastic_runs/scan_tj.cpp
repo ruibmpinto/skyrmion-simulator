@@ -1,5 +1,5 @@
 // Stochastic (T_sub x j) scan. Port of
-// scripts/.../production/scan_tj.py. One trajectory per
+// studies/saf_racetrack/scripts/.../production/scan_tj.py. One trajectory per
 // (T_sub, j, ensemble) grid point; SLURM array (or full serial loop)
 // selects which point(s) run. Seed = seed_base + 1000*ens + 1e6*cell.
 #include "skyrmion/pulses.hpp"

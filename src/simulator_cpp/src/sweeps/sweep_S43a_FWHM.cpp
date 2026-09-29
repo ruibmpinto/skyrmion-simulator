@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S43a: Gaussian pulses, (FWHM x J) grid.
-// Port of scripts/sweep_S43a_FWHM.py.
+// Port of studies/saf_racetrack/scripts/sweep_S43a_FWHM.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

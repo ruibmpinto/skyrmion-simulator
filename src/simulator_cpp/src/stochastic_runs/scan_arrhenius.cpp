@@ -1,5 +1,5 @@
 // Stochastic thermal-annihilation (Arrhenius) scan. Port of
-// scripts/.../production/scan_arrhenius.py. j = 0 (no drive/heating);
+// studies/saf_racetrack/scripts/.../production/scan_arrhenius.py. j = 0 (no drive/heating);
 // records t_flip = flip_index * sample_every * dt per trajectory.
 #include "skyrmion/pulses.hpp"
 #include "skyrmion/stochastic/trajectory.hpp"

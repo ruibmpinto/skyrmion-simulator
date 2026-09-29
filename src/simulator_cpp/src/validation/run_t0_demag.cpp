@@ -1,5 +1,5 @@
 // T = 0 reproducibility gate, with slab demag. Port of
-// src/stochastic_llgs/validation/test_t0_limit_demag.py.
+// src/skyrmion_simulator/stochastic_llgs/validation/test_t0_limit_demag.py.
 //
 // Drives a SAF skyrmion (stabilised by H_z = 0.20 T, R = 40 nm) twice:
 // deterministic RK4-with-demag (RHSDemag) and zero-noise Heun-with-demag.

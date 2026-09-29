@@ -1,5 +1,5 @@
 // Skyrmion length-scale vs track-width (T_sub, j) scan -- STAGE 3 (drive).
-// Production port of src/stochastic_llgs/experiments/scan_track_width.py.
+// Production port of studies/saf_racetrack/experiments/scan_track_width.py.
 //
 // The thermal equilibrium at each temperature is current-independent, so
 // it is computed once per (T_sub, ens) by stage 2 (equilibrate_track_width)

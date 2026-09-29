@@ -1,7 +1,7 @@
 // Parity tests for the validation-gate analytic targets: Langevin
 // function, Neel-Brown reversal time, and the discrete magnon stiffness
 // grid. These are closed forms and bit-checkable against Python
-// (src/stochastic_llgs/validation/*.py).
+// (src/skyrmion_simulator/stochastic_llgs/validation/*.py).
 #include "skyrmion/validation/analytic.hpp"
 #include "test_common.hpp"
 

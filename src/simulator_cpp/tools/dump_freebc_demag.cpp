@@ -1,7 +1,7 @@
 // Cross-validation dump for the free-BC (zero-padded) Newell demag.
 // Builds the 2N kernel and the demag field for a seeded SAF skyrmion on a
 // small box, and writes the k-space kernel spectra + the input field +
-// the output field to NPZ. scripts/compare_freebc_demag.py recomputes the
+// the output field to NPZ. studies/saf_racetrack/scripts/compare_freebc_demag.py recomputes the
 // same with the Python newell_freebc path and asserts they match.
 #include "skyrmion/demag.hpp"
 #include "skyrmion/fields.hpp"

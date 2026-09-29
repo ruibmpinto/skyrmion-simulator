@@ -1,5 +1,5 @@
 // Pham et al. (2024) Figure S48: DC square pulse, H_RKKY sweep,
-// Set B material constants. Port of scripts/sweep_S48_inertia.py.
+// Set B material constants. Port of studies/saf_racetrack/scripts/sweep_S48_inertia.py.
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>
