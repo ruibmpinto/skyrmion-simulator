@@ -48,7 +48,7 @@ int main() {
         const long long seed = seed_base + 1000LL * pt.ens + 1000000LL * pt.cell;
 
         Params p = make_default_params();
-        p.nx = nx; p.ny = ny; p.dt = dt; p.J_current = 0.0;
+        p.nx = nx; p.ny = ny; p.dt = dt;
         if (use_demag) p.demag_kind = DemagKind::Slab;
         p.pulse = std::make_shared<ConstantPulse>(0.0);
         precompute(p);

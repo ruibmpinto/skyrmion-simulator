@@ -49,6 +49,7 @@ import numpy as np
 from skyrmion_simulator.simulator.params_helper import make_params
 from skyrmion_simulator.simulator.initial_conditions import skyrmion_profile
 from skyrmion_simulator.simulator.main import topological_charge
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.stochastic_llgs.diagnostics import detect_annihilation
 from skyrmion_simulator.stochastic_llgs.integrator_sllg import (
     heun_stochastic_step,
@@ -138,7 +139,7 @@ def run_collapse_trajectory(config):
         A_ex=float(config['A_ex']), D=float(config['D']),
         K_top=K_top, K_bot=K_top, alpha=float(config['alpha']),
         gamma=float(config['gamma']), H_ext=H_ext,
-        J_current=0.0)
+        pulse=ConstantPulse(0.0))
     # Single ferromagnetic layer: no RKKY partner.
     p.H_RKKY = 0.0
     p.dt = dt

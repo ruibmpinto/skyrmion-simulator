@@ -136,7 +136,7 @@ def _run_one_point(args):
     tol_norm = float(cfg['tol_norm'])
     use_demag = bool(cfg['use_demag'])
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    p = make_params(nx=nx, ny=ny, J_current=0.0)
+    p = make_params(nx=nx, ny=ny, pulse=ConstantPulse(0.0))
     p.dt = dt
     p.pulse = ConstantPulse(0.0)
     attach_thermal(

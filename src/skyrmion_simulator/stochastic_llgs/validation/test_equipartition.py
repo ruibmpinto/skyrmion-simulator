@@ -36,6 +36,7 @@ import time
 import numpy as np
 # Local
 from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.stochastic_llgs.integrator_sllg import \
     heun_stochastic_step
 from skyrmion_simulator.stochastic_llgs.parameters_thermal import attach_thermal
@@ -86,7 +87,7 @@ def make_equipartition_params(T, alpha, B_z, nx, ny, a, t_Co,
     -------
     p : SimpleNamespace
         Parameters with `K_top = K_bot = 0`, `H_RKKY = 0`,
-        `J_current = 0`, `C_dmi = 0`, bare anisotropy
+        `pulse = ConstantPulse(0.0)`, `C_dmi = 0`, bare anisotropy
         prefactor `C_anis_top = 0`, and `sigma_noise`
         populated by `attach_thermal`.
     """
@@ -117,14 +118,12 @@ def make_equipartition_params(T, alpha, B_z, nx, ny, a, t_Co,
     p.K_top = 0.0
     p.K_bot = 0.0
     p.H_RKKY = 0.0
-    p.J_current = 0.0
+    p.pulse = ConstantPulse(0.0)
     p.D = 0.0
     p.C_ex = 2.0 * p.A_ex / (p.Ms * p.a * p.a)
     p.C_dmi = 0.0
     p.C_anis_top = 0.0
     p.C_anis_bot = 0.0
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
     attach_thermal(p, T=T, R_th=0.0, seed=seed)
     return p

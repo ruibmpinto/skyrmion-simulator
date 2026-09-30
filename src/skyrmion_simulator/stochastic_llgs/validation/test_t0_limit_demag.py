@@ -109,15 +109,11 @@ def _rk4_step_demag(m_top, m_bot, t, dt, p, kernels):
 
 # -----------------------------------------------------------------------------
 def run_deterministic_demag(p, kernels, n_relax, n_drive, dt):
-    """relax (J=0) + drive (J=p.J_current) with demag RK4."""
+    """relax (J=0) + drive (J=p.pulse) with demag RK4."""
     m_top, m_bot = saf_skyrmion(
         p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     pulse_save = getattr(p, 'pulse', None)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     t = 0.0
     for step in range(n_relax):
@@ -125,8 +121,6 @@ def run_deterministic_demag(p, kernels, n_relax, n_drive, dt):
             m_top, m_bot, t, dt, p, kernels,
         )
         t += dt
-    p.H_DL = H_DL_save
-    p.H_FL = H_FL_save
     if pulse_save is not None:
         p.pulse = pulse_save
     t = 0.0
@@ -150,11 +144,7 @@ def run_stochastic_t0_demag(p, kernels, n_relax, n_drive, dt,
     m_top, m_bot = saf_skyrmion(
         p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     pulse_save = getattr(p, 'pulse', None)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     for step in range(n_relax):
         h_top = np.zeros((p.ny, p.nx, 3), dtype=float)
@@ -163,8 +153,6 @@ def run_stochastic_t0_demag(p, kernels, n_relax, n_drive, dt,
             m_top, m_bot, dt, p, kernels,
             h_top, h_bot, tol_norm, t=step * dt,
         )
-    p.H_DL = H_DL_save
-    p.H_FL = H_FL_save
     if pulse_save is not None:
         p.pulse = pulse_save
     # Drive clock restarts at 0, matching the deterministic path.
@@ -235,6 +223,7 @@ def main():
     # Reference: deterministic RK4 with demag
     p_det = default_params()
     p_det.dt = dt
+    p_det.pulse = ConstantPulse(4.0e11)
     p_det.H_ext = np.array([0.0, 0.0, float(h_z_stabilising)])
     p_det.skyrmion_R = float(sk_R)
     p_det.skyrmion_dw = float(sk_dw)
@@ -258,6 +247,7 @@ def main():
     # Simulation: zero-noise Heun with demag
     p_sim = copy.deepcopy(default_params())
     p_sim.dt = dt
+    p_sim.pulse = ConstantPulse(4.0e11)
     p_sim.H_ext = np.array([0.0, 0.0, float(h_z_stabilising)])
     p_sim.skyrmion_R = float(sk_R)
     p_sim.skyrmion_dw = float(sk_dw)

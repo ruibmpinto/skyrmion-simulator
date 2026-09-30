@@ -86,7 +86,7 @@ detailed in each section.}
 9a & Tomasello 2018 size vs $T$ (determ.) & $H{=}0$ ratio
    ${\approx}3.3$ & $2.52$ (converged) & \PASS \\
 9b & Tomasello 2018 size vs $T$ (thermal) & ratio ${\approx}3.3$
-   & $4.76$ (over-expansion) & \FAIL \\
+   & $4.66$ (over-expansion) & \FAIL \\
 10 & Pham 2024 Fig.\,S49 Thiele $v_{SOT},v_{TSH}$ & closed forms
    & analytic $2{\times}10^{-16}$; LLGS 9.9\% & \PASS \\
 11 & 1D domain-wall width & $\Delta=\sqrt{A/K_{\rm eff}}$
@@ -734,7 +734,8 @@ Society.}
 \includegraphics[width=\textwidth]{fig09b_size_thermal.png}
 \caption{9b thermal: $\langle 2R_{sk}\rangle\pm$std (production
 single-layer Brown-noise \texttt{heun\_stochastic\_step}, 168-task
-ensemble).}
+ensemble; $\Delta t=2.5\times10^{-14}$ s, $1.25\times10^{-14}$ s at
+$T{=}300$ K to keep the norm drift below tolerance).}
 \end{subfigure}
 \caption{Skyrmion size vs temperature: reference Fig.\,1(b) (a)
 against this work's deterministic (b) and thermal (c) branches.}
@@ -764,20 +765,17 @@ qualitative behaviour correct}: the finite-$T$ branch adds FDT
 Brown noise and pools $\langle R_{sk}\rangle\pm$std per $(H,T)$. It
 reproduces the qualitative Fig.\,1(b) thermal physics (size grows
 with $T$, std grows, field suppresses), but the $H{=}0$ ratio
-over-shoots: $4.76$ ($R_{sk}{=}71$ nm at 300 K) vs the converged
-deterministic $33.4$ nm and the paper's ${\sim}46$--$52$ nm. The
-root cause is \textbf{non-equilibration in the strong-fluctuation
-regime}, not a measurement artifact: a diagnostic showed the
-largest-connected-component and whole-field diameters agree
-($63.3$ vs $63.5$ nm) but $R_{sk}$ \emph{drifts} $45\!\to\!76$ nm
-during sampling. At $T{=}300$/$H{=}0$ the scaled point sits just
-below the metastable$\to$ground crossing ($d{=}1.44<d_c{=}1.48$),
-so the barrier out of the small state is tiny; thermal noise drives
-escape and expansion toward the dot without a steady size, making
-$\langle R_{sk}\rangle$ window-dependent (71 nm at 8k thermalize vs
-63 nm at 4k). This is the paper's own ``strongly
-thermal-fluctuation-influenced'' regime ($T{>}200$ K, $H{<}10$ mT,
-$\pm25$ nm error bars). \textbf{9a is the quantitative anchor; 9b
+over-shoots: $4.66$ ($R_{sk}$ from $14.9$ to $69.6$ nm) vs the
+converged deterministic $33.4$ nm and the paper's ${\sim}46$--$52$
+nm at 300 K. The applied field restores the expected scale: the
+ratio is $2.83$ at 25 mT and $2.35$ at 50 mT. The root cause is
+\textbf{non-equilibration in the strong-fluctuation regime}: at
+$T{=}300$/$H{=}0$ the scaled point sits just below the
+metastable$\to$ground crossing ($d{=}1.44<d_c{=}1.48$), so the
+barrier out of the small state is tiny and thermal noise drives
+expansion toward the dot without a steady size. This is the paper's
+own ``strongly thermal-fluctuation-influenced'' regime ($T{>}200$ K,
+$H{<}10$ mT, $\pm25$ nm error bars). \textbf{9a is the quantitative anchor; 9b
 is a qualitative reproduction.}
 
 % ============================================================

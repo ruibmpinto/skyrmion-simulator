@@ -65,9 +65,10 @@ struct Params {
     // -------- Spin-orbit torques --------
     Real DL_SOT    = 2.21e-14;  ///< Damping-like coeff. (T / (A/m^2)).
     Real FL_SOT    = 0.53e-14;  ///< Field-like coeff. (T / (A/m^2)).
-    Real J_current = 4.0e11;    ///< Charge current density (A/m^2).
     Vec3 p_hat     = {0.0, 1.0, 0.0};  ///< Spin polarisation direction.
-    std::shared_ptr<Pulse> pulse;  ///< set in make_default_params()
+    /// Drive J(t) in A/m^2, the only source of current for the
+    /// integrators. No default: set it before integrating in time.
+    std::shared_ptr<Pulse> pulse;
 
     // -------- Topological spin Hall --------
     /// Topological spin Hall coupling; 0 disables the TSH torque.
@@ -126,19 +127,17 @@ struct Params {
     Real C_dmi      = 0.0;  ///< DMI prefactor D/(Ms a) (T).
     Real C_anis_top = 0.0;  ///< 2 K_top/Ms - mu0 Ms (T).
     Real C_anis_bot = 0.0;  ///< 2 K_bot/Ms - mu0 Ms (T).
-    Real H_DL       = 0.0;  ///< DL_SOT * J_current (T).
-    Real H_FL       = 0.0;  ///< FL_SOT * J_current (T).
     Real gamma_p    = 0.0;  ///< gamma / (1 + alpha^2) (rad / (s T)).
 };
 
 /// Populate precomputed prefactors. Mirrors parameters._precompute()
 /// in Python.
-/// Fills C_ex, C_dmi, C_anis_top, C_anis_bot, H_DL, H_FL and gamma_p
-/// from the material and drive fields already set on `p`.
+/// Fills C_ex, C_dmi, C_anis_top, C_anis_bot and gamma_p from the
+/// material fields already set on `p`.
 /// \param p Parameter set, updated in place.
 void precompute(Params& p);
 
-/// Default parameter set (Co/Pt SAF) + ConstantPulse(p.J_current).
+/// Default parameter set (Co/Pt SAF) with no drive (`pulse` null).
 /// \return A fully precomputed parameter set.
 Params make_default_params();
 

@@ -47,7 +47,6 @@ Params make_macrospin_params(Real T, Real alpha, Vec3 H_ext, Real K,
     p.K_top = K;
     p.K_bot = 0.0;
     p.H_RKKY = 0.0;
-    p.J_current = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     precompute(p);
     // Zero spatial couplings so the y-axis stacks independent
@@ -56,8 +55,6 @@ Params make_macrospin_params(Real T, Real alpha, Vec3 H_ext, Real K,
     p.C_dmi = 0.0;
     p.C_anis_top = 2.0 * p.K_top / p.Ms;
     p.C_anis_bot = 0.0;
-    p.H_DL = 0.0;
-    p.H_FL = 0.0;
     p.gamma_p = p.gamma_ / (1.0 + p.alpha * p.alpha);
     stochastic::attach_thermal(p, T, 0.0, seed);
     return p;

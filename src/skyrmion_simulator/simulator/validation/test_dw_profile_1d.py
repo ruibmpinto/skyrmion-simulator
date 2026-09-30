@@ -78,7 +78,6 @@ def _make_dw_params(A_ex, K_eff, Ms, nx, ny, a, dt):
     p.dt = float(dt)
     p.H_ext = np.array([0.0, 0.0, 0.0])
     p.pulse = ConstantPulse(0.0)
-    p.J_current = 0.0
     p.lambda_sq = 0.0
     _precompute(p)
     # No demag in this path: set the anisotropy prefactor

@@ -62,8 +62,8 @@ __status__ = 'Development'
 
 
 def make_single_fm_params(A_ex, D, K_eff, Ms, alpha, gamma,
-                          H_ext, nx, ny, a, dt,
-                          J_current=0.0, p_hat=None):
+                          H_ext, nx, ny, a, dt, pulse,
+                          p_hat=None):
     """Build a `default_params()` namespace tuned for a single-FM
     benchmark.
 
@@ -93,10 +93,9 @@ def make_single_fm_params(A_ex, D, K_eff, Ms, alpha, gamma,
         Lattice constant (m).
     dt : float
         Time step (s).
-    J_current : float, default=0.0
-        Steady current density for SOT (A/m^2). The default
-        zero disables the SOT torque without changing the
-        DL_SOT / FL_SOT prefactors.
+    pulse : callable
+        Drive J(t) in A/m^2, e.g. `ConstantPulse(0.0)` for no
+        current.
     p_hat : {numpy.ndarray(1d), None}, default=None
         SOT polarisation unit vector, shape (3,). None keeps
         the `default_params()` value.
@@ -137,9 +136,8 @@ def make_single_fm_params(A_ex, D, K_eff, Ms, alpha, gamma,
     p.ny = int(ny)
     p.a = float(a)
     p.dt = float(dt)
-    # Drive pulse and SOT polarisation (no current by default).
-    p.pulse = ConstantPulse(float(J_current))
-    p.J_current = float(J_current)
+    # Drive pulse and SOT polarisation.
+    p.pulse = pulse
     if p_hat is not None:
         p.p_hat = np.asarray(p_hat, dtype=float).reshape(3)
     # Topological spin Hall channel off (only the SOT terms are

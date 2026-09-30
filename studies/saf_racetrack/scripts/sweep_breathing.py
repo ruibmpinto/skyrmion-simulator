@@ -58,12 +58,9 @@ def _relax_keff(p, m_top, m_bot, max_steps, tol_torque,
                 check_every, alpha_relax):
     """Over-damped K_eff relax. Returns
     (m_top, m_bot, conv, n_steps, tau_max)."""
-    _save = (p.alpha, p.gamma_p, p.H_DL, p.H_FL,
-             getattr(p, 'pulse', None))
+    _save = (p.alpha, p.gamma_p, getattr(p, 'pulse', None))
     p.alpha = float(alpha_relax)
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     tau_max = float('inf')
     conv = False
@@ -91,7 +88,7 @@ def _relax_keff(p, m_top, m_bot, max_steps, tol_torque,
                     n_used = k
                     break
     finally:
-        (p.alpha, p.gamma_p, p.H_DL, p.H_FL, p.pulse) = _save
+        (p.alpha, p.gamma_p, p.pulse) = _save
     return m_top, m_bot, conv, n_used, tau_max
 
 
@@ -163,12 +160,9 @@ def _run_one_D(args):
     eps = float(cfg['perturb_eps'])
     m_top_p = _radial_perturb(m_top_eq, eps)
     m_bot_p = _radial_perturb(m_bot_eq, eps)
-    _save = (p.alpha, p.gamma_p, p.H_DL, p.H_FL,
-             getattr(p, 'pulse', None))
+    _save = (p.alpha, p.gamma_p, getattr(p, 'pulse', None))
     p.alpha = float(cfg['free_alpha'])
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     # Bind the right RHS for free evolution.
     if field_kind == 'keff':
@@ -197,7 +191,7 @@ def _run_one_D(args):
                 rhs_pair, m_top_p, m_bot_p, t, p.dt, p)
             t += p.dt
     finally:
-        (p.alpha, p.gamma_p, p.H_DL, p.H_FL, p.pulse) = _save
+        (p.alpha, p.gamma_p, p.pulse) = _save
     trace = {
         't': np.asarray(times, dtype=float),
         'd_top': np.asarray(d_top_arr, dtype=float),

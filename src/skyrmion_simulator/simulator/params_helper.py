@@ -44,7 +44,7 @@ def make_params(**overrides):
         Keyword overrides of attributes on the default
         parameters namespace. Both raw material constants
         (e.g. `D`, `K_top`, `Ms`, `a`, `alpha`,
-        `J_current`, `H_ext`) and structural constants
+        `pulse`, `H_ext`) and structural constants
         (e.g. `nx`, `ny`, `t_Co`, `d_Ru`) are accepted.
         Unknown keys raise `RuntimeError` so typos are
         caught immediately instead of silently doing
@@ -65,7 +65,6 @@ def make_params(**overrides):
         C_anis_top  = 2 * K_top / Ms - mu0 * Ms
         C_anis_bot  = 2 * K_bot / Ms - mu0 * Ms
         gamma_p     = gamma / (1 + alpha^2)
-        H_DL, H_FL  = (DL_SOT, FL_SOT) * J_current
 
     The `C_anis_*` prefactors retain the K_eff convention
     (so existing code paths continue to work). New
@@ -102,11 +101,5 @@ def make_params(**overrides):
     mu0_Ms = p.mu0 * p.Ms
     p.C_anis_top = 2.0 * p.K_top / p.Ms - mu0_Ms
     p.C_anis_bot = 2.0 * p.K_bot / p.Ms - mu0_Ms
-    if p.J_current != 0.0:
-        p.H_DL = p.DL_SOT * p.J_current
-        p.H_FL = p.FL_SOT * p.J_current
-    else:
-        p.H_DL = 0.0
-        p.H_FL = 0.0
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
     return p

@@ -73,13 +73,9 @@ def _run_one_D(args):
               f'(over-damped, no kernel)...', flush=True)
         _alpha_save = p.alpha
         _gamma_p_save = p.gamma_p
-        _H_DL_save = p.H_DL
-        _H_FL_save = p.H_FL
         _pulse_save = getattr(p, 'pulse', None)
         p.alpha = float(cfg['relax_alpha'])
         p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
-        p.H_DL = 0.0
-        p.H_FL = 0.0
         p.pulse = ConstantPulse(0.0)
         m_top_eq = m_top0.copy()
         m_bot_eq = m_bot0.copy()
@@ -116,8 +112,6 @@ def _run_one_D(args):
         finally:
             p.alpha = _alpha_save
             p.gamma_p = _gamma_p_save
-            p.H_DL = _H_DL_save
-            p.H_FL = _H_FL_save
             p.pulse = _pulse_save
         E_final = float('nan')
     else:

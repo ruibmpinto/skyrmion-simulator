@@ -20,6 +20,7 @@ import numpy as np
 # Local
 from skyrmion_simulator.phase_diagram.classifier import classify
 from skyrmion_simulator.simulator.params_helper import make_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.simulator.relaxation import relax
 from skyrmion_simulator.simulator.demag import precompute_demag_kernels
 from skyrmion_simulator.simulator.initial_conditions import saf_skyrmion
@@ -70,7 +71,7 @@ def main():
         nx=nx, ny=ny,
         D=1.0e-3,
         H_ext=np.array([0.0, 0.0, 0.0]),
-        J_current=0.0,
+        pulse=ConstantPulse(0.0),
     )
     kernels = precompute_demag_kernels(
         p, kind='slab', accuracy=None, tol_conv=None)

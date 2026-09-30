@@ -243,7 +243,8 @@ with $\mb{s} = (\hat{\mb{p}} \times \mb{m})/|\hat{\mb{p}} \times \mb{m}|$,
 $H_{DL}(t) = c_{DL}\, \jcur(t)$, $H_{FL}(t) = c_{FL}\, \jcur(t)$.
 The time-varying current $\jcur(t)$ is supplied by
 \texttt{p.pulse(t)} (any object implementing \texttt{\_\_call\_\_(t)};
-defaults to \texttt{ConstantPulse(p.J\_current)}). The stochastic
+there is no default, and the integrators refuse a missing pulse). The
+stochastic
 stepper threads the substage time \texttt{t} through to
 \texttt{llgs\_rhs(m, H, p, t)} so the SOT amplitude tracks the pulse
 at every Heun stage. Setting \texttt{p.pulse = ConstantPulse(0.0)}

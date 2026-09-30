@@ -140,7 +140,7 @@ def heun_stochastic_step(m_top, m_bot, dt, p, kernels,
     p : SimpleNamespace
         Parameters namespace (must expose at least `alpha,
         gamma_p, C_ex, C_dmi, C_anis_top, C_anis_bot, H_ext,
-        H_RKKY, H_DL, H_FL, p_hat`).
+        H_RKKY, DL_SOT, FL_SOT, p_hat, pulse`).
     kernels : dict or None
         Demag kernels from
         `skyrmion_simulator.simulator.demag.precompute_demag_kernels(p)`, or

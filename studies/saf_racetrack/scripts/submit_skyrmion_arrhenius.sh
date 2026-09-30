@@ -33,6 +33,7 @@ set -euo pipefail
 mkdir -p logs
 
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 
 module load stack/.2024-06-silent gcc/12.2.0
 module load python/3.11.6

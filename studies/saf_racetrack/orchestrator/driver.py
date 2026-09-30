@@ -47,9 +47,9 @@ def run_one(p,
             print_every):
     """Run one full trajectory.
 
-    Phase 1 swaps `p.pulse` for `ConstantPulse(0.0)` and zeroes
-    `p.H_DL` / `p.H_FL` so the relaxation runs with no current
-    regardless of which integrator is used. Phase 2 installs
+    Phase 1 swaps `p.pulse` for `ConstantPulse(0.0)` so the
+    relaxation runs with no current regardless of which
+    integrator is used. Phase 2 installs
     the supplied pulse and samples observables every
     `sample_every` steps.
 
@@ -167,11 +167,7 @@ def run_one(p,
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Phase 1: relaxation with J = 0.
     pulse_save = p.pulse
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     p.pulse = ConstantPulse(0.0)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     t = 0.0
     for step in range(1, n_relax + 1):
         m_top, m_bot = step_relax(m_top, m_bot, t, p.dt, p)
@@ -184,8 +180,6 @@ def run_one(p,
     # Restore everything before installing the drive pulse so a
     # later exception cannot leave `p` in a half-mutated state.
     p.pulse = pulse_save
-    p.H_DL = H_DL_save
-    p.H_FL = H_FL_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Phase 2: drive with the user-supplied pulse.
     p.pulse = pulse

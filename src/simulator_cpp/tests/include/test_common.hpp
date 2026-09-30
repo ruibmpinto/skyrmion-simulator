@@ -119,7 +119,6 @@ inline skyrmion::Params build_params_from_ref(TestRef& r) {
     p.H_RKKY       = r.scalar<double>("params_H_RKKY");
     p.DL_SOT       = r.scalar<double>("params_DL_SOT");
     p.FL_SOT       = r.scalar<double>("params_FL_SOT");
-    p.J_current    = r.scalar<double>("params_J_current");
     p.lambda_sq    = r.scalar<double>("params_lambda_sq");
     p.P            = r.scalar<double>("params_P");
     p.mu_B_over_q_e = r.scalar<double>("params_mu_B_over_q_e");
@@ -128,7 +127,8 @@ inline skyrmion::Params build_params_from_ref(TestRef& r) {
     p.H_ext = {h_ext[0], h_ext[1], h_ext[2]};
     auto p_hat = r.vec<double>("params_p_hat");
     p.p_hat = {p_hat[0], p_hat[1], p_hat[2]};
-    p.pulse = std::make_shared<skyrmion::ConstantPulse>(p.J_current);
+    p.pulse = std::make_shared<skyrmion::ConstantPulse>(
+        r.scalar<double>("params_J0"));
     skyrmion::precompute(p);
     return p;
 }

@@ -63,7 +63,7 @@ def run_deterministic(p, n_relax, n_drive, dt):
     n_relax : int
         Number of relaxation steps (J = 0).
     n_drive : int
-        Number of current-driven steps (J = p.J_current).
+        Number of current-driven steps (J = p.pulse).
     dt : float
         Time step in seconds.
 
@@ -81,18 +81,12 @@ def run_deterministic(p, n_relax, n_drive, dt):
     # Relax with J = 0
     # Swap pulse for the deterministic integrator that now reads
     # p.pulse(t) at each substep.
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     pulse_save = getattr(p, 'pulse', None)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     t = 0.0
     for step in range(n_relax):
         m_top, m_bot = rk4_step(rhs_local_keff, m_top, m_bot, t, dt, p)
         t += dt
-    p.H_DL = H_DL_save
-    p.H_FL = H_FL_save
     if pulse_save is not None:
         p.pulse = pulse_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,14 +136,7 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
             f'run_stochastic_t0: sigma_noise must be 0 at '
             f'T = 0, got {sigma!r}.'
         )
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     pulse_save = getattr(p, 'pulse', None)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
-    # The pulse is what llgs_rhs reads; zeroing only the H_DL/H_FL
-    # diagnostics left this relax phase fully DRIVEN (the RK4 path
-    # relaxes at J = 0), which broke the integrator-parity gate.
     p.pulse = ConstantPulse(0.0)
     for step in range(n_relax):
         # Zero-noise sampling: amplitude 0, but the sampler
@@ -161,8 +148,6 @@ def run_stochastic_t0(p, n_relax, n_drive, dt, tol_norm):
             m_top, m_bot, dt, p, None,
             h_top, h_bot, tol_norm, t=step * dt,
         )
-    p.H_DL = H_DL_save
-    p.H_FL = H_FL_save
     if pulse_save is not None:
         p.pulse = pulse_save
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -228,6 +213,7 @@ def main():
     # Reference: deterministic RK4 from src/skyrmion_simulator/simulator
     p_det = default_params()
     p_det.dt = dt
+    p_det.pulse = ConstantPulse(4.0e11)
     print(
         f'Running deterministic RK4 reference '
         f'({n_relax} relax + {n_drive} drive steps)...'
@@ -246,6 +232,7 @@ def main():
     # Simulation: zero-noise Heun (T = 0)
     p_sim = copy.deepcopy(default_params())
     p_sim.dt = dt
+    p_sim.pulse = ConstantPulse(4.0e11)
     attach_thermal(p_sim, T=0.0, R_th=0.0, seed=seed)
     print(
         f'Running stochastic Heun at T = 0 '

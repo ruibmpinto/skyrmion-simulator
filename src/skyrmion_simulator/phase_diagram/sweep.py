@@ -314,7 +314,6 @@ def _lattice_R_dw(period):
 def run_one(task):
     """Worker: relax + classify a single task."""
     overrides = dict(task['overrides'])
-    overrides['J_current'] = 0.0
     overrides['nx'] = int(task['nx'])
     overrides['ny'] = int(task['ny'])
     overrides['a'] = float(task['a'])

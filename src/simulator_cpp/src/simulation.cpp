@@ -70,10 +70,15 @@ void run(Params& p) {
     std::printf("  Drive    : %d steps, dt = %.2e s\n", p.n_steps, p.dt);
     std::printf("  Dump every %d (relax), %d (drive)\n",
                 p.dump_every_relax, p.dump_every_drive);
-    if (p.J_current != 0.0) {
-        std::printf("  Current  : J = %.2e A/m^2\n", p.J_current);
-        std::printf("  H_DL     : %.4e T\n", p.H_DL);
-        std::printf("  H_FL     : %.4e T\n", p.H_FL);
+    if (!p.pulse) {
+        throw std::runtime_error(
+            "run_simulation: p.pulse is null; set the drive explicitly.");
+    }
+    const Real J0 = (*p.pulse)(0.0);
+    if (J0 != 0.0) {
+        std::printf("  Current  : J(0) = %.2e A/m^2\n", J0);
+        std::printf("  H_DL(0)  : %.4e T\n", p.DL_SOT * J0);
+        std::printf("  H_FL(0)  : %.4e T\n", p.FL_SOT * J0);
     }
     std::printf("  Output   : %s/%s\n", p.output_dir.c_str(),
                 p.snapshot_file.c_str());
@@ -84,10 +89,7 @@ void run(Params& p) {
     // ------------------------------------------------------------------------
     // Phase 0: relaxation (J = 0). Pulse temporarily swapped to zero.
     // ------------------------------------------------------------------------
-    Real H_DL_save = p.H_DL, H_FL_save = p.H_FL;
     auto pulse_save = p.pulse;
-    p.H_DL = 0.0;
-    p.H_FL = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
 
     {
@@ -134,8 +136,6 @@ void run(Params& p) {
                 std::string(60, '-').c_str());
 
     // Restore drive.
-    p.H_DL = H_DL_save;
-    p.H_FL = H_FL_save;
     p.pulse = pulse_save;
 
     // ------------------------------------------------------------------------

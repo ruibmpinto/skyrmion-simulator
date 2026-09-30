@@ -35,11 +35,7 @@ Trace run_trace(RunTraceArgs& args) {
 
     // ----- Phase 1: relaxation (J = 0) ---------------------------------------
     auto pulse_save = p.pulse;
-    const Real H_DL_save = p.H_DL;
-    const Real H_FL_save = p.H_FL;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
-    p.H_DL = 0.0;
-    p.H_FL = 0.0;
 
     if (dump && args.n_relax > 0) {
         append_snapshot(*args.snapshots, m_top, m_bot, 0, 0.0, 0, p);
@@ -66,8 +62,6 @@ Trace run_trace(RunTraceArgs& args) {
         }
     }
     p.pulse = pulse_save;
-    p.H_DL = H_DL_save;
-    p.H_FL = H_FL_save;
 
     // ----- Phase 2: drive ----------------------------------------------------
     p.pulse = args.pulse;

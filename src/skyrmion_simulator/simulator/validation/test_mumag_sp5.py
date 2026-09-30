@@ -128,7 +128,6 @@ def _make_sp5_params(alpha, nx, ny, a, dt):
     p.dt = float(dt)
     p.H_ext = np.array([0.0, 0.0, 0.0])
     p.pulse = ConstantPulse(0.0)   # no SOT; STT added locally
-    p.J_current = 0.0
     p.lambda_sq = 0.0
     _precompute(p)
     return p

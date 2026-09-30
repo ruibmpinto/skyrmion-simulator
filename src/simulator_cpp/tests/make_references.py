@@ -133,29 +133,33 @@ def main():
     from skyrmion_simulator.simulator.parameters import \
         _precompute as _precompute_inner
     _precompute_inner(p)
+    # Constant drive amplitude used by every driven reference below.
+    j_drive = 4.0e11
+    p.pulse = ConstantPulse(j_drive)
     # Scalar params for the C++ side to instantiate Params.
     for k in [
         'Ms', 'A_ex', 'D', 'K_top', 'K_bot', 'alpha', 't_Co', 'd_Ru',
-        'mu0', 'gamma', 'H_RKKY', 'DL_SOT', 'FL_SOT', 'J_current',
+        'mu0', 'gamma', 'H_RKKY', 'DL_SOT', 'FL_SOT',
         'lambda_sq', 'P', 'mu_B_over_q_e', 'dt',
     ]:
         refs[f'params_{k}'] = float(getattr(p, k))
+    refs['params_J0'] = j_drive
     refs['params_H_ext'] = np.asarray(p.H_ext, dtype=np.float64)
     refs['params_p_hat'] = np.asarray(p.p_hat, dtype=np.float64)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Pulses
     t_grid = np.linspace(-1e-9, 2e-9, 17)
     refs['pulses_t_grid'] = t_grid
-    refs['pulses_const_J0'] = float(p.J_current)
+    refs['pulses_const_J0'] = j_drive
     refs['pulses_const_out'] = np.array(
-        [ConstantPulse(p.J_current)(t) for t in t_grid])
-    sq_J0, sq_ts, sq_te = float(p.J_current), 0.0, 5e-10
+        [ConstantPulse(j_drive)(t) for t in t_grid])
+    sq_J0, sq_ts, sq_te = j_drive, 0.0, 5e-10
     refs['pulses_square_J0'] = sq_J0
     refs['pulses_square_t_start'] = sq_ts
     refs['pulses_square_t_end'] = sq_te
     refs['pulses_square_out'] = np.array(
         [SquarePulse(sq_J0, sq_ts, sq_te)(t) for t in t_grid])
-    g_J0, g_tc, g_fwhm = float(p.J_current), 5e-10, 3e-10
+    g_J0, g_tc, g_fwhm = j_drive, 5e-10, 3e-10
     refs['pulses_gauss_J0'] = g_J0
     refs['pulses_gauss_t_center'] = g_tc
     refs['pulses_gauss_fwhm'] = g_fwhm
@@ -169,7 +173,7 @@ def main():
     # straddles the kinks with too few interior samples to pin the
     # ramps down.
     shape_grid = np.linspace(-0.2e-9, 1.2e-9, 29)
-    tri_J0, tri_ts, tri_te = float(p.J_current), 0.0, 1e-9
+    tri_J0, tri_ts, tri_te = j_drive, 0.0, 1e-9
     refs['pulses_shape_t_grid'] = shape_grid
     refs['pulses_tri_J0'] = tri_J0
     refs['pulses_tri_t_start'] = tri_ts
@@ -183,7 +187,7 @@ def main():
         refs[f'pulses_tri_{tag}_out'] = np.array(
             [TrianglePulse(tri_J0, tri_ts, t_peak, tri_te)(t)
              for t in shape_grid])
-    hs_J0, hs_ts, hs_te = float(p.J_current), 0.0, 1e-9
+    hs_J0, hs_ts, hs_te = j_drive, 0.0, 1e-9
     refs['pulses_hsine_J0'] = hs_J0
     refs['pulses_hsine_t_start'] = hs_ts
     refs['pulses_hsine_t_end'] = hs_te
@@ -195,8 +199,6 @@ def main():
     refs['precompute_C_dmi'] = float(p.C_dmi)
     refs['precompute_C_anis_top'] = float(p.C_anis_top)
     refs['precompute_C_anis_bot'] = float(p.C_anis_bot)
-    refs['precompute_H_DL'] = float(p.H_DL)
-    refs['precompute_H_FL'] = float(p.H_FL)
     refs['precompute_gamma_p'] = float(p.gamma_p)
     C_top_bare, C_bot_bare = bare_anis_prefactors(p)
     refs['precompute_bare_C_top'] = float(C_top_bare)
@@ -335,8 +337,6 @@ def main():
     n_relax = 50
     n_steps = 20
     # Phase 0: J = 0
-    p2.H_DL = 0.0
-    p2.H_FL = 0.0
     p2.pulse = ConstantPulse(0.0)
     mt = m_top.copy()
     mb = m_bot.copy()
@@ -349,7 +349,7 @@ def main():
     # Phase 1: J = default
     p3 = _dc(p)
     p3.dt = 5e-14
-    p3.pulse = ConstantPulse(p3.J_current)
+    p3.pulse = ConstantPulse(j_drive)
     t = 0.0
     for _ in range(n_steps):
         mt, mb = rk4_step(rhs_local_keff, mt, mb, t, p3.dt, p3)
@@ -384,7 +384,7 @@ def main():
     ph.ny = ny
     ph.a = a
     _precompute_inner(ph)
-    ph.pulse = ConstantPulse(ph.J_current)
+    ph.pulse = ConstantPulse(j_drive)
     hmt = m_top.copy()
     hmb = m_bot.copy()
     t_h = 0.0

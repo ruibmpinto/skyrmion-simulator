@@ -163,10 +163,10 @@ def main():
     H_list = [0.0, 25.0e-3, 50.0e-3]
     T_list = [0., 50., 100., 150., 200., 250., 300.]
     n_seed = 8
-    dt = 2.5e-14
-    n_relax = 8000           # 200 ps thermalisation (discarded)
-    n_drive = 40000          # 1 ns sampling window
-    sample_every = 400       # 10 ps cadence (100 samples/traj)
+    dt = 1.25e-14
+    n_relax = 16000          # 200 ps thermalisation (discarded)
+    n_drive = 80000          # 1 ns sampling window
+    sample_every = 800       # 10 ps cadence (100 samples/traj)
     seed_base = 9001
     tol_norm = 5.0e-3
     out_dir = ('output/phase_diagram/validation/'

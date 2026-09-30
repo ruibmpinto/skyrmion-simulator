@@ -44,8 +44,7 @@ int main() {
 
     Params p = make_default_params();
     p.nx = nx; p.ny = ny; p.dt = 5.0e-14;
-    p.J_current = 4.0e11;
-    p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+    p.pulse = std::make_shared<ConstantPulse>(4.0e11);
     precompute(p);
 
     SAFPair ic = saf_skyrmion(p.nx, p.ny, p.a, p.skyrmion_R, p.skyrmion_dw);
@@ -65,7 +64,7 @@ int main() {
     {
         Params pd = p;
         pd.demag_kind = DemagKind::Slab;
-        pd.pulse = std::make_shared<ConstantPulse>(pd.J_current);
+        pd.pulse = std::make_shared<ConstantPulse>(4.0e11);
         precompute(pd);
         DemagState demag(pd, /*threads=*/0);
         RK4DemagStepper stepper(pd, demag, /*mask=*/nullptr);

@@ -316,7 +316,7 @@ def fig_bh_profile():
         p = make_single_fm_params(
             A_ex=A_ex, D=D, K_eff=K_eff, Ms=Ms, alpha=0.14,
             gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=2.0e-14)
+            nx=nx, ny=ny, a=a, dt=2.0e-14, pulse=ConstantPulse(0.0))
         m0 = skyrmion_profile(
             nx=nx, ny=ny, a=a, R=10.0e-9, dw=5.6e-9, polarity=+1)
         m, _tau, _n = relax_single_fm(
@@ -511,7 +511,7 @@ def fig_fmr():
         p = make_single_fm_params(
             A_ex=A_ex, D=0.0, K_eff=K_eff, Ms=Ms, alpha=0.005,
             gamma=gamma, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=1.0e-13)
+            nx=nx, ny=ny, a=a, dt=1.0e-13, pulse=ConstantPulse(0.0))
         m0 = uniform_state(nx=nx, ny=ny, direction=np.array(
             [0.05, 0.0, math.sqrt(1.0 - 0.05 ** 2)]))
         times, trace = integrate_single_fm(
@@ -938,7 +938,7 @@ def fig_arrhenius_config():
         p = make_single_fm_params(
             A_ex=A, D=D, K_eff=K, Ms=Ms, alpha=1.0,
             gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=2.0e-14)
+            nx=nx, ny=ny, a=a, dt=2.0e-14, pulse=ConstantPulse(0.0))
         m = skyrmion_profile(
             nx=nx, ny=ny, a=a, R=10.0e-9, dw=Delta, polarity=+1)
         m, _t, _n = relax_single_fm(
@@ -1009,7 +1009,8 @@ def fig_tomasello_config():
             p = make_single_fm_params(
                 A_ex=A, D=D, K_eff=K_eff, Ms=Ms, alpha=1.0,
                 gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-                nx=nx, ny=ny, a=a, dt=5.0e-14)
+                nx=nx, ny=ny, a=a, dt=5.0e-14,
+                pulse=ConstantPulse(0.0))
             m = skyrmion_profile(
                 nx=nx, ny=ny, a=a, R=20.0e-9,
                 dw=math.sqrt(A / max(K_eff, 1.0)), polarity=+1)

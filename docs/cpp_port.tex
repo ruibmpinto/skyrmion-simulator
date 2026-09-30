@@ -314,8 +314,7 @@ and rebuild. For the standalone simulator this is
 \begin{shell}
 p.nx = 256;  p.ny = 256;  p.a = 2.0e-9;
 p.dt = 5.0e-14;  p.n_relax = 10000;  p.n_steps = 5000;
-p.J_current = 4.0e11;
-p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+p.pulse = std::make_shared<ConstantPulse>(4.0e11);
 p.demag_kind = DemagKind::None;   // None | Slab | Newell
 p.dump_snapshots   = true;
 p.dump_every_relax = 200;

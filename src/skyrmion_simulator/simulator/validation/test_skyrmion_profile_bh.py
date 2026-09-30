@@ -50,6 +50,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 # Local
 from skyrmion_simulator.simulator.initial_conditions import skyrmion_profile
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.simulator.validation._helpers import (
     make_single_fm_params,
     plot_ic_2d,
@@ -153,7 +154,7 @@ def main():
     p = make_single_fm_params(
         A_ex=A_ex, D=D, K_eff=K_eff, Ms=Ms,
         alpha=alpha, gamma=gamma, H_ext=H_ext,
-        nx=nx, ny=ny, a=a, dt=dt)
+        nx=nx, ny=ny, a=a, dt=dt, pulse=ConstantPulse(0.0))
     m0 = skyrmion_profile(
         nx=nx, ny=ny, a=a, R=R_init, dw=dw_init, polarity=+1)
     plot_ic_2d(

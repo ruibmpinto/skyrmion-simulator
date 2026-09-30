@@ -253,12 +253,6 @@ def relax(m_top, m_bot, p, kernels,
     tau_max : float
         Final maximum tangential torque in Tesla.
     """
-    if not hasattr(p, 'H_DL') or not hasattr(p, 'H_FL'):
-        raise RuntimeError(
-            'Parameters namespace must expose `H_DL` and '
-            '`H_FL` (precomputed by `parameters._precompute` '
-            'or `make_params`). Got an incomplete `p`.'
-        )
     single = m_bot is None
     if single and kernels is not None:
         raise RuntimeError(
@@ -267,16 +261,9 @@ def relax(m_top, m_bot, p, kernels,
             'interlayer demag).')
     alpha_save = p.alpha
     gamma_p_save = p.gamma_p
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
-    pulse_save = getattr(p, 'pulse', None)
+    pulse_save = p.pulse
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Disable SOT and apply optional damping override
-    # Both p.H_DL/p.H_FL and p.pulse are zeroed: the pulse is the
-    # value llgs_rhs actually reads; the scalars are kept consistent
-    # for header prints and any external diagnostic.
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.pulse = ConstantPulse(0.0)
     # Free-BC mask for the single-layer RHS (read by
     # `_rhs_single` via `p.relax_mask`); set on every call and
@@ -351,10 +338,7 @@ def relax(m_top, m_bot, p, kernels,
     finally:
         p.alpha = alpha_save
         p.gamma_p = gamma_p_save
-        p.H_DL = H_DL_save
-        p.H_FL = H_FL_save
-        if pulse_save is not None:
-            p.pulse = pulse_save
+        p.pulse = pulse_save
         # Remove the transient mask attribute (always set above).
         del p.relax_mask
     return m_top, m_bot, converged, n_steps, E_final, tau_max
