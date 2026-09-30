@@ -112,7 +112,7 @@ Phase contract:
 After a run, generate an mp4 of the m_z field:
 
 ```bash
-python studies/saf_racetrack/scripts/animate_simulation.py
+python studies/saf_racetrack/scripts/animation/animate_simulation.py
 ```
 
 (see the Python scripts' headers for configuration variables).
@@ -181,7 +181,7 @@ Each grid point emits:
 - `<grid_id>_snapshots.npz` — field snapshots for animation (same
   schema as the simulator's `snapshots.npz`), **only when**
   `dump_snapshots = true` in the binary's config. Replay with
-  `studies/saf_racetrack/scripts/animate_simulation.py`.
+  `studies/saf_racetrack/scripts/animation/animate_simulation.py`.
 
 Run one grid point or the whole grid:
 

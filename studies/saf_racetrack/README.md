@@ -24,7 +24,7 @@ the repository root:
 ```bash
 pip install -e .
 python -m studies.saf_racetrack.experiments.run_single
-python -m studies.saf_racetrack.scripts.plot_track_width
+python -m studies.saf_racetrack.scripts.figures.plot_track_width
 ```
 
 Run configuration is set as plain variables at the top of each `main()`.

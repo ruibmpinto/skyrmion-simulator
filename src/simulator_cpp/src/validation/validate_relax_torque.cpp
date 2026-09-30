@@ -14,7 +14,7 @@
 // torque field and m_z are dumped for the spatial map/histogram. One NPZ
 // per box; a summary table is printed.
 //
-// Checks (see studies/saf_racetrack/scripts/validate_relax_torque.py for the plots):
+// Checks (see studies/saf_racetrack/scripts/diagnostics/validate_relax_torque.py for the plots):
 //   1. torque map/histogram        2. size/energy convergence vs step
 //   3. box-size scaling of the floor   4. 256x256 positive control
 #include "skyrmion/lattice.hpp"

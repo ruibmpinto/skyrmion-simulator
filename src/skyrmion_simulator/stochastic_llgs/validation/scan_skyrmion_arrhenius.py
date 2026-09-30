@@ -18,7 +18,7 @@ Execution modes
 - Serial: runs the whole grid in-process.
 - SLURM array: each task runs `grid[SLURM_ARRAY_TASK_ID]`
   (one trajectory), via
-  `studies/saf_racetrack/scripts/submit_skyrmion_arrhenius.sh`.
+  `studies/saf_racetrack/scripts/cluster/submit_skyrmion_arrhenius.sh`.
 
 Run with:
     python -m \

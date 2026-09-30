@@ -52,3 +52,11 @@ _paper*/
 # Local working notes and cluster run logs: kept on disk, never published
 tasks/
 CLUSTER_RUNS.md
+
+# Study scripts kept local: figures, diagnostics, campaign sweeps, the
+# Pham 2024 S41-S49 reproduction and all cluster submission scripts
+studies/saf_racetrack/scripts/figures/
+studies/saf_racetrack/scripts/diagnostics/
+studies/saf_racetrack/scripts/sweeps/
+studies/saf_racetrack/scripts/reproduction_S41_S49/
+studies/saf_racetrack/scripts/cluster/

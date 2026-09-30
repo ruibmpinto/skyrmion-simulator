@@ -172,7 +172,7 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   function of R/Δ at fixed Δ = 24.5 nm: the SOT-driven speed
   v_SOT = π H_DL R γ / (2α(R/Δ+Δ/R)) and the topological-spin-
   Hall speed v_TSH (λ² = 3, 50 nm²). Production driver:
-  `studies/saf_racetrack/scripts/sweep_S49_TSH.py`.
+  `studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S49_TSH.py`.
 - **Material parameters (Set B)**: α = 0.216, γ = 175.9 GHz/T,
   D = 0.62 mJ/m², Δ = 24.5 nm, R/Δ = 1…5 (imposed), λ² ∈
   {3, 50} nm². Analytic curves at the paper's J0 = 8×10¹¹.

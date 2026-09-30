@@ -213,19 +213,19 @@ Each sweep script maps one-to-one to a C++ binary
 \endhead
 \bottomrule
 \endfoot
-\code{studies/saf_racetrack/scripts/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
-\code{studies/saf_racetrack/scripts/sweep_D_S41.py} & \code{sweep_D_S41}\\
-\code{studies/saf_racetrack/scripts/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
-\code{studies/saf_racetrack/scripts/sweep_S42_J.py} & \code{sweep_S42_J}\\
-\code{studies/saf_racetrack/scripts/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
-\code{studies/saf_racetrack/scripts/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
-\code{studies/saf_racetrack/scripts/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
-\code{studies/saf_racetrack/scripts/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
-\code{studies/saf_racetrack/scripts/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
-\code{studies/saf_racetrack/scripts/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
-\code{studies/saf_racetrack/scripts/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
-\code{studies/saf_racetrack/scripts/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
-\code{studies/saf_racetrack/scripts/sweep_breathing.py} & \code{sweep_breathing}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_D_S41.py} & \code{sweep_D_S41}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S42_J.py} & \code{sweep_S42_J}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
+\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
+\code{studies/saf_racetrack/scripts/sweeps/sweep_breathing.py} & \code{sweep_breathing}\\
 \end{longtable}
 }
 
@@ -370,7 +370,7 @@ Each grid point writes a per-frame observable trace
 \code{<id>_snapshots.npz} containing the field history in the same
 schema as the simulator. Replay either with:
 \begin{shell}
-python studies/saf_racetrack/scripts/animate_simulation.py   # edit npz_path at top of main()
+python studies/saf_racetrack/scripts/animation/animate_simulation.py   # edit npz_path at top of main()
 \end{shell}
 
 \subsection{Threading}

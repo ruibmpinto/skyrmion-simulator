@@ -145,7 +145,7 @@ Study scripts run as modules from the repository root, for example:
 
 ```bash
 python -m studies.saf_racetrack.experiments.run_single
-python -m studies.saf_racetrack.scripts.plot_track_width
+python -m studies.saf_racetrack.scripts.figures.plot_track_width
 ```
 
 C++ production run:

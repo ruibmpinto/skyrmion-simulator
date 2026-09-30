@@ -1,6 +1,6 @@
 // Pham et al. (2024) Figure S41: single DC trajectory.
 // J = 1e11 A/m^2 square pulse for 2 ns + 500 ps tail. Port of
-// studies/saf_racetrack/scripts/sweep_S41_v_time.py. Run config = variables at top of main().
+// studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S41_v_time.py. Run config = variables at top of main().
 #include "skyrmion/sweep/sweep_common.hpp"
 
 #include <cmath>

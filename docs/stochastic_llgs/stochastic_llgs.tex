@@ -715,7 +715,7 @@ flat trajectory grid (one entry per (cell, ens\_idx)). At run time
 it reads \texttt{SLURM\_ARRAY\_TASK\_ID}; if set, the script
 restricts the grid to that single index and runs exactly one
 trajectory. Out-of-range indices raise \texttt{RuntimeError}. This
-matches the pattern of \texttt{studies/saf\_racetrack/scripts/sweep\_S41\_v\_time.py} and
+matches the pattern of \texttt{studies/saf\_racetrack/scripts/reproduction\_S41\_S49/sweeps/sweep\_S41\_v\_time.py} and
 the other figure-reproduction sweeps. Each task writes its own
 NPZ to \texttt{output/stochastic\_llgs/<scan>/}, named by the cell
 coordinates and the ensemble index.
@@ -741,7 +741,7 @@ runs).
     \item Pull per-trajectory NPZs from the cluster
     (\texttt{rsync ... <cluster>:<scratch>/skyrmion/output/}
     \texttt{stochastic\_llgs/}).
-    \item \texttt{python -m studies.saf\_racetrack.scripts.aggregate\_sllg <scan>} walks
+    \item \texttt{python -m studies.saf\_racetrack.scripts.analysis.aggregate\_sllg <scan>} walks
     the per-task files and writes
     \texttt{aggregate.npz} (one script, one positional argument
     selecting the scan; no argparse).
@@ -776,9 +776,9 @@ runs).
     estimate total cost of the production grid. If above budget,
     trigger Phase 6.
     \item \textbf{Production scans.} Submit
-    \texttt{studies/saf\_racetrack/scripts/submit\_sllg\_all.sh} on the cluster.
+    \texttt{studies/saf\_racetrack/scripts/cluster/submit\_sllg\_all.sh} on the cluster.
     \item \textbf{Aggregate + analyze.}
-    \texttt{python -m studies.saf\_racetrack.scripts.aggregate\_sllg <scan>} then
+    \texttt{python -m studies.saf\_racetrack.scripts.analysis.aggregate\_sllg <scan>} then
     \texttt{python -m studies.saf\_racetrack.scripts.analyze\_sllg\_<scan>} for each scan.
     Per-figure outputs land in \texttt{output/figures\_sllg/}.
     Q4 is answered jointly from \texttt{scan\_tj} (driven survival

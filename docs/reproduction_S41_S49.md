@@ -250,7 +250,7 @@ charge-density maps; we already have those from
 3. `studies/saf_racetrack/scripts/sweep_HRKKY.py` — drives the H_RKKY sweeps (S46a,
    S47ii, S48).
 4. `studies/saf_racetrack/scripts/fit_inertia.py` — exponential fit of v(t) for S48c.
-5. `studies/saf_racetrack/scripts/plot_S41.py` … `studies/saf_racetrack/scripts/plot_S49.py` — one plotting
+5. `studies/saf_racetrack/scripts/reproduction_S41_S49/figures/plot_S41.py` … `studies/saf_racetrack/scripts/reproduction_S41_S49/figures/plot_S49.py` — one plotting
    script per figure (or a single dispatcher).
 
 ### Output layout (proposed)
@@ -315,7 +315,7 @@ output/
 6. **Compute budget:** ~96 dynamics runs at 30 s–5 min each
    depending on lattice size and demag choice. Run locally
    serially (~few hours) or use the HPC array template
-   (`studies/saf_racetrack/scripts/submit_sweep_array.sh`)?
+   (`studies/saf_racetrack/scripts/cluster/submit_sweep_array.sh`)?
 
    Answer: both should be possible.
 
