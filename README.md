@@ -213,7 +213,6 @@ exist only in the Python implementation.
 | `docs/phase_diagram.tex` | Ground-state phase diagram methodology |
 | `docs/stability_classification.tex` | Skyrmion versus labyrinth discriminant |
 | `docs/stochastic_llgs/stochastic_llgs.tex` | Stochastic solver derivation and convergence |
-| `docs/reproduction_S41_S49.md` | Reproduction of Pham 2024 supplementary figures S41-S49 |
 
 Compiled PDFs are build products and are not tracked; rebuild them from
 the `.tex` sources.

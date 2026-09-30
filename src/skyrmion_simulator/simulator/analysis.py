@@ -240,8 +240,7 @@ def dw_angle(m, a, core_polarity, mz_thresh=0.5):
     Restricts to DW sites (|m_z| < mz_thresh) on the +x side of
     the skyrmion (x > centroid_x) and returns the population-
     weighted angle of the in-plane component, measured with
-    respect to the -x axis as in Pham et al. 2024 (Fig.~S44C
-    inset).
+    respect to the -x axis as in Pham et al. 2024.
 
     For a pure Neel skyrmion with outward-pointing in-plane
     magnetization, the right DW has m_xy parallel to +x, so

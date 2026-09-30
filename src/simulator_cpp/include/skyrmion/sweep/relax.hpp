@@ -1,7 +1,7 @@
 /// \file
 /// Convergence-stop relaxation. Port of
 /// src/skyrmion_simulator/simulator/relaxation.py::relax with an added local-K_eff
-/// path (matching the inlined K_eff relax in sweep_D_S41.py).
+/// path (matching the inlined K_eff relax of the Python sweeps).
 ///
 /// SOT is forcibly disabled (J=0) and Gilbert damping optionally
 /// overridden for an over-damped quench; both are restored on exit.

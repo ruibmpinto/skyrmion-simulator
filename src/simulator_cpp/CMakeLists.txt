@@ -186,22 +186,12 @@ skyrmion_target_options(sweep_dmi_racetrack)
 
 # -------------------- Sweep analyses ------------------------------------------
 
-set(SWEEP_BINARIES
-    sweep_S41_v_time
-    sweep_D_S41
-    sweep_D_S41_local
-    sweep_S42_J
-    sweep_S43a_FWHM
-    sweep_S43b_J_two_D
-    sweep_S44_deformation
-    sweep_S46a_HRKKY
-    sweep_S46b_FWHM
-    sweep_S47_J_config
-    sweep_S48_inertia
-    sweep_S49_TSH
-    sweep_breathing)
-foreach(s ${SWEEP_BINARIES})
-    add_executable(${s} src/sweeps/${s}.cpp)
+# One binary per source in src/sweeps/ (study-specific, kept locally).
+file(GLOB SWEEP_SOURCES CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/sweeps/*.cpp)
+foreach(src ${SWEEP_SOURCES})
+    get_filename_component(s ${src} NAME_WE)
+    add_executable(${s} ${src})
     target_link_libraries(${s} PRIVATE skyrmion_core)
     skyrmion_target_options(${s})
 endforeach()
@@ -231,8 +221,11 @@ set(VALIDATION_BINARIES
     run_t0_nodemag
     run_t0_demag
     run_langevin
-    run_brown_reversal
-    validate_relax_torque)
+    run_brown_reversal)
+# Study-specific diagnostic, kept locally; built only when present.
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/validation/validate_relax_torque.cpp)
+    list(APPEND VALIDATION_BINARIES validate_relax_torque)
+endif()
 foreach(s ${VALIDATION_BINARIES})
     add_executable(${s} src/validation/${s}.cpp)
     target_link_libraries(${s} PRIVATE skyrmion_core)

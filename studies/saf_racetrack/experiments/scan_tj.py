@@ -13,8 +13,7 @@ Execution modes
 - Multiprocess   : set `SWEEP_NPROC=N` to dispatch via `mp.Pool`.
 - SLURM array    : set `SLURM_ARRAY_TASK_ID=I`; the script runs
                    only `grid[I]` and ignores `SWEEP_NPROC`. This
-                   matches the pattern used by `sweep_S41_v_time`,
-                   `sweep_S49_TSH`, etc.
+                   matches the pattern used by the sweep scripts.
 
 Run with:
     python -m studies.saf_racetrack.experiments.scan_tj

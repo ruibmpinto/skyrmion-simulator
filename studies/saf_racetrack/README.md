@@ -43,8 +43,6 @@ C++ `relax_track_width` and `scan_track_width` binaries.
 
 ## Documentation
 
-- `docs/reproduction_S41_S49.md`: reproduction of the Pham et al. (2024)
-  supplementary figures S41 to S49.
 - `docs/stochastic_llgs/stochastic_llgs.tex`: stochastic production scans
   and their post-processing pipeline.
 - `docs/stability_classification.tex`: the skyrmion versus labyrinth

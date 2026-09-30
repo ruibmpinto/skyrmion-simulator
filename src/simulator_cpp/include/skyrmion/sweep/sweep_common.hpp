@@ -2,7 +2,7 @@
 /// Shared helpers for the per-analysis sweep binaries: SLURM array
 /// dispatch and a single-grid-point runner that covers the common
 /// saf_skyrmion + (convergence | fixed-time) relax + drive pattern used
-/// by the S41-S49 analyses. Each binary builds its grid + pulse +
+/// by the sweep analyses. Each binary builds its grid + pulse +
 /// metadata and calls run_point.
 #pragma once
 
@@ -52,7 +52,7 @@ inline std::vector<int> resolve_indices(int n) {
     return {idx};
 }
 
-/// Everything one grid point of an S41-S49 sweep needs.
+/// Everything one grid point of a sweep needs.
 struct PointConfig {
     Params* p = nullptr;               ///< built + precomputed by caller
     std::shared_ptr<Pulse> pulse;      ///< drive pulse

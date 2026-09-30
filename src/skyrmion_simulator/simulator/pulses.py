@@ -98,7 +98,7 @@ class SquarePulse:
     """Square (top-hat) pulse with finite duration.
 
     J(t) = J0 for t_start <= t <= t_end, else 0. No rise or fall.
-    Use for DC drive of bounded duration (e.g. S41, S48).
+    Use for DC drive of bounded duration.
 
     Attributes
     ----------

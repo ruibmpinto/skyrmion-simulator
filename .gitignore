@@ -60,3 +60,7 @@ studies/saf_racetrack/scripts/diagnostics/
 studies/saf_racetrack/scripts/sweeps/
 studies/saf_racetrack/scripts/reproduction_S41_S49/
 studies/saf_racetrack/scripts/cluster/
+# C++ study sweeps and diagnostic, and the S41-S49 reproduction notes
+src/simulator_cpp/src/sweeps/
+src/simulator_cpp/src/validation/validate_relax_torque.cpp
+docs/reproduction_S41_S49.md
