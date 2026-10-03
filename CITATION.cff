@@ -9,8 +9,8 @@ authors:
 doi: 10.5281/zenodo.23045151
 repository-code: "https://github.com/ruibmpinto/skyrmion-simulator"
 license: MIT
-version: 1.0.0
-date-released: "2026-09-29"
+version: 1.0.1
+date-released: "2026-10-03"
 keywords:
   - micromagnetics
   - skyrmions
