@@ -145,7 +145,6 @@ Study scripts run as modules from the repository root, for example:
 
 ```bash
 python -m studies.saf_racetrack.experiments.run_single
-python -m studies.saf_racetrack.scripts.figures.plot_track_width
 ```
 
 C++ production run:
@@ -211,11 +210,8 @@ exist only in the Python implementation.
 | `docs/benchmarks/benchmarks.tex` | Validation report against the literature benchmarks above |
 | `docs/cpp_port.tex` | Design and verification of the C++ port |
 | `docs/phase_diagram.tex` | Ground-state phase diagram methodology |
-| `docs/stability_classification.tex` | Skyrmion versus labyrinth discriminant |
-| `docs/stochastic_llgs/stochastic_llgs.tex` | Stochastic solver derivation and convergence |
 
-Compiled PDFs are build products and are not tracked; rebuild them from
-the `.tex` sources.
+Each document is tracked together with its compiled PDF.
 
 ## Code style
 

@@ -39,7 +39,7 @@
 The micromagnetic SAF skyrmion simulator under \code{src/skyrmion_simulator/simulator/}
 (Python/NumPy) has been ported to C++17 under
 \code{src/simulator_cpp/}. The C++ build produces a deterministic
-simulator (\code{skyrmion_sim}), thirteen per-analysis sweep binaries,
+simulator (\code{skyrmion_sim}), one binary per sweep source,
 and a parity test-suite that checks every ported function against its
 Python counterpart to machine precision. Outputs remain NumPy
 \code{.npz} archives, so all Python post-processing, plotting, and
@@ -181,7 +181,7 @@ zero-magnitude direction, \code{normalize} on a zero-magnitude spin, and
 \addlinespace
 \multicolumn{3}{l}{\textit{Not ported (kept in Python)}}\\
 \code{topological_torque.*} (analytic Thiele) & --- & ---\\
-\code{studies/saf_racetrack/scripts/plot_*.py}, \code{animate_*.py} & --- (plotting stays in Python) & ---\\
+\code{studies/saf_racetrack/scripts/animation/*.py} & --- (plotting and animation stay in Python) & ---\\
 \end{longtable}
 }
 
@@ -200,34 +200,10 @@ layer; it uses \code{rk4_step_single} and requires no demag kernel.
 These mirror the Python \code{mask=} / \code{m_bot=None} additions in
 \code{fields.py}, \code{relaxation.py}, and \code{integrator_sllg.py}.
 
-Each sweep script maps one-to-one to a C++ binary
-(Table~\ref{tab:sweeps}).
-
-{\small
-\setlength{\tabcolsep}{5pt}\begin{longtable}{p{0.45\textwidth} p{0.45\textwidth}}
-\caption{Sweep analysis script to C++ binary mapping.}
-\label{tab:sweeps}\\
-\toprule
-\textbf{Python script} & \textbf{C++ binary} \\
-\midrule
-\endhead
-\bottomrule
-\endfoot
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S41_v_time.py} & \code{sweep_S41_v_time}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_D_S41.py} & \code{sweep_D_S41}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_D_S41_local.py} & \code{sweep_D_S41_local}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S42_J.py} & \code{sweep_S42_J}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S43a_FWHM.py} & \code{sweep_S43a_FWHM}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S43b_J_two_D.py} & \code{sweep_S43b_J_two_D}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S44_deformation.py} & \code{sweep_S44_deformation}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S46a_HRKKY.py} & \code{sweep_S46a_HRKKY}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S46b_FWHM.py} & \code{sweep_S46b_FWHM}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S47_J_config.py} & \code{sweep_S47_J_config}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S48_inertia.py} & \code{sweep_S48_inertia}\\
-\code{studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S49_TSH.py} (LLGS part) & \code{sweep_S49_TSH}\\
-\code{studies/saf_racetrack/scripts/sweeps/sweep_breathing.py} & \code{sweep_breathing}\\
-\end{longtable}
-}
+Study-specific sweep analyses each build one C++ binary from a
+source in \code{src/sweeps/} (one executable per file); the
+public repository ships no sweep sources, which are kept locally
+with the study.
 
 The stochastic experiment scans and the physics-validation gates each map
 to a standalone C++ binary (Tables~\ref{tab:stoch} and~\ref{tab:gates}).
@@ -303,8 +279,8 @@ cd src/simulator_cpp
 cmake -S . -B build
 cmake --build build -j
 \end{shell}
-This produces \code{build/skyrmion_sim}, the thirteen \code{sweep_*}
-binaries, and the test executables.
+This produces \code{build/skyrmion_sim}, one binary per sweep source
+in \code{src/sweeps/}, and the test executables.
 
 \subsection{Configuring a run}
 There is no command-line parsing. Every run-time value is a named
@@ -336,14 +312,14 @@ Each sweep binary has its grid baked in at the top of \code{main()}.
 Run the whole grid serially, one grid point via a SLURM array index,
 or many points in parallel with \code{xargs}:
 \begin{shell}
-./build/sweep_S42_J                                   # whole grid
-SLURM_ARRAY_TASK_ID=3 ./build/sweep_S42_J             # one point
+./build/<sweep>                                       # whole grid
+SLURM_ARRAY_TASK_ID=3 ./build/<sweep>                 # one point
 seq 0 8 | xargs -P 4 -I {} \
-    env SLURM_ARRAY_TASK_ID={} ./build/sweep_S42_J    # local parallel
+    env SLURM_ARRAY_TASK_ID={} ./build/<sweep>        # local parallel
 \end{shell}
-Outputs land in \code{output/sweeps_S41_S49/<analysis>/}, the same
-layout as the Python sweeps, so \code{studies/saf_racetrack/scripts/analyze_*.py} and
-\code{studies/saf_racetrack/scripts/plot_*.py} read them unchanged (after the one-line
+Outputs land under \code{output/}, in the same layout as the Python
+sweeps, so the scripts in \code{studies/saf_racetrack/scripts/analysis/}
+read them unchanged (after the one-line
 \code{load_trace} patch that accepts the C++ byte-encoded metadata).
 
 \subsection{Running the stochastic scans and validation gates}
@@ -376,14 +352,14 @@ python studies/saf_racetrack/scripts/animation/animate_simulation.py   # edit np
 \subsection{Threading}
 When OpenMP is present, per-site loops are parallel:
 \begin{shell}
-OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores ./build/sweep_S42_J
+OMP_NUM_THREADS=8 OMP_PROC_BIND=close OMP_PLACES=cores ./build/skyrmion_sim
 \end{shell}
 
 \subsection{Tests}
 \begin{shell}
 python src/simulator_cpp/tests/run_tests.py
 \end{shell}
-This regenerates the Python references, builds, runs the 22 ctest
+This regenerates the Python references, builds, runs the 24 ctest
 parity suites (deterministic simulator, sweep layer, stochastic
 Stratonovich--Heun stepper at $T=0$, LCC connected-component
 diagnostics, two-skyrmion pair IC, and the validation analytic targets),

@@ -55,11 +55,12 @@ On the discrete 2D lattice with lattice constant $a$ and film thickness
 $t_{\text{Co}}$:
 
 $$
-\mathcal{H}_{\text{ex}} = -A_{\text{ex}} \, t_{\text{Co}}
+\mathcal{H}_{\text{ex}} = -2A_{\text{ex}} \, t_{\text{Co}}
 \sum_{\langle i,j \rangle} \mathbf{m}_i \cdot \mathbf{m}_j
 $$
 
-where the sum runs over nearest-neighbor pairs.
+where the sum runs over nearest-neighbor pairs, each counted once
+(constant terms dropped).
 
 ### 2.2. Dzyaloshinskii-Moriya Interaction Energy
 
@@ -77,12 +78,13 @@ On the discrete lattice this becomes a sum over nearest-neighbor bonds with
 bond-direction-dependent cross products:
 
 $$
-\mathcal{H}_{\text{DMI}} = -D \, t_{\text{Co}}
+\mathcal{H}_{\text{DMI}} = -D \, t_{\text{Co}} \, a
 \sum_{\langle i,j \rangle}
 (\hat{r}_{ij} \times \hat{z}) \cdot (\mathbf{m}_i \times \mathbf{m}_j)
 $$
 
-where $\hat{r}_{ij}$ is the unit vector from site $i$ to site $j$.
+where $\hat{r}_{ij}$ is the unit vector from site $i$ to site $j$ and
+each bond is counted once.
 
 ### 2.3. Anisotropy Energy
 
@@ -141,14 +143,16 @@ Combining all contributions, the total energy per layer on the 2D lattice is:
 $$
 \mathcal{H}^{(\ell)} = t_{\text{Co}} \, a^2 \sum_i \Bigg[
 -\frac{A_{\text{ex}}}{a^2} \sum_{\delta} \mathbf{m}_i \cdot \mathbf{m}_{i+\delta}
-- \frac{D}{a} \sum_{\delta} (\hat{\delta} \times \hat{z}) \cdot
+- \frac{D}{2a} \sum_{\delta} (\hat{\delta} \times \hat{z}) \cdot
 (\mathbf{m}_i \times \mathbf{m}_{i+\delta})
 - K_{\text{eff}} \, m_{z,i}^2
 - M_s \, \mathbf{m}_i \cdot \mathbf{B}_{\text{ext}}
 \Bigg]
 $$
 
-where $\delta$ runs over the four nearest neighbors $\{\pm\hat{x}, \pm\hat{y}\}$, and the interlayer RKKY term adds
+where $\delta$ runs over the four nearest neighbors $\{\pm\hat{x}, \pm\hat{y}\}$.
+The site sum visits every bond twice, which halves the per-bond
+coefficients above. The interlayer RKKY term adds
 $J_{\text{RKKY}} \, a^2 \sum_i \mathbf{m}_{\text{top},i} \cdot \mathbf{m}_{\text{bot},i}$.
 
 ## 3. Landau-Lifshitz-Gilbert-Slonczewski Equation (LLGS)
@@ -160,8 +164,8 @@ magnetization vector $\mathbf{m} = \mathbf{M}/M_s$:
 $$
 \frac{d\mathbf{m}}{dt} = -\gamma \, \mathbf{m} \times \mathbf{H}_{\text{eff}}
 + \alpha \, \mathbf{m} \times \frac{d\mathbf{m}}{dt}
-+ \tau_\parallel \frac{\mathbf{m} \times (\hat{\mathbf{p}} \times \mathbf{m})}{|\hat{\mathbf{p}} \times \mathbf{m}|}
-+ \tau_\perp \frac{\hat{\mathbf{p}} \times \mathbf{m}}{|\hat{\mathbf{p}} \times \mathbf{m}|}
++ \gamma H_{\text{DL}} \, \mathbf{m} \times (\hat{\mathbf{p}} \times \mathbf{m})
++ \gamma H_{\text{FL}} \, \hat{\mathbf{p}} \times \mathbf{m}
 $$
 
 where:
@@ -169,9 +173,14 @@ where:
 - $\gamma$ is the gyromagnetic ratio (rad/s/T)
 - $\alpha$ is the Gilbert damping constant
 - $\mathbf{H}_{\text{eff}}$ is the effective magnetic field (Tesla)
-- $\tau_\parallel$ is the damping-like (DL) spin-orbit torque
-- $\tau_\perp$ is the field-like (FL) spin-orbit torque
+- $H_{\text{DL}}$ is the damping-like (DL) spin-orbit torque field
+- $H_{\text{FL}}$ is the field-like (FL) spin-orbit torque field
 - $\hat{\mathbf{p}}$ is the spin polarization direction
+
+These are the standard Slonczewski torques. Their magnitude is
+proportional to $|\hat{\mathbf{p}} \times \mathbf{m}| = \sin\vartheta$,
+the sine of the angle between $\mathbf{m}$ and $\hat{\mathbf{p}}$, so
+they vanish when $\mathbf{m}$ is parallel to the spin polarization.
 
 ### 3.1. Explicit Form
 
@@ -188,7 +197,7 @@ $$
 \Big]
 $$
 
-where $\mathbf{s} = (\hat{\mathbf{p}} \times \mathbf{m}) / |\hat{\mathbf{p}} \times \mathbf{m}|$, and $H_{\text{DL}}$, $H_{\text{FL}}$ are the SOT effective fields in Tesla.
+where $\mathbf{s} = \hat{\mathbf{p}} \times \mathbf{m}$, and $H_{\text{DL}}$, $H_{\text{FL}}$ are the SOT effective fields in Tesla.
 
 ## 4. Effective Field Contributions
 
@@ -280,6 +289,16 @@ $$
 The system in [1] is close to the spin reorientation transition
 ($K_{\text{eff}} \approx 0$), which favors skyrmion formation.
 
+Beyond this local limit, the stray field can be computed from the full
+demagnetizing tensor in Fourier space. The analytic thin-slab kernel
+treats each layer as a continuous film; the Newell kernel treats each
+cell as a finite rectangular prism, using the exact Newell-Williams-Dunlop
+tensor near the source and the point-dipole tensor far from it. Both
+couple the two layers, including cross terms in which the in-plane
+magnetization of one layer produces an out-of-plane field in the
+other. A finite sample is modelled by zero-padding the grid across its
+free directions, so the Fourier convolution no longer wraps around.
+
 ### 4.5. Zeeman Field
 
 A uniform external magnetic field $\mathbf{H}_{\text{ext}}$ (in Tesla),
@@ -306,14 +325,15 @@ The spin-orbit torques (SOT) arise from the spin Hall effect at the Pt/Co
 interface. An in-plane current density $J$ generates a spin accumulation with
 polarization $\hat{\mathbf{p}}$ perpendicular to the current direction.
 
-The damping-like (DL) and field-like (FL) SOT effective fields are:
+The damping-like (DL) and field-like (FL) SOT effective fields follow
+the applied current pulse $J(t)$:
 
 $$
-H_{\text{DL}} = \chi_{\text{DL}} \cdot J
+H_{\text{DL}} = \chi_{\text{DL}} \cdot J(t)
 $$
 
 $$
-H_{\text{FL}} = \chi_{\text{FL}} \cdot J
+H_{\text{FL}} = \chi_{\text{FL}} \cdot J(t)
 $$
 
 where $\chi_{\text{DL}}$ and $\chi_{\text{FL}}$ are the SOT coefficients
@@ -339,13 +359,11 @@ topological charge of zero and hence no skyrmion Hall effect.
 
 ## 7. Skyrmion Profile (Initial Condition)
 
-The initial Neel skyrmion profile is parametrized by:
+The initial Neel skyrmion profile wraps the 1-D domain-wall solution
+into a circle of radius $R$:
 
 $$
-\theta(r) = \begin{cases}
-\pi \left(1 - \frac{r}{R}\right) & r < R \\
-0 & r \geq R
-\end{cases}
+\theta(r) = 2\arctan\left(\exp\left(-\frac{r - R}{\Delta}\right)\right)
 $$
 
 $$
@@ -354,12 +372,16 @@ m_y = \sin\theta \, \sin\varphi, \quad
 m_z = \cos\theta
 $$
 
-where $r$ is the distance from the skyrmion center, $R$ is the skyrmion
-radius, and $\varphi = \text{atan2}(y - y_0, x - x_0)$ is the azimuthal angle
+where $r$ is the distance from the skyrmion center, $R$ is the radius of
+the $m_z = 0$ contour, $\Delta$ is the wall width, and $\varphi = \text{atan2}(y - y_0, x - x_0)$ is the azimuthal angle
 (Neel helicity).
 
-The top layer has core down ($m_z = -1$ at center), the bottom layer has core
-up ($m_z = +1$ at center), consistent with antiferromagnetic RKKY coupling.
+The top layer has core down ($m_z = -1$ at center). The bottom layer is its
+full reversal, $\mathbf{m}_{\text{bot}} = -\mathbf{m}_{\text{top}}$: core up
+and in-plane spins pointing inward. The DMI energy is unchanged under
+$\mathbf{m} \to -\mathbf{m}$, so both layers keep the DMI-favoured
+chirality, and the two walls are antiparallel everywhere, the ground state
+of the antiferromagnetic RKKY coupling.
 
 ## 8. Time Integration
 
@@ -387,39 +409,62 @@ $$
 Both SAF layers are evolved simultaneously, as the RKKY coupling makes them
 interdependent.
 
+At finite temperature a random thermal field $\mathbf{h}$ is added to
+$\mathbf{H}_{\text{eff}}$. Each component in each cell is Gaussian white
+noise with
+$\langle h_i(t) h_j(t') \rangle = \sigma^2 \delta_{ij} \delta(t - t')$ and
+$\sigma^2 = 2 \alpha k_B T / (\gamma M_s V_{\text{cell}})$, the strength the
+fluctuation-dissipation theorem requires for the dynamics to relax to the
+Boltzmann distribution. The equation is read in the Stratonovich sense and
+integrated with the Heun predictor-corrector scheme, which reuses the same
+noise sample in both stages.
+
 ## 9. Boundary Conditions
 
-Periodic boundary conditions (PBC) are applied in both $x$ and $y$ directions,
-implemented via `np.roll` on the spin arrays.
+Periodic boundary conditions (PBC) are applied in both $x$ and $y$ directions
+by default, implemented via `np.roll` on the spin arrays. Finite samples use
+free edges instead, with the Rohart-Thiaville free-edge condition
+$\partial_n \mathbf{m} = (D / 2A_{\text{ex}}) (\hat{\mathbf{n}} \times \hat{z}) \times \mathbf{m}$
+at the boundary.
 
 ## 10. Simulation Parameters
 
 All material parameters are taken from [1] for the optimized SAF stack
-Pt(3)/Co(1.58)/Ru(0.85)/Pt(0.5)/Co(1.58)/Ru(0.85) (thicknesses in nm).
+Pt(3)/Co(1.58)/Ru(0.85)/Pt(0.5)/Co(1.58)/Ru(0.85) (thicknesses in nm). The
+magnetic thickness used for each Co layer is $t_{\text{Co}} = 1.3$ nm, and
+the spacer separating the layers is $d_{\text{Ru}} = 1.35$ nm.
 
 | Parameter | Symbol | Value | Unit |
 |---|---|---|---|
 | Saturation magnetization | $M_s$ | $1.43 \times 10^6$ | A/m |
 | Exchange stiffness | $A_{\text{ex}}$ | $16 \times 10^{-12}$ | J/m |
-| DMI constant | $D$ | $0.62 \times 10^{-3}$ | J/m$^2$ |
-| Anisotropy (top layer) | $K_{\text{top}}$ | $1.294 \times 10^6$ | J/m$^3$ |
+| DMI constant | $D$ | $0.85 \times 10^{-3}$ | J/m$^2$ |
+| Anisotropy (top layer) | $K_{\text{top}}$ | $1.3106 \times 10^6$ | J/m$^3$ |
 | Anisotropy (bottom layer) | $K_{\text{bot}}$ | $1.31 \times 10^6$ | J/m$^3$ |
 | Gilbert damping | $\alpha$ | 0.14 | -- |
 | Co layer thickness | $t_{\text{Co}}$ | 1.3 | nm |
+| Spacer thickness | $d_{\text{Ru}}$ | 1.35 | nm |
 | Gyromagnetic ratio | $\gamma$ | $194.8 \times 10^9$ | rad/(s T) |
 | RKKY coupling field | $\mu_0 H_{\text{RKKY}}$ | 205 | mT |
 | DL-SOT coefficient | $\chi_{\text{DL}}$ | $2.21 \times 10^{-14}$ | T A$^{-1}$ m$^2$ |
 | FL-SOT coefficient | $\chi_{\text{FL}}$ | $0.53 \times 10^{-14}$ | T A$^{-1}$ m$^2$ |
 | Domain wall width | $\Delta$ | 27 | nm |
 
+The paper reports $D = 0.62 \pm 0.24$ mJ/m$^2$; $0.85$ mJ/m$^2$ lies in the
+upper part of that band. The measured top-layer anisotropy,
+$1.294 \times 10^6$ J/m$^3$ ($\mu_0 H_k = 12.4$ mT), is raised to
+$1.3106 \times 10^6$ J/m$^3$ ($\mu_0 H_k = 36$ mT), as in the paper's own
+simulations, so the background domain is not reversed by the SOT at the
+largest currents.
+
 ### Derived quantities
 
 | Quantity | Formula | Value |
 |---|---|---|
-| $K_{\text{eff, top}}$ | $K_{\text{top}} - \mu_0 M_s^2 / 2$ | $\approx 9.2 \times 10^3$ J/m$^3$ |
+| $K_{\text{eff, top}}$ | $K_{\text{top}} - \mu_0 M_s^2 / 2$ | $\approx 2.6 \times 10^4$ J/m$^3$ |
 | $K_{\text{eff, bot}}$ | $K_{\text{bot}} - \mu_0 M_s^2 / 2$ | $\approx 2.5 \times 10^4$ J/m$^3$ |
-| Domain wall width | $\Delta = \sqrt{A_{\text{ex}} / K_{\text{eff}}}$ | $\approx$ 30.5 nm |
-| Skyrmion diameter | (from paper formula) | $\approx$ 197 nm (paper), 160 nm (sim) |
+| Wall-width parameter | $\Delta = \sqrt{A_{\text{ex}} / K_{\text{eff}}}$ | $\approx$ 25 nm |
+| Critical DMI | $D_c = (4/\pi)\sqrt{A_{\text{ex}} K_{\text{eff}}}$ | $\approx$ 0.82 mJ/m$^2$ |
 
 ### Numerical parameters
 
@@ -430,9 +475,9 @@ Pt(3)/Co(1.58)/Ru(0.85)/Pt(0.5)/Co(1.58)/Ru(0.85) (thicknesses in nm).
 | $\Delta t$ | $5 \times 10^{-14}$ s | Time step |
 | Relaxation steps | 10000 | 500 ps at $J = 0$ |
 | Drive steps | 5000 | 250 ps with current |
-| Current density | $4 \times 10^{11}$ | A/m$^2$ |
+| Current density | $J(t)$ | current pulse, set per run |
 | Spin polarization | $\hat{\mathbf{p}} = \hat{y}$ | From spin Hall effect |
-| Initial skyrmion radius | 100 nm | Relaxes to equilibrium |
+| Initial skyrmion radius | 93.25 nm | Relaxes to equilibrium |
 
 ### Stability condition
 
@@ -443,27 +488,13 @@ $$
 $$
 
 where $\omega_{\text{max}} = \gamma \cdot H_{\text{max}}$ and
-$H_{\text{max}} \approx 4 C_{\text{ex}} \approx 90$ T (exchange field at the
-skyrmion core boundary). With the chosen parameters,
-$\omega_{\text{max}} \cdot \Delta t \approx 0.87$, within the RK4 stability
-region.
+$H_{\text{max}} \approx 4 C_{\text{ex}}$ is the largest exchange field on the
+lattice, reached when neighbouring spins are antiparallel. With
+$C_{\text{ex}} = 2A_{\text{ex}}/(M_s a^2) \approx 5.6$ T,
+$H_{\text{max}} \approx 22$ T and $\omega_{\text{max}} \cdot \Delta t \approx 0.22$,
+well within the RK4 stability region.
 
-## 11. Simulation Results vs. Paper
-
-| Quantity | Simulation | Paper [1] |
-|---|---|---|
-| Equilibrium diameter | 160 nm | 197 nm |
-| Velocity ($J = 4 \times 10^{11}$ A/m$^2$) | 500 m/s | ~400 m/s (micromagnetic) |
-| Skyrmion Hall angle | 0.3 deg | ~0 deg (SAF) |
-| Topological charge | $\pm 0.999$ | $\pm 1$ |
-
-The diameter discrepancy (160 vs 197 nm) arises from the thin-film
-demagnetization approximation (local $N_z = 1$) compared to the full
-magnetostatic FFT calculation in MuMax3, and from parameter uncertainties
-($D$ has $\pm 39\%$ error bars, $K$ has $\pm 7\%$). The velocity is within the
-uncertainty band of the damping constant ($\alpha = 0.14 \pm 0.04$).
-
-## 12. Output Format
+## 11. Output Format
 
 Spin configurations are written in LAMMPS dump format. Since OVITO does not
 natively support spin degrees of freedom, the three spin components

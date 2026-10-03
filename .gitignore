@@ -33,10 +33,19 @@ compile_commands.json
 # Generated C++ API documentation
 docs/doxygen/
 
-# Compiled reports: rebuilt from the .tex sources in docs/
+# Compiled reports: only the implementation and benchmark PDFs are public
 docs/*.pdf
-docs/benchmarks/benchmarks.pdf
+!docs/theory.pdf
+!docs/phase_diagram.pdf
+!docs/cpp_port.pdf
 docs/stochastic_llgs/stochastic_llgs.pdf
+
+# Study analyses and results, kept locally
+docs/pham2024_reproduction.tex
+docs/stability_box_size_hk36.tex
+docs/stability_classification.tex
+docs/stochastic_llgs/stochastic_llgs.tex
+docs/figures/newell_geometry.tex
 
 # Reference literature: third-party copyrighted PDFs and datasets, kept
 # locally but never committed

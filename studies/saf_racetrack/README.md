@@ -40,10 +40,3 @@ The `scripts/submit_*.sh` files are SLURM batch scripts, submitted from
 the repository root. Their `module load` lines match the cluster the
 campaign ran on; adapt them to yours. `scripts/submit_build.sh` builds the
 C++ `relax_track_width` and `scan_track_width` binaries.
-
-## Documentation
-
-- `docs/stochastic_llgs/stochastic_llgs.tex`: stochastic production scans
-  and their post-processing pipeline.
-- `docs/stability_classification.tex`: the skyrmion versus labyrinth
-  stability discriminant.

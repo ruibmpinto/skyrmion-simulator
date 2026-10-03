@@ -8,7 +8,7 @@
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{graphicx}
-\graphicspath{{figures/}{../output/figures_S41_S49/}}
+\graphicspath{{figures/}}
 \usepackage{float}
 
 \hypersetup{
@@ -89,14 +89,15 @@ experimental system in~\cite{pham2024}.
     \item $H_{\text{RKKY}}$ --- RKKY field magnitude:
         $H_{\text{RKKY}} = J_{\text{RKKY}}^{(\text{vol})}/\Ms
         = J_{\text{RKKY}}^{(\text{surf})}/(\Ms\,\tCo)$.
-    \item $\mb{J} = J\,\hat{J}$ --- current density;
-        $J$ is the magnitude, $\hat{J}$ the unit vector along the
-        current flow.
+    \item $\mb{J} = J(t)\,\hat{J}$ --- current density;
+        $J(t)$ is the magnitude, prescribed as a current pulse
+        (a function of time), and $\hat{J}$ the unit vector along
+        the current flow.
     \item $\phat$ --- spin polarization direction,
         $\phat = \zhat \times \hat{J}$.
     \item $\zhat$ --- film-normal unit vector (out-of-plane).
-    \item $H_{\text{DL}} = \chi_{\text{DL}} J$,
-        $H_{\text{FL}} = \chi_{\text{FL}} J$ --- damping-like and
+    \item $H_{\text{DL}} = \chi_{\text{DL}} J(t)$,
+        $H_{\text{FL}} = \chi_{\text{FL}} J(t)$ --- damping-like and
         field-like SOT effective fields.
     \item $\Keff = K - \mu_0 \Ms^2 / 2$ --- effective uniaxial
         anisotropy with thin-film shape correction.
@@ -201,11 +202,14 @@ On the discrete 2D lattice with lattice constant $a$ and film
 thickness $\tCo$:
 %
 \begin{equation}
-\mathcal{H}_{\text{ex}} = -\Aex \, \tCo
+\mathcal{H}_{\text{ex}} = -2\Aex \, \tCo
     \sum_{\langle i,j \rangle} \mb{m}_i \cdot \mb{m}_j
 \end{equation}
 %
-where the sum runs over nearest-neighbor pairs.
+where the sum runs over nearest-neighbor pairs, each counted once
+(constant terms dropped).  Expanding
+$|\nabla\mb{m}|^2 \approx \sum_\delta |\mb{m}_{i+\delta}
+- \mb{m}_i|^2/(2a^2)$ and using $|\mb{m}|=1$ gives the factor~2.
 
 %----------------------------------------------------------------------
 \subsection{Dzyaloshinskii--Moriya Interaction Energy}
@@ -224,13 +228,16 @@ On the discrete lattice this becomes a sum over nearest-neighbor bonds
 with bond-direction-dependent cross products:
 %
 \begin{equation}
-\mathcal{H}_{\text{DMI}} = -D \, \tCo
+\mathcal{H}_{\text{DMI}} = -D \, \tCo \, a
     \sum_{\langle i,j \rangle}
     (\hat{r}_{ij} \times \zhat) \cdot
     (\mb{m}_i \times \mb{m}_j)
 \end{equation}
 %
-where $\hat{r}_{ij}$ is the unit vector from site $i$ to site $j$.
+where $\hat{r}_{ij}$ is the unit vector from site $i$ to site $j$
+and each bond is counted once.  The factor $a$ restores energy
+units: each bond carries a gradient $\sim 1/a$ over a cell area
+$a^2$.
 
 %----------------------------------------------------------------------
 \subsection{Anisotropy Energy}
@@ -288,11 +295,16 @@ Three regimes arise depending on the sign of $\Keff$:
 \end{itemize}
 %
 For the Co/Pt system in~\cite{pham2024},
-$K \approx 1.294 \times 10^6$~J/m$^3$ and
-$\mu_0 \Ms^2/2 \approx 1.285 \times 10^6$~J/m$^3$, giving
-$\Keff \approx 9 \times 10^3$~J/m$^3$ --- barely positive,
-right at the SRT.
-This is why the system can host skyrmions.
+$\mu_0 \Ms^2/2 \approx 1.285 \times 10^6$~J/m$^3$.  The measured
+top-layer anisotropy $K \approx 1.294 \times 10^6$~J/m$^3$
+(anisotropy field $\mu_0 H_k = 12.4$~mT) gives
+$\Keff \approx 9 \times 10^3$~J/m$^3$; the value used in the
+paper's simulations and in this simulator,
+$K_{\text{top}} = 1.3106 \times 10^6$~J/m$^3$
+($\mu_0 H_k = 36$~mT), gives
+$\Keff \approx 2.6 \times 10^4$~J/m$^3$.  Either way $\Keff$ is
+barely positive, right at the SRT, and this is why the system can
+host skyrmions.
 
 %----------------------------------------------------------------------
 \subsubsection*{Interface PMA (Perpendicular Magnetic
@@ -363,11 +375,10 @@ $\;\Longrightarrow\; t_c \sim 1$~nm.
 
 The simulator's Co layer is $\tCo = 1.3$~nm --- \textbf{right at
 the SRT, deliberately}. That is why
-$\Keff = K_{\text{top}} - \mu_0 \Ms^2/2 \approx 9\times10^3$~J/m$^3$
+$\Keff = K_{\text{top}} - \mu_0 \Ms^2/2 \approx 2.6\times10^4$~J/m$^3$
 is a small difference of two large numbers ($\sim 10^6$ each), and
-why 7\% uncertainty in $K$ propagates to $\sim$100\% uncertainty in
-$\Keff$ (see Implementation Notes,
-Sec.~\ref{sec:implementation_notes}).
+why a 7\% uncertainty in $K$ exceeds $\Keff$ itself (see
+Implementation Notes, Sec.~\ref{sec:implementation_notes}).
 
 \begin{figure}[h!]
 \centering
@@ -381,7 +392,7 @@ $t_c$, where the easy axis flips from out-of-plane (PMA
 wins, $\Keff>0$, blue region) to in-plane (shape wins,
 $\Keff<0$, orange region). With $K_s$ set so that
 $K_{\text{top}} = 2K_s/\tCo$ matches the simulator's bare
-anisotropy ($K_s \approx 8.4\times 10^{-4}$~J/m$^2$),
+anisotropy ($K_s \approx 8.5\times 10^{-4}$~J/m$^2$),
 $t_c \approx \tCo = 1.3$~nm. The Co layer of \cite{pham2024}
 sits exactly at the SRT --- which is why $\Keff$ is the
 small difference of two $\sim 10^6$~J/m$^3$ numbers.}
@@ -425,7 +436,7 @@ lattice is:
 \mathcal{H}^{(\ell)} = \tCo \, a^2 \sum_i \left[
     -\frac{\Aex}{a^2} \sum_{\delta}
         \mb{m}_i \cdot \mb{m}_{i+\delta}
-    - \frac{D}{a} \sum_{\delta}
+    - \frac{D}{2a} \sum_{\delta}
         (\hat{\delta} \times \zhat) \cdot
         (\mb{m}_i \times \mb{m}_{i+\delta})
     - \Keff \, m_{z,i}^2
@@ -434,7 +445,9 @@ lattice is:
 \end{equation}
 %
 where $\delta$ runs over the four nearest neighbors
-$\{\pm\hat{x}, \pm\hat{y}\}$, and the interlayer RKKY term adds
+$\{\pm\hat{x}, \pm\hat{y}\}$.  The site sum visits every bond
+twice, which is why the exchange and DMI coefficients here are half
+of the per-bond values above.  The interlayer RKKY term adds
 $J_{\text{RKKY}} \, a^2 \sum_i
     \mb{m}_{\text{top},i} \cdot \mb{m}_{\text{bot},i}$.
 
@@ -444,7 +457,7 @@ $J_{\text{RKKY}} \, a^2 \sum_i
 %======================================================================
 
 The Hamiltonian (Section~2) defines \emph{what} the system wants to
-minimize.  The LLGS equation (Section~4) describes \emph{how} the
+minimize.  The LLGS equation (Section~\ref{sec:llgs}) describes \emph{how} the
 magnetization evolves in time.  The bridge between the two is the
 \textbf{effective field}, obtained from the variational derivative of
 the energy with respect to the magnetization.
@@ -747,12 +760,11 @@ increasing physical fidelity:
     tensor analytically via the thin-film shape factor in
     Fourier space.  Uses the bare $K_\ell$ in the PMA term
     and adds the demag separately.
-\item \textbf{Numerical Newell demag}: mumax3-style
-    numerical surface-charge integration with variable
-    integration density and a convergence assertion; adds
-    the inter-layer cross terms $N_{xz}$, $N_{yz}$ that the
-    slab kernel discards.  Same bare $K_\ell$ in the PMA
-    term.
+\item \textbf{Newell demag}: treats every lattice cell as a
+    finite rectangular prism and uses the exact cell-to-cell
+    demag tensor, so it captures the finite-cell corrections
+    that the continuous slab smooths over.  Same bare $K_\ell$
+    in the PMA term.
 \end{itemize}
 %
 The next three subsubsections give: (i)~the discrete PMA
@@ -775,9 +787,11 @@ $K_{\text{bot}}$:
 %
 \begin{align}
 \mb{H}_{\text{anis},\text{top}}(i,j) &=
-    \frac{2 K_{\text{top}}}{\Ms} \, m^{\text{top}}_z(i,j) \, \zhat, \\
+    \frac{2 K_{\text{top}}}{\Ms} \, m^{\text{top}}_z(i,j) \, \zhat,
+    \label{eq:hanis_top} \\
 \mb{H}_{\text{anis},\text{bot}}(i,j) &=
     \frac{2 K_{\text{bot}}}{\Ms} \, m^{\text{bot}}_z(i,j) \, \zhat.
+    \label{eq:hanis_bot}
 \end{align}
 %
 With the local $N_z = 1$ approximation
@@ -791,13 +805,15 @@ combined field becomes:
 \mb{H}_{\text{anis+demag},\ell}(i,j) =
     \frac{2 K_{\text{eff},\ell}}{\Ms} \,
     m^{\ell}_z(i,j) \, \zhat.
+\label{eq:hanis_keff}
 \end{equation}
 %
-In short: in the slab and Newell branches, equations
-(47)--(48) apply with the bare $K_\ell$ and the demag is
-added separately; in the local-$N_z = 1$ branch, equation
-(49) applies with the combined $K_{\text{eff},\ell}$ and no
-separate demag is needed.  The next subsubsection explains
+In short: in the slab and Newell branches, the two
+equations~\eqref{eq:hanis_top}--\eqref{eq:hanis_bot} apply with
+the bare $K_\ell$ and the demag is added separately; in the
+local-$N_z = 1$ branch, equation~\eqref{eq:hanis_keff} applies
+with the combined $K_{\text{eff},\ell}$ and no separate demag is
+needed.  The next subsubsection explains
 why this single-constant substitution is exact for
 spatially uniform $\mb{m}$ and where it breaks; the kernel
 formulas for the slab and Newell branches follow in
@@ -882,7 +898,7 @@ origin and has no information about the layer's shape or
 thickness baked in.  For our system:
 %
 \begin{equation*}
-K_{\text{top}} = 1.294\times 10^6\ \text{J/m}^3,\qquad
+K_{\text{top}} = 1.3106\times 10^6\ \text{J/m}^3,\qquad
 K_{\text{bot}} = 1.310\times 10^6\ \text{J/m}^3,
 \end{equation*}
 %
@@ -897,13 +913,13 @@ artifact of the local-demag approximation, \emph{not} a
 measurable quantity.  For our system,
 %
 \begin{equation*}
-K_{\text{eff,top}} \approx 1.294\times 10^6
+K_{\text{eff,top}} \approx 1.3106\times 10^6
 - 1.285\times 10^6
-\approx 9\times 10^3\ \text{J/m}^3 ,
+\approx 2.6\times 10^4\ \text{J/m}^3 ,
 \end{equation*}
 %
-a 100\% relative uncertainty band coming from a 7\%
-uncertainty in $K_\ell$ alone (Sec.~14.3).
+so a 7\% uncertainty in $K_\ell$ alone exceeds $K_{\text{eff},\ell}$
+(Sec.~\ref{sec:k_uncertainty}).
 
 \paragraph{Where the local approximation breaks.}
 To see where the identity \eqref{eq:keff_identity} stops
@@ -960,9 +976,9 @@ vanishes:
 %
 Substituting $K_{\text{eff},\ell}$ for $K_\ell$ at those
 wavelengths is wrong by a factor of
-$2K_\ell/(2K_{\text{eff},\ell}) \sim 160$ for our parameters
+$2K_\ell/(2K_{\text{eff},\ell}) \sim 50$ for our parameters
 ($K_\ell \sim 1.3\times 10^6$ vs
-$K_{\text{eff},\ell} \sim 9\times 10^3$~J/m$^3$).
+$K_{\text{eff},\ell} \sim 2.6\times 10^4$~J/m$^3$).
 
 For the present skyrmion problem the relevant length scales
 are $R \sim 100$~nm and $\Delta_{\text{DW}} \sim 27$~nm, so
@@ -971,12 +987,12 @@ $|\mb{k}|\,\tCo \sim 2\pi \tCo / \Delta \sim 0.30$ at the DW
 slab kernel is close to its long-wavelength limit there
 ($f \approx 1 - |\mb{k}|\tCo/2$), so the
 local-$K_{\text{eff},\ell}$ approximation produces only a
-few-percent error.  The Newell correction
-(Sec.~\ref{sec:demag}, Level~2) restores the missing in-plane
-components $N_{xx}$, $N_{yy}$ at $|\mb{k}| > 0$ and the
-finite-prism corrections at $|\mb{k}|\tCo \sim 1$ --- effects
-that the local-$K_{\text{eff},\ell}$ branch discards
-entirely.
+few-percent error.  The slab and Newell kernels
+(Sec.~\ref{sec:demag}) restore the in-plane components
+$N_{xx}$, $N_{yy}$ at $|\mb{k}| > 0$, the inter-layer dipolar
+coupling, and (Newell) the finite-prism corrections at
+$|\mb{k}|\tCo \sim 1$ --- effects that the
+local-$K_{\text{eff},\ell}$ branch discards entirely.
 
 \paragraph{Summary of the three branches.}
 \begin{itemize}[leftmargin=2em, nosep]
@@ -1038,13 +1054,11 @@ effective anisotropy $\Keff = K - \tfrac{1}{2}\mu_0 \Ms^{2}$. No
 FFT, per-site, fastest. (b) Slab kernel: each magnetic layer is
 treated as a continuous slab of thickness $\tCo$ with PBC in plane;
 the demag tensor in k-space follows the thin-film shape factor
-$f(k, \tCo) = (1 - e^{-|k|\tCo})/(|k|\tCo)$. Diagonal
-$N_{xx}, N_{yy}, N_{zz}$ only. (c) Newell kernel: each lattice cell
-is a finite $a\times a \times \tCo$ rectangular prism; the
-cell-to-cell tensor is built by Gauss--Legendre quadrature of the
-surface-charge formulation (mumax3 convention) and includes the
-inter-layer cross-terms $N_{xz}, N_{yz}$ that the slab kernel
-omits.}
+$f(k, \tCo) = (1 - e^{-|k|\tCo})/(|k|\tCo)$, with self-layer and
+inter-layer parts. (c) Newell kernel: each lattice cell is a finite
+$a\times a \times \tCo$ rectangular prism, and the cell-to-cell
+tensor is the exact field of one uniformly magnetized prism
+averaged over another.}
 \label{fig:demag_schematic}
 \end{figure}
 
@@ -1065,11 +1079,10 @@ Absorbed into an effective anisotropy:
     \frac{2\Keff}{\Ms} \, m_z \, \zhat .
 \end{equation}
 %
-This is the default for the time-stepping hot path: fast (no
-FFT), correct in the long-wavelength uniform-$m_z$ regime,
-but \emph{wrong inside the domain wall} where in-plane
-$\mb{m}$ produces lateral surface charges that the local
-formula ignores.
+This is the fastest option (no FFT) and is correct in the
+long-wavelength uniform-$m_z$ regime, but it is \emph{wrong inside
+the domain wall}, where in-plane $\mb{m}$ produces lateral
+magnetic charges that the local formula ignores.
 
 \paragraph{Level 1: Analytic slab kernel (k-space).}
 Each layer is treated as a continuous thin slab of thickness $\tCo$
@@ -1124,13 +1137,24 @@ N^{\text{inter}}_{zz}(\mb{k}) &=
     -S(|k|) .
 \end{align}
 %
-At $\mb{k} = 0$ (uniform $\mb{m}$):
-$N_{zz}^{\text{self}} = 1$, all other components vanish, recovering
-the local-slab limit.  The cross-layer $z$\,--$xy$ couplings
-$N_{xz}^{\text{inter}}, N_{yz}^{\text{inter}}$ are
-\emph{identically zero} in the slab formulation because each layer is
-treated as infinite in-plane, which decouples in-plane source $\mb{m}$
-from the other layer's $z$-field by symmetry.  Sign convention:
+The two layers are also coupled across components: an in-plane
+texture in one layer carries volume charges $-\nabla\cdot\mb{M}$,
+whose stray field has an out-of-plane part in the other layer, and
+vice versa.  These cross terms have the same strength $S$ as the
+other inter-layer components, shifted by a quarter period
+(the factor $i$):
+%
+\begin{equation}
+N^{\text{inter}}_{xz}(\mb{k}) = i\,\frac{k_x}{|k|}\,S(|k|),
+\qquad
+N^{\text{inter}}_{yz}(\mb{k}) = i\,\frac{k_y}{|k|}\,S(|k|).
+\end{equation}
+%
+They are odd in the vertical displacement, so they change sign when
+source and destination layers are swapped.  At $\mb{k} = 0$
+(uniform $\mb{m}$): $N_{zz}^{\text{self}} = 1$ and all other
+components vanish, recovering the local-slab limit.  Sign
+convention:
 %
 \begin{equation}
 \Hdemag(\mb{r}) = -\mu_0 \Ms\,(\hat{N}^{\text{self}} * \mb{m})(\mb{r})
@@ -1142,10 +1166,9 @@ Cost per call: 6 forward + 6 inverse FFTs.
 
 \paragraph{Level 2: Newell numerical kernel (finite prisms).}
 Each lattice cell is a uniformly magnetized rectangular prism of
-size $a\times a \times \tCo$.  The cell-to-cell demag tensor is
-constructed by direct numerical integration of the
-surface-charge formulation (MuMax3 algorithm,
-\cite{mumax3}).
+size $a\times a \times \tCo$.  The cell-to-cell demag tensor is the
+field that one prism's surface charges produce, averaged over the
+volume of another prism.
 For source magnetization $\mb{M} = M_u\,\hat{u}$ ($u \in\{x,y,z\}$),
 surface charges $\pm M_u$ live on the two $u$-faces.  The
 volume-averaged field at a destination cell with center-to-center
@@ -1166,20 +1189,26 @@ displacement $\mb{R}$ is
 \label{eq:newell_integral}
 \end{equation}
 %
-The 5-D integral (2-D source surface $\times$ 3-D destination volume)
-is evaluated by Gauss--Legendre quadrature.  Integration density
-follows MuMax3's adaptive recipe, with one quadrature node per
-$\text{maxSize} = d/\text{accuracy}$ along each axis, where $d$ is
-the edge-to-edge distance between cells; touching cells fall back
-to $d = L = \min(a, \tCo)$.  The source-surface stagger factor of 2
-doubles density on the $(v, w)$ axes orthogonal to the source
-direction $u$, avoiding source--destination grid resonance at near
-cells.
+This 5-D integral (2-D source surface $\times$ 3-D destination
+volume) has an exact closed form, due to Newell, Williams and
+Dunlop~\cite{newell1993}: two auxiliary functions $f$ and $g$
+(for diagonal and off-diagonal components) are combined in a
+second-difference over the 27 corner offsets of the two prisms.
+The closed form is exact but subtracts nearly equal numbers, so it
+loses precision far from the source.  Beyond about 40 cells the
+prism is indistinguishable from a point dipole, and the dipole
+tensor is used instead.  The same integral can also be evaluated by
+adaptive Gauss--Legendre quadrature (the MuMax3
+recipe~\cite{mumax3}), which serves as an independent cross-check.
 
-For the self-cell $\mb{R} = \mb{0}$ the integral~\eqref{eq:newell_integral}
-has a removable Coulomb singularity that converges slowly under
-numerical quadrature.  It is replaced by Aharoni's closed-form
-demag factor for a rectangular prism~\cite{aharoni1998}:
+With periodic boundaries, every cell also feels the periodic copies
+of the box.  The tensor therefore adds the contributions of the
+nearest image boxes, which sit at least one box length away and are
+well described by the dipole form.
+
+For the self-cell $\mb{R} = \mb{0}$ the source and destination
+coincide.  Its demag factors are given directly by Aharoni's closed
+form for a rectangular prism~\cite{aharoni1998}:
 %
 \begin{equation}
 N_c^{\text{Aharoni}}(a, b, c)
@@ -1200,8 +1229,8 @@ the formula (full expression: Aharoni~\cite{aharoni1998}, Eq.~1).
 This evaluates $N^{\text{self}}_{xx, yy, zz}(\mb{R}=0)$ exactly;
 off-diagonals vanish by the cell mirror symmetries.
 
-The inter-layer tensor includes the
-$z$\,--$xy$ cross-couplings that the slab kernel discards:
+As in the slab kernel, the inter-layer tensor includes the
+$z$\,--$xy$ cross-couplings:
 %
 \begin{equation}
 N^{\text{inter}}_{xz}, N^{\text{inter}}_{yz} \neq 0
@@ -1257,12 +1286,10 @@ where $\bar N_{ij}^{\text{layer}}(\mb{R})$ is the real-space
 cell-cell tensor from Eq.~\eqref{eq:newell_integral} for
 $\mb{R} \neq \mb{0}$ and the Aharoni override at
 $\mb{R} = \mb{0}$, and $\mathcal{F}$ is the 2-D discrete
-Fourier transform.  The schema is the same as the slab
-kernel except that the Newell case adds the inter-layer
-cross-terms $N_{xz}^{\text{inter}}$ and
-$N_{yz}^{\text{inter}}$, which vanish identically in the
-slab approximation.  The sign convention is the same as the
-slab kernel:
+Fourier transform.  The structure is the same as the slab kernel, including the
+inter-layer cross-terms $N_{xz}^{\text{inter}}$ and
+$N_{yz}^{\text{inter}}$.  The sign convention is also the
+same:
 %
 \begin{equation}
 \Hdemag(\mb{r}) =
@@ -1272,15 +1299,24 @@ slab kernel:
     \bigl(\hat N^{\text{Newell,inter}} * \mb{m}_{\text{other}}\bigr)(\mb{r}).
 \end{equation}
 
-\paragraph{Default.}
-The slab kernel is the default because at skyrmion-scale
-wavelengths
-$|\mb{k}|\,\tCo \sim 2\pi \tCo / R \sim 0.08 \ll 1$, the
-slab and Newell formulations agree to $<1\%$.  The Newell
-kernel remains available as a strict cross-check at shorter
-wavelengths, where the finite-cell corrections (in-plane
-components at $|\mb{k}| > 0$ and prism-shape effects at
-$|\mb{k}|\,\tCo \sim 1$) become physically relevant.
+\paragraph{Choosing a level.}
+No level is universally best; the choice depends on the question.
+At skyrmion-scale wavelengths
+$|\mb{k}|\,\tCo \sim 2\pi \tCo / R \sim 0.08 \ll 1$ the slab and
+Newell formulations nearly coincide, and the local level captures
+the dominant shape anisotropy.  The Newell kernel matters at shorter
+wavelengths, where the finite-cell corrections (in-plane components
+at $|\mb{k}| > 0$ and prism-shape effects at $|\mb{k}|\,\tCo \sim
+1$) become physically relevant.
+
+\paragraph{Finite samples.}
+Fourier-space multiplication is a \emph{circular} convolution: it
+describes a periodic sample.  An isolated sample is modelled by
+zero-padding the grid to twice its size, so the convolution no
+longer wraps around.  Padding both in-plane directions describes a
+finite magnet such as a disc or a rectangle; padding only across the
+width describes a racetrack, periodic along its length and free at
+its two edges.
 
 %----------------------------------------------------------------------
 \subsection{Zeeman Field}
@@ -1331,6 +1367,7 @@ transverse drift.}
 
 %======================================================================
 \section{Landau--Lifshitz--Gilbert--Slonczewski Equation (LLGS)}
+\label{sec:llgs}
 %======================================================================
 
 The magnetization dynamics of each layer are governed by the LLGS
@@ -1341,12 +1378,10 @@ $\mb{m} = \mb{M}/\Ms$:
 \frac{d\mb{m}}{dt} =
     -\gamma \, \mb{m} \times \Heff
     + \alpha \, \mb{m} \times \frac{d\mb{m}}{dt}
-    + \gamma H_{\text{DL}}
-        \frac{\mb{m} \times (\phat \times \mb{m})}
-             {|\phat \times \mb{m}|}
-    + \gamma H_{\text{FL}}
-        \frac{\phat \times \mb{m}}
-             {|\phat \times \mb{m}|}
+    + \gamma H_{\text{DL}}\,
+        \mb{m} \times (\phat \times \mb{m})
+    + \gamma H_{\text{FL}}\,
+        \phat \times \mb{m}
 \end{equation}
 %
 where:
@@ -1354,17 +1389,23 @@ where:
 \item $\gamma$ is the gyromagnetic ratio (rad/s/T),
 \item $\alpha$ is the Gilbert damping constant,
 \item $\Heff$ is the effective magnetic field (Tesla),
-\item $H_{\text{DL}} = \chi_{\text{DL}} \cdot J$ is the damping-like
-    (DL) SOT field,
-\item $H_{\text{FL}} = \chi_{\text{FL}} \cdot J$ is the field-like
-    (FL) SOT field,
+\item $H_{\text{DL}} = \chi_{\text{DL}} \cdot J(t)$ is the
+    damping-like (DL) SOT field,
+\item $H_{\text{FL}} = \chi_{\text{FL}} \cdot J(t)$ is the
+    field-like (FL) SOT field,
 \item $\phat$ is the spin polarization direction
     ($\phat = \zhat \times \hat{J}$),
-\item $\mb{J} = J\,\hat{J}$ is the current density: $J$ is the
-    magnitude (A/m$^2$), $\hat{J}$ is the unit vector along the
-    current flow,
+\item $\mb{J} = J(t)\,\hat{J}$ is the current density: $J(t)$ is
+    the magnitude (A/m$^2$), given as a current pulse in time, and
+    $\hat{J}$ is the unit vector along the current flow,
 \item $\zhat$ is the film-normal unit vector (out-of-plane).
 \end{itemize}
+%
+These are the standard Slonczewski torques.  Their magnitude is
+proportional to $|\phat\times\mb{m}| = \sin\vartheta$, where
+$\vartheta$ is the angle between $\mb{m}$ and $\phat$, so they are
+largest when $\mb{m} \perp \phat$ and vanish when $\mb{m}$ is
+parallel to the spin polarization.
 
 %----------------------------------------------------------------------
 \subsection{Explicit Form}
@@ -1379,7 +1420,7 @@ Khvalkovskiy~\emph{et al.}~\cite{khvalkovskiy2013} for the SOT
 extension.
 
 \paragraph{Step 1: Compact form.}
-Define $\mb{s} = (\phat\times\mb{m})/|\phat\times\mb{m}|$ and group
+Define $\mb{s} = \phat\times\mb{m}$ and group
 the right-hand side of~\eqref{eq:llgs} as
 %
 \begin{equation}\label{eq:F_def}
@@ -1489,6 +1530,48 @@ $c_{\text{FL}} = H_{\text{FL}} - \alpha H_{\text{DL}}$,
 and evaluates~\eqref{eq:llgs_explicit} directly without further
 algebra.
 
+%----------------------------------------------------------------------
+\subsection{Thermal Fluctuations}
+\label{sec:thermal}
+
+At finite temperature the magnetization is buffeted by the
+thermal bath.  Following Brown, this is modelled by a random
+thermal field $\mb{h}(t)$ added to $\Heff$ in the LLGS equation,
+so it enters both the precession and the damping terms.  Each
+Cartesian component in each cell is Gaussian white noise,
+%
+\begin{equation}
+\langle h_i(t) \rangle = 0,
+\qquad
+\langle h_i(t)\, h_j(t') \rangle =
+    \sigma^2\, \delta_{ij}\, \delta(t - t'),
+\qquad
+\sigma^2 = \frac{2\alpha\, k_B T}{\gamma\, \Ms\, V_{\text{cell}}} .
+\end{equation}
+%
+The strength $\sigma^2$ follows from the fluctuation--dissipation
+theorem: it is the value for which the dynamics relax to the
+Boltzmann distribution at temperature $T$.  Larger damping means
+stronger coupling to the bath, and a smaller cell volume means
+larger relative fluctuations.  Over a time step $\Delta t$ the
+field is constant with standard deviation $\sigma/\sqrt{\Delta t}$,
+so its time integral has variance $\sigma^2\,\Delta t$, as white
+noise requires.
+
+The noise multiplies $\mb{m}$ inside the cross products, so the
+stochastic equation must be read in the Stratonovich sense, the
+interpretation that preserves $|\mb{m}| = 1$.  The Heun
+predictor--corrector scheme converges to the Stratonovich solution:
+it averages the slopes at the start of the step and at a
+forward-Euler prediction, both evaluated with the \emph{same} noise
+sample.
+
+A current also heats the film.  To lowest order the temperature
+rises quadratically with the current density,
+$T = T_{\text{sub}} + R_{\text{th}}\, J^2$, where $T_{\text{sub}}$
+is the substrate temperature and $R_{\text{th}}$ a thermal
+resistance.
+
 
 %======================================================================
 \section{Spin-Orbit Torques}
@@ -1542,27 +1625,27 @@ terms in the LLGS equation:
 \begin{itemize}[nosep]
 \item \textbf{Damping-like (DL) torque}:
     $\tau_{\text{DL}} = H_{\text{DL}} \,
-    \mb{m} \times (\phat \times \mb{m})
-    / |\phat \times \mb{m}|$.
+    \mb{m} \times (\phat \times \mb{m})$.
     This acts like an additional damping (or anti-damping) that
     pushes the magnetization toward or away from $\phat$.  It is
     the dominant torque driving skyrmion motion.
 
 \item \textbf{Field-like (FL) torque}:
     $\tau_{\text{FL}} = H_{\text{FL}} \,
-    (\phat \times \mb{m})
-    / |\phat \times \mb{m}|$.
+    (\phat \times \mb{m})$.
     This is equivalent to an effective magnetic field along $\phat$
     and is typically smaller in magnitude.
 \end{itemize}
 
-The SOT effective field magnitudes are proportional to the applied
-current density:
+Both torques scale with $\sin\vartheta$, the sine of the angle
+between $\mb{m}$ and $\phat$.  The SOT effective field magnitudes
+are proportional to the applied current density, which follows the
+current pulse $J(t)$:
 %
 \begin{equation}
-H_{\text{DL}} = \chi_{\text{DL}} \cdot J,
+H_{\text{DL}} = \chi_{\text{DL}} \cdot J(t),
 \qquad
-H_{\text{FL}} = \chi_{\text{FL}} \cdot J
+H_{\text{FL}} = \chi_{\text{FL}} \cdot J(t)
 \end{equation}
 %
 where $\chi_{\text{DL}}$ and $\chi_{\text{FL}}$ are the SOT
@@ -1590,7 +1673,7 @@ the SOT terms appear as the last two contributions:
 \Big]
 \end{equation}
 %
-where $\mb{s} = (\phat \times \mb{m})/|\phat \times \mb{m}|$.
+where $\mb{s} = \phat \times \mb{m}$.
 Without the SHE ($J = 0$), the SOT terms vanish and the skyrmion
 relaxes to its equilibrium configuration.  With nonzero current,
 the DL-SOT exerts a net force on the skyrmion domain wall, driving
@@ -1609,7 +1692,7 @@ the \emph{bulk} of the Co layer, originating from the Berry phase
 that conduction electrons pick up as they adiabatically follow a
 non-trivial spin texture~\cite{bruno2004, yin2015}.  This
 \emph{topological spin Hall} (TSH) torque is the Pham~2024
-mechanism explored in Figure~S49 and switches on whenever the
+mechanism and switches on whenever the
 texture carries a non-zero local skyrmion-number density.
 
 \paragraph{Topological charge density.}
@@ -1754,7 +1837,7 @@ standard identities collapse the result:
 \int \mb{m}\cdot
     \bigl(\partial_x\mb{m}\times\partial_y\mb{m}\bigr)\,dA
     &= 4\pi Q, \\
-G_k &\equiv \varepsilon_{kij}
+G_k &\equiv \tfrac{1}{2}\,\varepsilon_{kij}
     \!\int \mb{m}\cdot
         \bigl(\partial_i\mb{m}\times\partial_j\mb{m}\bigr)\,dA
     = 4\pi Q\,\delta_{kz},
@@ -1764,7 +1847,9 @@ D_{ij} &\equiv \int
     \label{eq:dissipation_tensor}
 \end{align}
 %
-defining the gyrovector $\mb{G}=4\pi Q\,\zhat$ and the
+defining the gyrovector $\mb{G}=4\pi Q\,\zhat$ (the factor
+$\tfrac12$ compensates the two orderings $ij = xy, yx$ in the
+sum) and the
 dissipation tensor $[\mb{D}]$.  The driving force from the
 SOT is
 %
@@ -1826,9 +1911,43 @@ The Magnus forces on the two layers point in opposite directions
 and cancel exactly.  The skyrmion moves straight along the current
 direction with $\theta_{\text{SkHE}} = 0$.  This is the key
 advantage of the SAF geometry for skyrmion-based devices, as
-confirmed both experimentally
-($\theta_{\text{SkHE}} = 6.4^\circ \pm 16.4^\circ$) and in our
-simulations ($\theta_{\text{SkHE}} = 0.3^\circ$).
+confirmed experimentally
+($\theta_{\text{SkHE}} = 6.4^\circ \pm 16.4^\circ$~\cite{pham2024}).
+
+\paragraph{Closed-form speeds.}
+For a compensated SAF the Magnus term drops out, and the Thiele
+equation reduces to a balance between the driving force and the
+dissipative drag, $\mb{F} = \alpha[\mb{D}]\,\mb{v}$.  Evaluating
+both for a rigid skyrmion of radius $R$ whose wall has the 1-D
+profile of Appendix~\ref{app:dw}, with width $\Delta$, gives the
+damping-like SOT speed~\cite{pham2024}
+%
+\begin{equation}
+v_{\text{SOT}} =
+    \frac{\pi\,\gamma\, H_{\text{DL}}\, R}
+         {2\alpha\,\bigl(R/\Delta + \Delta/R\bigr)} .
+\label{eq:v_sot}
+\end{equation}
+%
+The denominator comes from the dissipation tensor.  For a large
+skyrmion ($R \gg \Delta$) the speed saturates at
+$\pi\gamma H_{\text{DL}}\Delta/(2\alpha)$: both the force and the
+drag grow with the wall length, so their ratio becomes independent
+of $R$.  The topological spin Hall torque of
+Section~\ref{sec:tsh} adds, with the same drag,
+%
+\begin{equation}
+v_{\text{TSH}} =
+    -\frac{b_j\,\lambda^2}
+          {\alpha\,\bigl(R/\Delta + \Delta/R\bigr)}
+    \int N_{xy}^2\, dA ,
+\label{eq:v_tsh}
+\end{equation}
+%
+which is linear in $\lambda^2$.  The integral of $N_{xy}^2$
+decreases as the skyrmion grows, because the topological density
+spreads over a longer wall, so $v_{\text{TSH}}$ is largest for
+small skyrmions and is a correction to $v_{\text{SOT}}$.
 
 %======================================================================
 \section{Topological Charge}
@@ -1921,13 +2040,12 @@ Q \;=\; \frac{a^2}{4\pi} \sum_{i=0}^{n_y-1}\sum_{j=0}^{n_x-1}
 \section{Skyrmion Profile (Initial Condition)}
 %======================================================================
 
-The initial N\'{e}el skyrmion profile is parametrized by:
+The initial N\'{e}el skyrmion profile wraps the 1-D domain wall of
+Appendix~\ref{app:dw} into a circle of radius $R$:
 %
 \begin{equation}
-\theta(r) = \begin{cases}
-    \pi \left(1 - \dfrac{r}{R}\right) & r < R \\[6pt]
-    0 & r \geq R
-\end{cases}
+\theta(r) = 2\arctan\!\left(
+    \exp\!\left(-\frac{r - R}{\Delta}\right)\right),
 \end{equation}
 %
 \begin{equation}
@@ -1937,13 +2055,19 @@ m_z = \cos\theta
 \end{equation}
 %
 where $r$ is the distance from the skyrmion center, $R$ is the
-skyrmion radius, and
+radius of the $m_z = 0$ contour, $\Delta$ the wall width, and
 $\varphi = \text{atan2}(y - y_0, x - x_0)$ is the azimuthal angle
 (N\'{e}el helicity).
 
-The top layer has core down ($m_z = -1$ at center), the bottom layer
-has core up ($m_z = +1$ at center), consistent with antiferromagnetic
-RKKY coupling.
+The top layer has core down ($m_z = -1$ at center).  The bottom
+layer is its full reversal, $\mb{m}_{\text{bot}} = -\mb{m}_{\text{top}}$:
+core up, and in-plane spins pointing inward rather than outward.
+Two facts make this the right partner.  The DMI energy is unchanged
+under $\mb{m} \to -\mb{m}$, so both layers keep the chirality the
+DMI favours.  And the two walls are antiparallel at every point, the
+ground state of the antiferromagnetic RKKY coupling.  Flipping only
+$m_z$ would give the bottom wall the wrong chirality and leave it
+parallel to the top wall in-plane, frustrating both couplings.
 
 %======================================================================
 \section{Simulation Parameters}
@@ -1952,7 +2076,9 @@ RKKY coupling.
 All material parameters are taken from~\cite{pham2024} for the
 optimized SAF stack
 Pt(3) / Co(1.58) / Ru(0.85) / Pt(0.5) / Co(1.58) / Ru(0.85)
-(thicknesses in nm).
+(thicknesses in nm).  The magnetic thickness used for each Co layer
+is $\tCo = 1.3$~nm, and the spacer separating the two layers is
+$d_{\text{Ru}} = 1.35$~nm.
 
 \begin{table}[H]
 \centering
@@ -1966,15 +2092,17 @@ Saturation magnetization
 Exchange stiffness
     & $\Aex$ & $16 \times 10^{-12}$ & J/m \\
 DMI constant
-    & $D$ & $0.62 \times 10^{-3}$ & J/m$^2$ \\
+    & $D$ & $0.85 \times 10^{-3}$ & J/m$^2$ \\
 Anisotropy (top layer)
-    & $K_{\text{top}}$ & $1.294 \times 10^6$ & J/m$^3$ \\
+    & $K_{\text{top}}$ & $1.3106 \times 10^6$ & J/m$^3$ \\
 Anisotropy (bottom layer)
     & $K_{\text{bot}}$ & $1.31 \times 10^6$ & J/m$^3$ \\
 Gilbert damping
     & $\alpha$ & 0.14 & -- \\
 Co layer thickness
     & $\tCo$ & 1.3 & nm \\
+Spacer thickness
+    & $d_{\text{Ru}}$ & 1.35 & nm \\
 Gyromagnetic ratio
     & $\gamma$ & $194.8 \times 10^9$ & rad/(s\,T) \\
 RKKY coupling field
@@ -1993,6 +2121,14 @@ Domain wall width
 \end{tabular}
 \end{table}
 
+Two values differ from the measured ones on purpose.  The paper
+reports $D = 0.62 \pm 0.24$~mJ/m$^2$; the value $0.85$~mJ/m$^2$ lies
+in the upper part of that band.  The measured top-layer anisotropy,
+$1.294 \times 10^6$~J/m$^3$ ($\mu_0 H_k = 12.4$~mT), is raised to
+$1.3106 \times 10^6$~J/m$^3$ ($\mu_0 H_k = 36$~mT), as in the
+paper's own simulations, so that the background domain is not
+reversed by the SOT at the largest currents.
+
 \subsection*{Derived quantities}
 
 \begin{table}[H]
@@ -2003,16 +2139,16 @@ Quantity & Formula & Value \\
 \midrule
 $K_{\text{eff, top}}$
     & $K_{\text{top}} - \mu_0 \Ms^2 / 2$
-    & $\approx 9.2 \times 10^3$ J/m$^3$ \\
+    & $\approx 2.6 \times 10^4$ J/m$^3$ \\
 $K_{\text{eff, bot}}$
     & $K_{\text{bot}} - \mu_0 \Ms^2 / 2$
     & $\approx 2.5 \times 10^4$ J/m$^3$ \\
-Domain wall width
+Wall-width parameter
     & $\Delta = \sqrt{\Aex / \Keff}$
-    & $\approx 30.5$ nm \\
-Skyrmion diameter
-    & (from paper formula)
-    & $\approx 197$ nm (paper), 160 nm (sim) \\
+    & $\approx 25$ nm \\
+Critical DMI
+    & $D_c = (4/\pi)\sqrt{\Aex\,\Keff}$
+    & $\approx 0.82$ mJ/m$^2$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2030,10 +2166,10 @@ $a$ & 2 nm & Lattice constant \\
 $\Delta t$ & $5 \times 10^{-14}$ s & Time step \\
 Relaxation steps & 10\,000 & 500 ps at $J = 0$ \\
 Drive steps & 5\,000 & 250 ps with current \\
-Current density & $4 \times 10^{11}$ A/m$^2$ & \\
+Current density & $J(t)$ & current pulse, set per run \\
 Spin polarization & $\phat = \hat{y}$
     & From spin Hall effect \\
-Initial skyrmion radius & 80 nm
+Initial skyrmion radius & 93.25 nm
     & Relaxes to equilibrium \\
 Domain wall width (init.) & 27 nm
     & From paper (Table S2) \\
@@ -2050,19 +2186,20 @@ The RK4 time step must satisfy:
 \end{equation}
 %
 where $\omega_{\text{max}} = \gamma \cdot H_{\text{max}}$ and
-$H_{\text{max}} \approx 4 C_{\text{ex}} \approx 90$~T (exchange
-field at the skyrmion core boundary). With the chosen parameters,
-$\omega_{\text{max}} \cdot \Delta t \approx 0.87$, within the RK4
-stability region.
+$H_{\text{max}} \approx 4 C_{\text{ex}}$ is the largest exchange
+field on the lattice, reached when neighbouring spins are
+antiparallel.  With $C_{\text{ex}} = 2\Aex/(\Ms a^2) \approx 5.6$~T,
+$H_{\text{max}} \approx 22$~T and
+$\omega_{\text{max}} \cdot \Delta t \approx 0.22$, well within the
+RK4 stability region.
 
 %======================================================================
 \section{Implementation Notes}
 \label{sec:implementation_notes}
 %======================================================================
 
-Four sources of model--experiment disagreement enter the
-simulation--paper comparison of Sec.~13. They are intentional
-modeling choices or material-parameter uncertainties, not bugs.
+Four modelling choices and material-parameter uncertainties limit
+how closely any simulation of this stack can match experiment.
 
 %----------------------------------------------------------------------
 \subsection{Local $N_z = 1$ demag vs full FFT demag}
@@ -2106,10 +2243,10 @@ non-local stray fields between in-plane spins.
 The full FFT demag (in \texttt{src/skyrmion\_simulator/simulator/demag.py}) computes
 $\hat N(\mb{k})$ exactly via FFT, including in-plane components and
 the inter-layer dipolar kernel across the Ru spacer. MuMax3 does
-this by default; the simulator's main loop does not. This is the
-\textbf{dominant source of the 160 nm (sim) vs 197 nm (paper)
-diameter mismatch}: non-local demag lowers the in-plane DW energy,
-allowing a wider wall and a larger skyrmion.
+this by default; the simulator's main loop does not.  The
+difference matters for the skyrmion size: non-local demag lowers
+the in-plane DW energy, allowing a wider wall and a larger
+skyrmion.
 
 %----------------------------------------------------------------------
 \subsection{DMI uncertainty: $D \pm 39\%$}
@@ -2136,6 +2273,7 @@ change $R$ by tens of nm.
 
 %----------------------------------------------------------------------
 \subsection{Anisotropy uncertainty: $K \pm 7\%$}
+\label{sec:k_uncertainty}
 
 $K$ is measured via FMR resonance fields, anomalous-Hall hysteresis,
 or MOKE saturation fields. These methods are well-standardized and
@@ -2152,7 +2290,9 @@ K = 1.294\times 10^6,\quad
 \end{equation}
 %
 A 7\% error on $K$ ($\sim 9\times 10^4$~J/m$^3$) is
-\textbf{10$\times$ larger than $\Keff$ itself} --- the system sits in
+\textbf{10$\times$ larger than $\Keff$ itself} (and still
+$3.5\times$ larger for the $\Keff \approx 2.6\times10^4$~J/m$^3$ of
+the $36$~mT anisotropy used here) --- the system sits in
 the spin reorientation transition regime where $\Keff$ is barely
 positive. The domain-wall width $\Delta = \sqrt{\Aex/\Keff}$
 depends on $1/\sqrt{\Keff}$, so few-percent errors on $K$ propagate
@@ -2182,15 +2322,15 @@ v \propto \frac{1}{\alpha}.
 \end{equation}
 %
 A $\pm 0.04$ uncertainty in $\alpha$ around 0.14 propagates to
-$\pm 30\%$ in velocity. The simulation gives 500~m/s, the MuMax3
-reference gives $\sim$400~m/s --- a 25\% gap, comfortably inside the
-damping uncertainty band.
+$\pm 30\%$ in velocity.
 
 %----------------------------------------------------------------------
 \subsection{Summary}
 
 \begin{table}[h!]
 \centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}llll@{}}
 \toprule
 Approximation & Mechanism & Affects & Magnitude \\
@@ -2198,7 +2338,7 @@ Approximation & Mechanism & Affects & Magnitude \\
 Local $N_z = 1$ demag
     & non-local in-plane dipolar ignored
     & DW energy, skyrmion size
-    & $\sim$20\% on diameter \\
+    & few-\% field, larger on size \\
 $D \pm 39\%$
     & DMI hard to measure
     & skyrmion size, $D_c$
@@ -2258,13 +2398,21 @@ $|\mb{m}| = 1$:
 \end{align}
 %
 Both SAF layers are evolved simultaneously, as the RKKY coupling
-makes them interdependent.
+makes them interdependent.  At finite temperature the stochastic
+equation is integrated with the Heun scheme of
+Section~\ref{sec:thermal} instead.
 
 %----------------------------------------------------------------------
 \subsection{Boundary Conditions}
 
 Periodic boundary conditions (PBC) are applied in both $x$ and $y$
-directions, implemented via \texttt{np.roll} on the spin arrays.
+directions by default, implemented via \texttt{np.roll} on the spin
+arrays.  Finite samples use free edges instead: the demag is
+zero-padded across the free direction (Sec.~\ref{sec:demag}), and
+the exchange and DMI stencils see the Rohart--Thiaville free-edge
+condition
+$\partial_n\mb{m} = (D/2\Aex)\,(\hat{\mb{n}}\times\zhat)\times\mb{m}$
+at the boundary (Sec.~\ref{sec:bc-comparison}).
 
 %----------------------------------------------------------------------
 \subsection{Output Format}
@@ -2279,551 +2427,6 @@ Type~1 corresponds to the top Co layer ($z = 0$), type~2 to the
 bottom Co layer ($z = -\tCo$).
 
 
-
-%======================================================================
-\section{Research Program: Planned Analyses and Open Questions}
-\label{sec:research_program}
-%======================================================================
-
-The numerical experiments in this work form two complementary
-campaigns with a single aim: to characterize current-driven
-skyrmion dynamics in the Pt/Co/Ru synthetic-antiferromagnet (SAF)
-stack of Pham \emph{et al.}~\cite{pham2024} beyond what the
-original study reports. \textbf{Campaign~I} (zero temperature)
-reproduces the paper's deterministic micromagnetic results
-(supplementary figures S41--S49) and calibrates the in-house
-solver, the DMI strength, and the demagnetization treatment.
-\textbf{Campaign~II} (finite temperature) carries the
-\emph{same} stack into the stochastic regime to close a gap the
-literature leaves open: how speed, directional control, and
-thermal stability trade off against temperature and drive in a
-compensated SAF.
-
-%----------------------------------------------------------------------
-\subsection{Campaign~I: zero-temperature reproduction and
-calibration}
-\label{sec:campaign1}
-
-Campaign~I is the validation backbone. Each row of
-Table~\ref{tab:campaign1} is a deterministic ($T=0$) sweep whose
-results appear as a subsection of
-Sec.~\ref{sec:results}. Reproducing the paper's velocities,
-elliptical deformation, inertial transients, and topological spin
-Hall comparison establishes that the solver is quantitatively
-trustworthy and fixes the operating point ($D=0.76$~mJ/m$^2$,
-$\mu_0H_{k,\mathrm{top}}=36$~mT, supplement~1.1 of
-\cite{pham2024}; full-FFT or Newell demag) used as the $T=0$
-anchor for Campaign~II.
-
-\begin{table}[H]
-\centering
-\small
-\caption{Campaign~I: zero-temperature reproduction sweeps. Set~A
-$=$ Pham simulation stack ($\alpha=0.14$, $\gamma=194.8$~GHz/T,
-$D=0.76$~mJ/m$^2$, $\mu_0H_{k,\mathrm{top}}=36$~mT); Set~B $=$
-Pham S48/S49 stack ($\alpha=0.216$, $\gamma=175.9$~GHz/T,
-$D=0.62$~mJ/m$^2$, measured
-$\mu_0H_{k,\mathrm{top}}=12.4$~mT). All lattices $256\times256$,
-full magnetostatic demag.}
-\label{tab:campaign1}
-\begin{tabular}{@{}llll@{}}
-\toprule
-Driver script & Swept quantity & Observable & Goal \\
-\midrule
-\texttt{sweep\_S41\_v\_time} & none ($J=1{\times}10^{11}$, 2~ns DC)
-    & $v(t)$, $v_\mathrm{avg}$ & rise to steady state \\
-\texttt{sweep\_S42\_J} & $J\in[1,8.9]{\times}10^{11}$ (9)
-    & $v_\mathrm{max}, v_\mathrm{avg}$ & $v$--$J$ law; deformation gap \\
-\texttt{sweep\_S43a\_FWHM} & FWHM $\in[100,530]$~ps (10), 2 $J$
-    & $v_\mathrm{avg}$ & pulse-width dependence \\
-\texttt{sweep\_S43b\_J\_two\_D} & $J$ (9) $\times$ $D$ (2)
-    & $v_\mathrm{avg}$ & size effect on $v$ \\
-\texttt{sweep\_S44\_deformation} & $J\in[1,8.9]{\times}10^{11}$ (9)
-    & $D_1, D_2, \psi$ & SOT elliptical deformation \\
-\texttt{sweep\_S46a\_HRKKY} & $H_\mathrm{RKKY}\in[0.20,0.95]$~T
-    & $v_\mathrm{avg}, d_\mathrm{max}$ & RKKY stiffness vs.\ $v$ \\
-\texttt{sweep\_S46b\_FWHM} & FWHM (8) at fixed $H_\mathrm{RKKY}$
-    & $v_\mathrm{avg}, d_\mathrm{max}$ & width vs.\ RKKY interplay \\
-\texttt{sweep\_S47\_J\_config} & 3 (FWHM, $H_\mathrm{RKKY}$)
-    $\times$ $J$ (10) & $v, \psi, D_{1,2}$ & drive-config map \\
-\texttt{sweep\_S48\_inertia} (B) & $H_\mathrm{RKKY}\in[0.1,0.5]$~T
-    & $\tau_d, f$ & Thiele inertia vs.\ RKKY \\
-\texttt{sweep\_S49\_TSH} (B) & $R/\Delta$ (9) $\times$
-    $\lambda^2$ (2) & $v_\mathrm{SOT}, v_\mathrm{TSH}$
-    & topological spin Hall torque \\
-\texttt{sweep\_breathing} & $D\in[0.62,1.00]$~mJ/m$^2$ (7)
-    & $f, \tau$ of $d(t)$ & soft breathing mode near $D_c$ \\
-\texttt{sweep\_D\_S41} & $D\in[0.62,1.00]$~mJ/m$^2$ (7)
-    & $v_\mathrm{avg}$ & DC velocity vs.\ size \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-%----------------------------------------------------------------------
-\subsection{The open question at finite temperature}
-\label{sec:gap}
-
-Pham \emph{et al.}\ operate their device \emph{experimentally} at
-room temperature, yet their supporting micromagnetic analysis is
-performed at $T=0$~\cite{pham2024}. The thermal half of the
-problem --- precisely the half that governs whether a SAF skyrmion
-racetrack is usable --- is therefore left uncharacterized for this
-stack. Four questions remain open, and no existing study answers
-them for the Pham geometry:
-
-\begin{enumerate}
-\item[\textbf{Q1.}] \emph{Speed retention.} Does the drive current
-    that produces a given $T=0$ velocity still produce it at room
-    temperature, or must the drive be re-tuned as thermal
-    fluctuations renormalize the mobility and shrink the
-    skyrmion?
-\item[\textbf{Q2.}] \emph{Directional control.} At device-relevant
-    speeds, is the near-zero SAF skyrmion Hall angle preserved
-    under noise, or does thermal jitter (transverse variance
-    $\sigma_y$, Hall-angle scatter) degrade guidance?
-\item[\textbf{Q3.}] \emph{Size, interactions, and stability.} How
-    does skyrmion radius couple to velocity \emph{and} to
-    interactions? Two interaction channels are distinguished:
-    (a) the \emph{inter-layer} top--bottom coupling within a single
-    SAF skyrmion (core offset, compensation residual
-    $Q_\mathrm{top}+Q_\mathrm{bot}$), and (b) the
-    \emph{inter-skyrmion} pair potential $V(r)$ between two SAF
-    skyrmions on one track.
-\item[\textbf{Q4.}] \emph{Optimal operating temperature.} Is there
-    a temperature that maximizes drift speed while keeping the
-    skyrmion stable against thermal annihilation --- a Pareto
-    front of $\langle v\rangle$ versus survival probability ---
-    and what is the intrinsic zero-drive Arrhenius barrier
-    $\Delta E$ that sets the lifetime?
-\end{enumerate}
-
-These are not addressed by the original micromagnetic supplement,
-nor, to our knowledge, mapped systematically for a compensated
-Pt/Co/Ru SAF elsewhere. Closing them is the novel contribution of
-this work.
-
-%----------------------------------------------------------------------
-\subsection{Campaign~II: finite-temperature stochastic dynamics}
-\label{sec:campaign2}
-
-Campaign~II solves the stochastic LLGS equation: the deterministic
-effective field of Sec.~\ref{sec:effective_fields} is augmented by
-a Gaussian thermal field whose amplitude is fixed by the
-fluctuation--dissipation theorem,
-%
-\begin{equation}
-\sigma_\mathrm{noise} =
-    \sqrt{\frac{2\,\alpha\,k_B\,T}{\gamma\,\Ms\,V_\mathrm{cell}}},
-\qquad
-\langle \mb{h}_\mathrm{th}(t)\,\mb{h}_\mathrm{th}(t')\rangle
-    \propto \delta(t-t'),
-\label{eq:fdt}
-\end{equation}
-%
-integrated with a Heun (Stratonovich) scheme and validated against
-the single-spin Langevin function and Brown's reversal-time
-formula before production~\cite{ament2017}. Each scan in
-Table~\ref{tab:campaign2} maps one of the four open questions onto
-an ensemble of independent trajectories. The substrate temperature
-is capped at $350$~K: the Co/Pt Curie temperature lies far above
-this~\cite{koyama2015}, so $\Ms$ is treated as constant and the
-constant-magnitude spin model remains valid (an optional
-Joule-heating model $T_\mathrm{eff}=T_\mathrm{sub}+R_\mathrm{th}j^2$
-is available but disabled, $R_\mathrm{th}=0$, in the baseline runs).
-
-\begin{table}[H]
-\centering
-\small
-\caption{Campaign~II: finite-temperature stochastic-LLGS scans
-(\texttt{src/skyrmion\_simulator/stochastic\_llgs/production/}). Each scan answers one
-open question of Sec.~\ref{sec:gap}.}
-\label{tab:campaign2}
-\begin{tabular}{@{}lllc@{}}
-\toprule
-Scan script & Swept grid & Observable(s) & Q \\
-\midrule
-\texttt{scan\_tj} &
-    $T\in[10,350]$~K (9) $\times$ $j\in[1,16]{\times}10^{11}$ (5),
-    $n_\mathrm{ens}{=}30$ &
-    $\langle v\rangle$, $\sigma_y$, $P_\mathrm{surv}$ & Q1,Q2,Q4 \\
-\texttt{scan\_arrhenius} &
-    $T\in[10,350]$~K (9), $j{=}0$, $n_\mathrm{ens}{=}200$ &
-    $\tau(T)\Rightarrow\Delta E,\tau_0$ & Q4 \\
-\texttt{scan\_radius} &
-    4 $(D,H_z)$ cells $\to R\approx40$--$120$~nm, $T{=}300$~K,
-    $j{=}4{\times}10^{11}$ &
-    $v(R)$, $|\mb{r}_\mathrm{top}{-}\mb{r}_\mathrm{bot}|$,
-    $Q_\mathrm{top}{+}Q_\mathrm{bot}$ & Q3a \\
-\texttt{pair\_potential} &
-    $r_\mathrm{init}\in\{180,240,320,400\}$~nm, $T{=}300$~K,
-    $j{=}0$, $n_\mathrm{ens}{=}30$ &
-    $r(t)\Rightarrow V(r)$ & Q3b \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-%----------------------------------------------------------------------
-\subsection{Novelty and expected contribution}
-\label{sec:novelty}
-
-Taken together, Campaign~II converts the single room-temperature
-demonstration of~\cite{pham2024} into a predictive map of the
-stack's operating envelope. The deliverables are: (i) a
-$(T, j)$ \emph{operating diagram} delineating the
-fast-\emph{and}-stable regime from the thermally-annihilating one
-(Q1, Q4); (ii) the intrinsic Arrhenius barrier $\Delta E$ and
-prefactor $\tau_0$ of the compensated SAF skyrmion in this
-geometry, quantities not reported in the source work (Q4);
-(iii) a quantification of thermal directional jitter
-($\sigma_y$, Hall-angle scatter) at device speeds, testing whether
-the SAF's signature collinear motion survives noise (Q2); and
-(iv) a decomposition of size-dependent behavior into inter-layer
-(single-SAF) and inter-skyrmion ($V(r)$) channels at finite
-temperature (Q3). The calibrated $T=0$ baseline of Campaign~I is
-what makes these finite-$T$ claims quantitative rather than
-qualitative.
-
-%======================================================================
-\section{Simulation Results vs.\ Paper}
-\label{sec:results}
-%======================================================================
-
-\begin{table}[H]
-\centering
-\caption{Comparison of simulation results with~\cite{pham2024}
-(Set~A, Newell demag).}
-\begin{tabular}{@{}lll@{}}
-\toprule
-Quantity & Simulation & Paper \\
-\midrule
-Equilibrium diameter & 210 nm & $\sim$215 nm \\
-$v_\mathrm{avg}$ ($J = 1 \times 10^{11}$ A/m$^2$, 2~ns DC)
-    & 99 m/s & $\sim$100 m/s (S41) \\
-$v_\mathrm{avg}$ ($J = 8.9 \times 10^{11}$ A/m$^2$, Gaussian)
-    & 674 m/s & $\sim$670 m/s (S42b) \\
-$v_\mathrm{max}$ ($J = 8.9 \times 10^{11}$ A/m$^2$, Gaussian)
-    & 579 m/s & $\sim$510 m/s (S42b) \\
-Skyrmion Hall angle & $0.15^\circ$ & $\sim 0^\circ$ (SAF) \\
-Topological charge & $\pm 0.999$ & $\pm 1$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-With the full Newell magnetostatic kernel the equilibrium size and
-the velocity scale agree with the paper at the few-percent level;
-the DC benchmark (S41) matches to within 1\%. The largest residual
-is the peak instantaneous velocity at the strongest Gaussian drive
-($579$ vs $\sim 510$~m/s, $+13\%$), where the skyrmion is far from
-rigid and the velocity is sensitive to the deformation transient
-(see the S47 discussion below).
-
-Empirically, widening the inter-layer spacer from $d_{\text{Ru}}=0.8$ to
-$1.35$~nm (Pt$+$Ru, Sec.~\ref{sec:demag}) shifts $d_{\text{top}}$ by
-$<1\%$, confirming that the slab self-layer kernel dominates the
-equilibrium size and that the inter-layer term is a weak perturbation.
-
-The remainder of this section presents one numerical experiment
-per subsection. For each, the objective, the drive, the swept
-quantities, and the resulting figure are given in place; the
-parameter sets are defined inline the first time they are used
-(\textbf{Set~A} = the SAF stack of Sec.~\ref{sec:demag} with the
-paper's simulation values, $\alpha=0.14$, $\gamma=194.8$~GHz/T,
-$D=0.76$~mJ/m$^2$, $\mu_0H_{k,\mathrm{top}}=36$~mT;
-\textbf{Set~B} = the modified stack used by Pham et al.\ for S48
-and S49, $\alpha=0.216$, $\gamma=175.9$~GHz/T,
-$D=0.62$~mJ/m$^2$, measured
-$\mu_0H_{k,\mathrm{top}}=12.4$~mT).
-
-%----------------------------------------------------------------------
-\subsection{Instantaneous velocity vs.\ time}
-
-\textbf{Objective.} Show the velocity rise to steady state under a
-long DC pulse, and verify that $v_\mathrm{avg}=\Delta X/t_\mathrm{pulse}$
-matches the plateau value. Single trajectory at $J=1\times10^{11}$
-A/m$^2$, 2~ns square pulse, Set~A.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.65\linewidth]{S41_v_t_newell_D076e-3.png}
-\caption{Instantaneous and pulse-averaged velocity for the Set~A
-Newell run ($D=0.76$~mJ/m$^2$). The pulse-averaged velocity is
-$99$~m/s against the paper's $\sim100$~m/s plateau.}
-\end{figure}
-
-%----------------------------------------------------------------------
-\subsection{Gaussian pulses of varying current density}
-
-\textbf{Objective.} Track $v_\mathrm{inst}(t)$ and the
-$v_\mathrm{max}$/$v_\mathrm{avg}$ pair across the current range.
-Gaussian pulse with FWHM~$=500$~ps,
-$J_0\in\{1..8.9\}\times10^{11}$~A/m$^2$ (9 runs), Set~A. Following
-the paper's convention, $v_\mathrm{avg}=X/\mathrm{FWHM}$ with $X$
-the net pulse-induced displacement; since the motion accrues over
-the full $\pm3\sigma\simeq2.5\,\mathrm{FWHM}$ window,
-$v_\mathrm{avg}$ exceeds $v_\mathrm{max}$ by construction, in the
-simulation as in the paper's own S42b panel.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S42_v_t.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S42_vmax_vavg.png}
-\caption{(left) $v_\mathrm{inst}(t)$ traces per $J_0$ with the Gaussian
-pulse shape overlaid. (right) $v_\mathrm{max}$ vs $v_\mathrm{avg}$,
-showing the gap that opens at high current.}
-\end{figure}
-
-%----------------------------------------------------------------------
-\subsection{Pulse-width and skyrmion-size sweeps}
-
-\textbf{Objective.} (a) Probe the dependence of $v_\mathrm{avg}$ on
-Gaussian pulse width at two current densities (10 FWHM~$\times$ 2~$J$
-= 20 runs). (b) Compare two skyrmion sizes by sweeping $J$ at two
-DMI values ($D_1=0.76$, $D_2=0.60$~mJ/m$^2$; 9~$J\times$ 2~$D$ = 18
-runs). The $D=0.60$~mJ/m$^2$ branch terminates at
-$J=6\times10^{11}$~A/m$^2$: at the three highest drives the small
-skyrmion is destroyed during the pulse (the paper's S43b extends
-to $8.9\times10^{11}$ for both $D$ values).
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S43a_v_FWHM.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S43b_v_J.png}
-\caption{(left) $v_\mathrm{avg}$ vs FWHM at $J=4$ and $8.9\times10^{11}$
-A/m$^2$. (right) $v_\mathrm{avg}$ vs $J$ for the two D values.}
-\end{figure}
-
-\textbf{Why does a larger skyrmion move faster?} A natural objection
-is that a larger skyrmion should have more inertia and therefore
-respond more sluggishly. Inertia governs the transient (rise/fall
-time), not the steady-state speed. In the overdamped Thiele regime
-the steady-state velocity is set by the ratio of driving force to
-damping, not by the inertial mass:
-\begin{equation}
-v_\mathrm{SOT} \;=\; \frac{F_\mathrm{SOT}}{\alpha\,D}
-\;=\; \frac{\pi\,\gamma\,H_\mathrm{DL}\,R}
-           {2\alpha\,\bigl(R/\Delta + \Delta/R\bigr)}.
-\label{eq:vsot-thiele-R}
-\end{equation}
-The SOT force scales linearly with the skyrmion radius,
-$F_\mathrm{SOT}=(\pi/2)\,M_s\,t\,H_\mathrm{DL}\,R$, because every
-domain-wall element feels the damping-like torque and a larger
-skyrmion has a longer wall. The Thiele dissipation tensor scales
-as $D\propto R/\Delta+\Delta/R$, so with $r\equiv R/\Delta$,
-\begin{equation}
-v_\mathrm{SOT}(r) \;\propto\; \frac{\Delta\,r^{2}}{r^{2}+1},
-\end{equation}
-which rises monotonically and saturates at
-$v_\infty=\pi\gamma\Delta H_\mathrm{DL}/(2\alpha)$ for $r\gg 1$.
-For the Set~A stack ($R\simeq 105$~nm, $\Delta\simeq 27$~nm,
-$r\simeq 3.9$), we are still on the rising part of this curve, so
-increasing $D$ from $0.60$ to $0.76$~mJ/m$^{2}$ inflates the
-skyrmion and increases $v_\mathrm{avg}$ at every $J$ (74 vs
-110~m/s at $J=1\times10^{11}$~A/m$^2$). Inertia does grow with $R$
-in the SAF, but it sets the rise/fall time constant $\tau_d$
-(probed in S48), not the plateau speed.
-
-%----------------------------------------------------------------------
-\subsection{Skyrmion deformation under a 0.5~ns pulse}
-
-\textbf{Objective.} Map the SOT-driven elliptical deformation
-$(D_1, D_2)$ and the in-plane DW rotation $\psi$ under strong drive.
-Single trajectory + $J$-sweep, Set~A, Gaussian FWHM~$=500$~ps.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.32\linewidth]{S44_A_d_t.png}
-\hfill
-\includegraphics[width=0.32\linewidth]{S44_B_vD_J.png}
-\hfill
-\includegraphics[width=0.32\linewidth]{S44_C_psi_J.png}
-\caption{(A) Average diameter $d_\mathrm{top}(t)$ at $J=8.9\times10^{11}$
-A/m$^2$. (B) $v_\mathrm{avg}$, $\max D_1$, $\min D_2$ vs $J$. (C)
-DW magnetization angles $\psi_\mathrm{top}, \psi_\mathrm{bot}$ vs $J$
-(post-unwrap; see Sec.~6 for the branch-cut fix).}
-\end{figure}
-
-%----------------------------------------------------------------------
-\subsection{RKKY and pulse-width sweeps at fixed $J$}
-
-\textbf{Objective.} (A) $v$ and $d$ vs interlayer RKKY field at fixed
-pulse width (16 runs). (B) Same observables vs pulse width at fixed
-$H_\mathrm{RKKY}=205$~mT (8 runs). Set~A, $J=8.9\times10^{11}$ A/m$^2$.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S46_A_vD_HRKKY.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S46_B_vD_FWHM.png}
-\caption{(A) $v_\mathrm{avg}$ and $\max d_\mathrm{top}$ vs
-$H_\mathrm{RKKY}$. (B) Same observables vs Gaussian FWHM.}
-\end{figure}
-
-%----------------------------------------------------------------------
-\subsection{Three drive configurations across a current sweep}
-
-\textbf{Objective.} Three drive configurations crossed with a 10-point
-$J$ sweep, plus snapshots of $m_\mathrm{top}$ at the pulse peak for
-the highest $J$ of each configuration (30 trajectories + 3
-snapshots). Set~A, Gaussian pulse.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S47_A_v.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S47_B_psi.png}
-\caption{(A) $v_\mathrm{avg}$ vs $J$ for the three drive configurations.
-(B) $\psi_\mathrm{bot}$ vs $J$ (post-unwrap).}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S47_C_D1.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S47_D_D2.png}
-\caption{Ellipse axes $D_1$ (left) and $D_2$ (right) sampled at
-the pulse maximum, vs $J$, per configuration (the paper's S47
-convention). For the 500-ps configurations at
-$J\geq4\times10^{11}$~A/m$^2$ the post-pulse deformation
-transient grows past the periodic box ($\max D_1$ over the trace
-reaches $0.8\times$ the box extent or more), so late-time axis
-values there are box-limited and only the pulse-maximum sample is
-reported.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.30\linewidth]{S47_E_snap.png}
-\hfill
-\includegraphics[width=0.30\linewidth]{S47_F_snap.png}
-\hfill
-\includegraphics[width=0.30\linewidth]{S47_G_snap.png}
-\caption{Snapshots of $m_\mathrm{top}$ at the pulse peak for the highest
-$J$ of configurations (i), (ii), (iii) respectively.}
-\end{figure}
-
-%----------------------------------------------------------------------
-\subsection{RKKY effect on inertial dynamics}
-
-\textbf{Objective.} Extract the rise/fall time constant
-$\tau_d$ and inertial frequency $f$ of $v(t)$ as a function of
-$H_\mathrm{RKKY}$, probing the Thiele inertia term in the SAF
-geometry. Set~B ($\alpha=0.216$, $\gamma=175.9$~GHz/T,
-$D=0.62$~mJ/m$^2$), DC square pulse, 9 runs.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.32\linewidth]{S48_A_vt_rise.png}
-\hfill
-\includegraphics[width=0.32\linewidth]{S48_B_vt_fall.png}
-\hfill
-\includegraphics[width=0.32\linewidth]{S48_D_vt_full.png}
-\caption{(A) Rise transient; (B) fall transient; (D) the
-complete $v(t)$ trace with the 2~ns pulse window shaded. Both
-edges show pronounced inertial overshoot and damped ringing
-that is not present in the original paper's data, indicating
-that our simulation captures more of the inertial dynamics
-(see text).}
-\end{figure}
-
-The paper applies a single-exponential model to the two edges,
-averages over the four fits per $H_\mathrm{RKKY}$ (top/bot
-$\times$ rise/fall), and reports the mean $1/\tau$ with the
-fit-to-fit standard deviation as the error bar. Using the
-same recipe here gave errors comparable to the means, because
-the v(t) traces are not pure exponentials: they ring at an
-inertial frequency $f$ before settling. We therefore replaced
-the exponential by a damped sinusoid,
-%
-\begin{equation}
-v(t) \;=\; A
-    \;+\; B\,e^{-(t-t_0)/\tau_d}\,
-    \bigl[\cos\phi - \cos\bigl(2\pi f (t-t_0) + \phi\bigr)\bigr],
-\end{equation}
-%
-fitted over a 500~ps window past each edge and reporting both
-the envelope decay $\tau_d$ and the inertial frequency $f$ from
-the same fit. Boundary conditions: $v(t_0)=A$ (steady plateau
-before the transient) and $v(t\to\infty)=A$ (back to the same
-plateau after ringing decays).
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.46\linewidth]{S48_C_invtau.png}
-\hfill
-\includegraphics[width=0.46\linewidth]{S48_E_freq.png}
-\caption{(C) Envelope inverse decay $1/\tau_d$ vs
-$H_\mathrm{RKKY}$ from the damped-sinusoid fit; error bars are
-the standard deviation across the four edges (top/bot $\times$
-rise/fall). (E) Inertial frequency $f$ vs $H_\mathrm{RKKY}$
-from the same fit.}
-\end{figure}
-
-\begin{table}[H]
-\centering
-\caption{Damped-sinusoid fit results vs $H_\mathrm{RKKY}$.
-$n$ is the number of fits (of 4) that converged within bounds.}
-\begin{tabular}{@{}rlll@{}}
-\toprule
-$H_\mathrm{RKKY}$ (mT) & $1/\tau_d$ (1/s) & $f$ (GHz) & $n$ \\
-\midrule
-100 & $4.07\times10^{9} \pm 3.0\times10^{9}$ & $11.7\pm 8.6$ & 4 \\
-150 & $1.78\times10^{10} \pm 1.3\times10^{10}$ & $28.4\pm 21.7$ & 4 \\
-200 & $4.61\times10^{9} \pm 5.8\times10^{8}$ & $12.9\pm 13.1$ & 4 \\
-250 & $4.21\times10^{9} \pm 5.0\times10^{8}$ & $16.3\pm 19.4$ & 4 \\
-\textbf{300} & $6.03\times10^{9} \pm 3.1\times10^{9}$ & $\mathbf{4.91\pm 0.44}$ & 3 \\
-\textbf{350} & $4.55\times10^{9} \pm 1.3\times10^{9}$ & $\mathbf{4.94\pm 0.35}$ & 3 \\
-\textbf{400} & $3.55\times10^{9} \pm 6.8\times10^{8}$ & $\mathbf{4.97\pm 0.42}$ & 3 \\
-450 & $5.34\times10^{9} \pm 1.6\times10^{9}$ & $10.0\pm 8.6$ & 4 \\
-500 & $4.35\times10^{9} \pm 2.9\times10^{8}$ & $12.1\pm 12.2$ & 4 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Interpretation.}
-In the middle of the swept range ($H_\mathrm{RKKY} \in
-\{300,350,400\}$~mT) the four edge fits agree to within 10\%
-on both $\tau_d$ and $f$, converging on an inertial frequency
-$f \approx 4.95$~GHz with $\sigma_f < 0.5$~GHz. This is the
-genuine SAF skyrmion inertial mode predicted by the Thiele
-equation with mass. At low $H_\mathrm{RKKY}$ ($\le 250$~mT)
-the wider fit window picks up additional low-frequency drift
-and second-harmonic content that the single-tone model
-cannot separate, so $f$ scatters wildly; the envelope decay
-$\tau_d$ stays consistent because the dominant relaxation
-timescale is still resolved. At high $H_\mathrm{RKKY}$
-($\ge 450$~mT) a second mode --- likely the optical-magnon
-branch of the SAF that hybridises with the breathing mode as
-the interlayer coupling stiffens --- becomes visible at
-$\sim 10$--$12$~GHz, again confusing the single-mode fit.
-
-The two regimes outside the well-resolved window are not fit
-failures but real two-mode signals being projected onto a
-one-mode model. Resolving them quantitatively would require
-either fitting two damped sinusoids or replacing the parametric
-fit with an FFT-based modal decomposition. The original paper
-does not see this complication because its $v(t)$ traces
-saturate smoothly without overshoot (presumably due to
-additional numerical damping in the integrator they used),
-allowing a single-exponential fit with sub-percent
-fit-to-fit scatter.
-
-%----------------------------------------------------------------------
-\subsection{Topological spin Hall torque}
-
-\textbf{Objective.} Compare the SOT-driven and TSH-driven velocities of
-a SAF skyrmion as a function of $R/\Delta$ (analytic Thiele
-integrals; not a dynamics simulation). Two values of $\lambda^2$ (3
-and 50~nm$^2$), Set~B, $J=8\times10^{11}$~A/m$^2$.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.55\linewidth]{S49_v_R.png}
-\caption{Analytic SOT velocity (orange) and TSH velocity for two
-$\lambda^2$ values vs $R/\Delta$. TSH diverges at $R/\Delta\to 1$
-and is negligible at large skyrmions.}
-\end{figure}
 
 %======================================================================
 \newpage
@@ -2858,6 +2461,8 @@ per-site tangential torque $|\mb{m}\times(\mb{m}\times\mb{H})|$
 
 \begin{table}[H]
 \centering
+\small
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{l c c c c c c c}
 \hline
 grid & size (nm) & steps & $\max|\mb{\tau}|$ & $\tau_{p99}$ &
@@ -2970,6 +2575,8 @@ $\alpha=1$, $2.5\times10^{5}$ steps).
 
 \begin{table}[H]
 \centering
+\small
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{l c c c c c c}
 \hline
 grid & size (nm) & $\max|\mb{\tau}|$ & $\tau_{\mathrm{med}}$ &
@@ -3521,6 +3128,12 @@ F.~Garcia-Sanchez, B.~Van~Waeyenberge,
 \emph{AIP Advances} \textbf{4}, 107133 (2014).
 Source code: \url{https://github.com/mumax/3},
 file \texttt{mag/demagkernel.go}.
+
+\bibitem{newell1993}
+A.~J.~Newell, W.~Williams, D.~J.~Dunlop,
+``A generalization of the demagnetizing tensor for nonuniform
+magnetization,''
+\emph{Journal of Geophysical Research} \textbf{98}, 9551--9555 (1993).
 
 \bibitem{aharoni1998}
 A.~Aharoni,
