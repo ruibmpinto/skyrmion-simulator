@@ -38,9 +38,9 @@ to a production function; this is noted per test.
 |  5 | Güngördü 2016 Fig.3 phase diagram | FM / SkX / SP / SC regions | FM + modulated easy-plane OK; SkX ~2.6% (under-resolved) | qual. | **PASS (qual.)** |
 |  6 | Banerjee 2014 Fig.1b FM↔SkX critical field | h_c ≈ 1.03–1.52 | h_c ≈ 0.18–0.96 (37–82% low) | 20% | **FAIL (documented)** |
 |  7 | RT 2013 Fig.4(d) confined skyrmion radius | R_s ≈ 25 nm (R=50 nm dot, D/D_c=1.25) | R_s = 27.6 nm | 25% | **PASS** |
-|  8 | Skyrmion Néel-Arrhenius collapse, j=0 (single FM layer) | Rohart 2016: Arrhenius form; ΔE=26±4 meV, τ₀=0.22 ns | R²=0.983; ΔE=11.5 meV; τ₀=0.35 ns | form+τ₀ | **PASS** |
-| 8b | ΔE-vs-DMI trend (Rohart 2016 Fig.5b) | ΔE rises with D | ΔE 5.7→31.5 meV over D=2.95→3.10 (monotone) | trend | **PASS** |
-| 10 | Thiele v_SOT(R/Δ) & v_TSH vs Pham 2024 Fig.S49 | closed forms (Pham supp §1.7) | analytic 2e-16; LLGS spot-check 1.5% | see §10 | **PASS** |
+|  8 | Skyrmion Néel-Arrhenius collapse, j=0 (single FM layer) | Rohart 2016: Arrhenius form; ΔE=26±4 meV, τ₀=0.22 ns | R²=0.992; ΔE=13.0 meV; τ₀=0.26 ns | form+τ₀ | **PASS** |
+| 8b | ΔE-vs-DMI trend (Rohart 2016 Fig.5b) | ΔE rises with D | ΔE 6.1→34.4 meV over D=2.95→3.10 (monotone) | trend | **PASS** |
+| 10 | Thiele v_SOT(R/Δ) & v_TSH vs Pham 2024 Fig.S49 | closed forms (Pham supp §1.7) | analytic 2e-16; LLGS spot-check 9.9% | see §10 | **PASS** |
 | 11 | 1D domain-wall width | Δ = √(A/K_eff) | Δ = 12.6371 nm (analytic 12.6491) | 0.5% | **PASS** |
 | 12 | Uniform-mode FMR frequency | f = γ H_K / 2π, H_K = 2K_eff/M_s | rel.err < 5% (≈35 GHz) | 5% | **PASS** |
 | 14 | Free-BC demag kernel (infrastructure) | thin-slab N_zz ≈ 1 | interior H_z/μ₀M_s = −0.984 | — | **PASS** |
@@ -171,8 +171,8 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   and supplementary §1.7. Two closed forms compared as a
   function of R/Δ at fixed Δ = 24.5 nm: the SOT-driven speed
   v_SOT = π H_DL R γ / (2α(R/Δ+Δ/R)) and the topological-spin-
-  Hall speed v_TSH (λ² = 3, 50 nm²). Production driver:
-  `studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S49_TSH.py`.
+  Hall speed v_TSH (λ² = 3, 50 nm²). Driver:
+  `src/skyrmion_simulator/simulator/validation/test_thiele_v_sot.py`.
 - **Material parameters (Set B)**: α = 0.216, γ = 175.9 GHz/T,
   D = 0.62 mJ/m², Δ = 24.5 nm, R/Δ = 1…5 (imposed), λ² ∈
   {3, 50} nm². Analytic curves at the paper's J0 = 8×10¹¹.
@@ -187,7 +187,8 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
 - **Result**: analytic gate matches the closed form to
   **2×10⁻¹⁶**, v_SOT monotone/saturating, v_TSH exactly linear
   in λ². LLGS spot-check (at J0 = **1×10¹¹**): v_meas vs Thiele
-  **1.5%**; drive-induced deformation **5%** (rigid). **PASS.**
+  **9.9%** (gate 15%); drive-induced deformation **4%** (rigid).
+  **PASS.**
 - **v_TSH < v_SOT is expected**: the topological-spin-Hall
   torque is a sub-dominant *correction* (∝ λ² and ∝ ∫N_xy²,
   which falls as the skyrmion grows), so it decays with R/Δ
@@ -205,9 +206,9 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   Rigidity is gated on the **J=0-referenced drive deformation**
   (drive radius minus a J=0 control radius from the same
   relaxed state), which cancels the relaxation creep; the raw
-  full-window R_var (30%) is J0-independent creep, not drive
-  deformation (true deformation 5%). The relaxed skyrmion has
-  Δ_fit = 29.1 nm > the 24.5 nm seed, so its v_thiele sits
+  full-window R_var (31%) is J0-independent creep, not drive
+  deformation (true deformation 4%). The relaxed skyrmion has
+  Δ_fit = 29.0 nm > the 24.5 nm seed, so its v_thiele sits
   slightly above the fixed-Δ=24.5 reference curve.
 
 ## B. Phase-diagram pipeline
@@ -345,20 +346,20 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   (K_top set so the thin-film fold reproduces the bare K_eff,
   H_RKKY = 0). Collapse = first-passage of |Q| below 0.5;
   τ(T) by censored maximum-likelihood; fit ln τ vs 1/T.
-- **Result**: R² = **0.983** over a decade of τ (16.4→1.8 ns);
-  τ₀ = **0.35 ns** (Rohart 0.22 — same order); ΔE = **11.5 meV**.
+- **Result**: R² = **0.992** over a decade of τ (20.3→1.8 ns);
+  τ₀ = **0.26 ns** (Rohart 0.22 — same order); ΔE = **13.0 meV**.
   **PASS** (gate = Arrhenius form + sub-ns τ₀ + barrier sign).
 - **Deviations**: the field is **95 mT, not Rohart's 250 mT** —
   Rohart's model is *atomistic* (Co/Pt(111), 4.6 nm skyrmion);
   ours is micromagnetic continuum, where 250 mT is supercritical
   (H_c ≈ 135 mT → athermal instant collapse). 95 mT is the
   sub-critical field where a clean activated ladder exists
-  (τ ~ 1–7 ns over 35–80 K; saturates at the ~0.9 ns dynamical
+  (τ ≈ 1.8–20 ns over 35–80 K; saturates at the ~0.9 ns dynamical
   floor above ~85 K, so T ≤ 80 K). **ΔE is reported, NOT
   gated**: the micromagnetic collapse barrier is grid-dependent
   and the model class differs from Rohart's atomistic, so
   matching the *order* (tens of meV) is the honest expectation,
-  not the number (11.5 vs 26 meV, ~2×). The method itself is
+  not the number (13.0 vs 26 meV, ~2×). The method itself is
   anchored independently by the macrospin Néel-Brown gate
   (§C-Brown).
 
@@ -375,10 +376,10 @@ equipartition, T=0 deterministic-limit — all **PASS** (§C).
   validated on synthetic Arrhenius data (recovers an imposed
   rising ΔE).
 - **Result: PASS.** ΔE rises monotonically and steeply —
-  5.7 → 12.9 → 21.5 → 31.5 meV over D = 2.95 → 3.00 → 3.05 →
-  3.10 (5.5× over a 5% DMI increase), reproducing Rohart
+  6.1 → 12.2 → 21.0 → 34.4 meV over D = 2.95 → 3.00 → 3.05 →
+  3.10 (5.6× over a 5% DMI increase), reproducing Rohart
   Fig. 5(b)'s strong barrier-vs-DMI nonlinearity; τ₀ stays
-  0.25–0.38 ns. D ≤ 2.90 is athermal (ΔE≈0) and D ≥ 3.20 never
+  0.24–0.32 ns. D ≤ 2.90 is athermal (ΔE≈0) and D ≥ 3.20 never
   collapses in-window — both correctly excluded by the
   events/T gate. Absolute ΔE is reported, not gated
   (grid-dependent, model-class mismatch as in #8).
