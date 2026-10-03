@@ -235,7 +235,7 @@ If you use this code in academic work, please cite it:
   title   = {{skyrmion-simulator}: Micromagnetic and stochastic {LLGS}
              simulator for skyrmions in synthetic antiferromagnets},
   year    = {2026},
-  version = {1.0.0},
+  version = {1.0.1},
   doi     = {10.5281/zenodo.23045151},
   url     = {https://github.com/ruibmpinto/skyrmion-simulator},
   license = {MIT}
