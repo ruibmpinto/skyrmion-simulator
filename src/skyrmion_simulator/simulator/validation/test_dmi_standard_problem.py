@@ -108,7 +108,6 @@ def _co_2d_params(A_ex, D, K_eff, Ms, alpha, gamma, nx, ny, a, dt):
     p.a = float(a)
     p.dt = float(dt)
     p.pulse = ConstantPulse(0.0)
-    p.J_current = 0.0
     p.lambda_sq = 0.0
     _precompute(p)
     return p

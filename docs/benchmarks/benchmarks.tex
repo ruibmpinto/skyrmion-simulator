@@ -80,13 +80,13 @@ detailed in each section.}
    & $27.6$ nm (10\%) & \PASS \\
 8  & Rohart 2016 N\'eel-Arrhenius collapse & Arrhenius;
    $\Delta E{=}26{\pm}4$ meV & $R^2{=}0.99$;
-   $\Delta E{=}11.1$ meV & \PASS \\
+   $\Delta E{=}13.0$ meV & \PASS \\
 8b & Rohart 2016 Fig.\,5(b) $\Delta E(D)$ & rises with $D$
-   & $5.9\!\to\!36.0$ meV & \PASS \\
+   & $6.1\!\to\!34.4$ meV & \PASS \\
 9a & Tomasello 2018 size vs $T$ (determ.) & $H{=}0$ ratio
    ${\approx}3.3$ & $2.52$ (converged) & \PASS \\
 9b & Tomasello 2018 size vs $T$ (thermal) & ratio ${\approx}3.3$
-   & $4.76$ (over-expansion) & \FAIL \\
+   & $4.66$ (over-expansion) & \FAIL \\
 10 & Pham 2024 Fig.\,S49 Thiele $v_{SOT},v_{TSH}$ & closed forms
    & analytic $2{\times}10^{-16}$; LLGS 9.9\% & \PASS \\
 11 & 1D domain-wall width & $\Delta=\sqrt{A/K_{\rm eff}}$
@@ -110,24 +110,6 @@ reported but not gated, with the mismatch stated explicitly.
 Supporting stochastic-infrastructure gates (N\'eel--Brown reversal,
 Langevin function, spin-wave equipartition, $T{=}0$
 deterministic-limit) underpin \#8 and all pass (\S\ref{sec:support}).
-
-\medskip
-\noindent
-\textbf{2026-07 re-validation.} Every benchmark in the table was
-re-run after a physics-audit fix campaign (standard unnormalised
-Slonczewski SOT torque; corrected SAF bottom-layer seed chirality;
-Newell kernel dipole asymptotics beyond 40 cells; periodic image
-sums in the periodic Newell/racetrack kernels; analytic slab
-inter-layer $N_{xz}/N_{yz}$ cross terms; mask/free-$y$-consistent
-total energy). All quoted values re-verified unchanged except \#10
-(LLGS spot $1.5\%\!\to\!9.9\%$; the old figure was an artefact of
-the nonstandard torque, see \S\ref{sec:thiele}) and the \#9a ratio
-($2.51\!\to\!2.52$, last-digit rounding). The thermal ensembles
-\#8/\#8b re-ran with fresh statistics (shifts at ensemble-noise
-scale: $R^2$ $0.98\!\to\!0.99$, $\Delta E$ $11.5\!\to\!11.1$ meV,
-trend endpoints $5.9\!\to\!36.0$ meV); \#6 fails with values
-identical to the pre-fix run, confirming its known failure is
-unrelated to the fixed physics.
 
 % ============================================================
 \clearpage
@@ -293,10 +275,8 @@ shows the partially-reversed magnetisation.}
 
 \paragraph{Behaviour / status.} \PASS. Crossing at $136.7$ ps
 (0.49\%, tol 10\%). \textbf{Limitations:} cell $2.5$ nm (the 10\%
-gate absorbs the discretisation). An earlier wrong result
-(${\sim}290$ ps) came from a dummy SAF bottom layer adding spurious
-inter-layer demag; fixed by evolving a genuine single layer via
-\texttt{rk4\_step\_single}.
+gate absorbs the discretisation). The run evolves a genuine single
+layer via \texttt{rk4\_step\_single}.
 
 % ============================================================
 \clearpage
@@ -502,18 +482,11 @@ $v_{SOT}$ monotone/saturating and quantitatively matching the
 paper's saturation speed; $v_{TSH}\propto\lambda^2$ exactly.
 A micromagnetic LLGS spot-check (relax one SAF skyrmion, drive with
 DC SOT) gives $v_{\rm meas}$ vs Thiele $9.9\%$ (gate $15\%$) and
-drive-induced deformation $4\%$ (rigid). An earlier revision quoted
-$1.5\%$: that run used a nonstandard SOT torque with a normalised
-polarisation vector, whose ${\sim}{+}10\%$ drive inflation
-coincidentally cancelled the demag-geometry offset of the
-asymptotic closed form. With the corrected (standard Slonczewski)
-torque, a five-number decomposition on a demag-free profile shows
-the closed form within $1.7\%$ of the exact Thiele integral, the
-measured LLGS within $2.6\%$ of the closed form, and the
-legacy-to-standard velocity ratio $1.100$ in both the projected
-force and the measured speed; the residual $9.9\%$ on the
-Newell-demag geometry reflects that demag-dressed, still-creeping
-profile, not the torque. \textbf{Limitations:} (i) Fig.\,S49 is an
+drive-induced deformation $4\%$ (rigid). On a demag-free profile
+the closed form lies within $1.7\%$ of the exact Thiele integral
+and the measured LLGS speed within $2.6\%$ of the closed form; the
+residual $9.9\%$ on the Newell-demag geometry reflects that
+demag-dressed, still-creeping profile, not the drive. \textbf{Limitations:} (i) Fig.\,S49 is an
 analytic calculation (imposed $R/\Delta$, fixed $\Delta$). The spot
 runs at $1\times10^{11}$ (the DC-pulse current of Fig.\,S47 where
 the velocity plateaus), not the $8$--$8.9\times10^{11}$ of the
@@ -734,7 +707,8 @@ Society.}
 \includegraphics[width=\textwidth]{fig09b_size_thermal.png}
 \caption{9b thermal: $\langle 2R_{sk}\rangle\pm$std (production
 single-layer Brown-noise \texttt{heun\_stochastic\_step}, 168-task
-ensemble).}
+ensemble; $\Delta t=2.5\times10^{-14}$ s, $1.25\times10^{-14}$ s at
+$T{=}300$ K to keep the norm drift below tolerance).}
 \end{subfigure}
 \caption{Skyrmion size vs temperature: reference Fig.\,1(b) (a)
 against this work's deterministic (b) and thermal (c) branches.}
@@ -764,20 +738,17 @@ qualitative behaviour correct}: the finite-$T$ branch adds FDT
 Brown noise and pools $\langle R_{sk}\rangle\pm$std per $(H,T)$. It
 reproduces the qualitative Fig.\,1(b) thermal physics (size grows
 with $T$, std grows, field suppresses), but the $H{=}0$ ratio
-over-shoots: $4.76$ ($R_{sk}{=}71$ nm at 300 K) vs the converged
-deterministic $33.4$ nm and the paper's ${\sim}46$--$52$ nm. The
-root cause is \textbf{non-equilibration in the strong-fluctuation
-regime}, not a measurement artifact: a diagnostic showed the
-largest-connected-component and whole-field diameters agree
-($63.3$ vs $63.5$ nm) but $R_{sk}$ \emph{drifts} $45\!\to\!76$ nm
-during sampling. At $T{=}300$/$H{=}0$ the scaled point sits just
-below the metastable$\to$ground crossing ($d{=}1.44<d_c{=}1.48$),
-so the barrier out of the small state is tiny; thermal noise drives
-escape and expansion toward the dot without a steady size, making
-$\langle R_{sk}\rangle$ window-dependent (71 nm at 8k thermalize vs
-63 nm at 4k). This is the paper's own ``strongly
-thermal-fluctuation-influenced'' regime ($T{>}200$ K, $H{<}10$ mT,
-$\pm25$ nm error bars). \textbf{9a is the quantitative anchor; 9b
+over-shoots: $4.66$ ($R_{sk}$ from $14.9$ to $69.6$ nm) vs the
+converged deterministic $33.4$ nm and the paper's ${\sim}46$--$52$
+nm at 300 K. The applied field restores the expected scale: the
+ratio is $2.83$ at 25 mT and $2.35$ at 50 mT. The root cause is
+\textbf{non-equilibration in the strong-fluctuation regime}: at
+$T{=}300$/$H{=}0$ the scaled point sits just below the
+metastable$\to$ground crossing ($d{=}1.44<d_c{=}1.48$), so the
+barrier out of the small state is tiny and thermal noise drives
+expansion toward the dot without a steady size. This is the paper's
+own ``strongly thermal-fluctuation-influenced'' regime ($T{>}200$ K,
+$H{<}10$ mT, $\pm25$ nm error bars). \textbf{9a is the quantitative anchor; 9b
 is a qualitative reproduction.}
 
 % ============================================================
@@ -830,18 +801,16 @@ rate $\tau(T)$ the Arrhenius fit measures.}
 \end{figure}
 
 \paragraph{Behaviour / status.} \PASS\ (gate $=$ Arrhenius form $+$
-sub-ns $\tau_0$ $+$ barrier sign). $R^2=0.990$ over a decade of
-$\tau$; $\tau_0=0.37$ ns (Rohart 0.22, same
-order); $\Delta E=11.1$ meV (2026-07 re-run; previously
-$R^2{=}0.983$, $\tau_0{=}0.35$ ns, $\Delta E{=}11.5$ meV ---
-ensemble-statistics scale shifts). \textbf{Limitations:} the field is
+sub-ns $\tau_0$ $+$ barrier sign). $R^2=0.992$ over a decade of
+$\tau$; $\tau_0=0.26$ ns (Rohart 0.22, same order);
+$\Delta E=13.0$ meV. \textbf{Limitations:} the field is
 95 mT, not 250 mT --- Rohart's model is atomistic, where 250 mT is
 supercritical here ($H_c\approx135$ mT $\Rightarrow$ athermal
 collapse). 95 mT is the sub-critical field with a clean activated
 ladder. $\Delta E$ is reported, \emph{not gated}: the
 micromagnetic collapse barrier is grid-dependent and the model
 class differs, so matching the order (tens of meV) is the honest
-expectation, not the number ($11.1$ vs $26$ meV). The method is
+expectation, not the number ($13.0$ vs $26$ meV). The method is
 anchored independently by the macrospin N\'eel--Brown gate
 (\S\ref{sec:support}).
 
@@ -876,9 +845,9 @@ MLE per $D$), reproducing Rohart Fig.\,5(b)'s strong nonlinearity.}
 \end{figure}
 
 \paragraph{Behaviour / status.} \PASS. $\Delta E$ rises
-monotonically and steeply: $5.9\to13.5\to20.4\to36.0$ meV over
-$D=2.95\to3.00\to3.05\to3.10$ ($6.1\times$ over a 5\% DMI
-increase); $\tau_0$ stays $0.25$--$0.38$ ns.
+monotonically and steeply: $6.1\to12.2\to21.0\to34.4$ meV over
+$D=2.95\to3.00\to3.05\to3.10$ ($5.6\times$ over a 5\% DMI
+increase); $\tau_0$ stays $0.24$--$0.32$ ns.
 \textbf{Limitations:} the narrow grid is required because the
 barrier is exponentially $D$-sensitive at fixed field --- the
 $\tau$-observable window (collapse within 60 ns, not athermal)

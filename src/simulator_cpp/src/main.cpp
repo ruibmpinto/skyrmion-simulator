@@ -20,8 +20,7 @@ int main() {
     p.n_relax  = 10000;
     p.n_steps  = 5000;
 
-    p.J_current = 4.0e11;
-    p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+    p.pulse = std::make_shared<ConstantPulse>(4.0e11);
 
     p.demag_kind = DemagKind::None;   // local-K_eff path (matches Python default)
     // For Newell demag:  p.demag_kind = DemagKind::Newell;

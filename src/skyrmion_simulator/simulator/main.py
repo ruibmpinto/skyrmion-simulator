@@ -133,10 +133,11 @@ def run(p=None):
     print(f'  Drive: {p.n_steps} steps, dt = {p.dt:.2e} s')
     print(f'  Dump every {p.dump_every} steps')
     print(f'  Output: {dump_path}')
-    if p.J_current != 0.0:
-        print(f'  Current: J = {p.J_current:.2e} A/m^2')
-        print(f'  H_DL = {p.H_DL:.4e} T')
-        print(f'  H_FL = {p.H_FL:.4e} T')
+    J0 = p.pulse(0.0)
+    if J0 != 0.0:
+        print(f'  Current: J(0) = {J0:.2e} A/m^2')
+        print(f'  H_DL(0) = {p.DL_SOT * J0:.4e} T')
+        print(f'  H_FL(0) = {p.FL_SOT * J0:.4e} T')
     print('-' * 50)
     t_start = time.time()
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,17 +145,8 @@ def run(p=None):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     if p.n_relax > 0:
         print('Relaxation phase (J=0)...')
-        # Temporarily disable SOT
-        # Cache and zero SOT so llgs_rhs skips that branch entirely.
-        # The pulse is also swapped to ConstantPulse(0) so the
-        # integrator path (which reads p.pulse(t), not p.H_DL/p.H_FL)
-        # also sees zero current. The scalar zeroing keeps header
-        # prints and any external diagnostic consistent with that.
-        H_DL_save = p.H_DL
-        H_FL_save = p.H_FL
+        # Temporarily disable SOT by swapping in a zero pulse.
         pulse_save = p.pulse
-        p.H_DL = 0.0
-        p.H_FL = 0.0
         p.pulse = ConstantPulse(0.0)
         # Phase 1 starts at t = 0 internally; the pulse is zero so the
         # exact time origin does not affect the dynamics here.
@@ -168,8 +160,6 @@ def run(p=None):
                 print(f'  t={t_ps:.0f} ps  Q={Q:+.4f}')
         # Restore SOT
         # Re-enable the cached drive before entering Phase 2.
-        p.H_DL = H_DL_save
-        p.H_FL = H_FL_save
         p.pulse = pulse_save
         print('Relaxation done.')
         print('-' * 50)

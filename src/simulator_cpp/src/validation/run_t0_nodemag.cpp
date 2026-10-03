@@ -57,7 +57,7 @@ Track run_phase(Params& p, int n_relax, int n_drive, double dt,
     double t = 0.0;
     for (int s = 0; s < n_relax; ++s) { step(m_top, m_bot, t); t += dt; }
 
-    p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+    p.pulse = std::make_shared<ConstantPulse>(4.0e11);
     const int s0 = static_cast<int>(0.75 * n_drive);
     const int s1 = n_drive;
     double x0 = 0, y0 = 0, t0 = 0, x1 = 0, y1 = 0, t1 = 0;

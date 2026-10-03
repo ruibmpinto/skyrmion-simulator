@@ -59,7 +59,7 @@ SAFPair run_phase(Params& p, int n_relax, int n_drive, double dt,
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     double t = 0.0;
     for (int s = 0; s < n_relax; ++s) { step(m_top, m_bot, t); t += dt; }
-    p.pulse = std::make_shared<ConstantPulse>(p.J_current);
+    p.pulse = std::make_shared<ConstantPulse>(4.0e11);
     t = 0.0;
     for (int s = 0; s < n_drive; ++s) { step(m_top, m_bot, t); t += dt; }
     return {std::move(m_top), std::move(m_bot)};

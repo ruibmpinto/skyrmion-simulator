@@ -30,6 +30,7 @@ import copy
 import numpy as np
 # Local
 from skyrmion_simulator.simulator.parameters import default_params
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.stochastic_llgs.integrator_sllg import \
     heun_stochastic_step
 from skyrmion_simulator.stochastic_llgs.parameters_thermal import attach_thermal
@@ -83,7 +84,7 @@ def make_macrospin_params(T, alpha, H_ext, K, a, t_Co, Ms,
     -------
     p : SimpleNamespace
         Parameters namespace with `nx=1`, `ny=n_traj`,
-        `H_RKKY = 0`, `K_bot = 0`, `J_current = 0`,
+        `H_RKKY = 0`, `K_bot = 0`, `pulse = ConstantPulse(0.0)`,
         `C_ex = 0`, `C_dmi = 0`, anisotropy prefactor
         `C_anis_top = 2 K / Ms` (bare, no thin-film demag
         correction), and `attach_thermal` already applied so
@@ -140,7 +141,7 @@ def make_macrospin_params(T, alpha, H_ext, K, a, t_Co, Ms,
     p.K_top = float(K)
     p.K_bot = 0.0
     p.H_RKKY = 0.0
-    p.J_current = 0.0
+    p.pulse = ConstantPulse(0.0)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Zero spatial couplings so y-axis stacks independent
     # trajectories. NOTE: anisotropy prefactor uses BARE
@@ -150,8 +151,6 @@ def make_macrospin_params(T, alpha, H_ext, K, a, t_Co, Ms,
     p.C_dmi = 0.0
     p.C_anis_top = 2.0 * p.K_top / p.Ms
     p.C_anis_bot = 0.0
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     p.gamma_p = p.gamma / (1.0 + p.alpha * p.alpha)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Attach thermal-noise fields (R_th=0: no Joule heating

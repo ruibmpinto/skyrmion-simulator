@@ -1,7 +1,7 @@
 """Per-frame observation dictionary for sweep traces.
 
 `observe_state(m_top, m_bot, p)` packs every scalar that any of
-the S41-S49 figures might need into a single dict, so the sweep
+the sweep analyses might need into a single dict, so the sweep
 driver records one consistent payload regardless of which
 figure is being reproduced. Plot scripts pick the keys they
 need and ignore the rest.

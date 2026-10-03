@@ -124,7 +124,7 @@ RKKY cost).
 
 `relax(m_top, m_bot, p, kernels, …)` runs an RK4 LLGS
 integrator that calls `effective_field_demag_pair` on each
-substep. SOT and `J_current` are forcibly zeroed inside
+substep. The drive `p.pulse` is forced to zero inside
 the loop and restored on exit. Convergence checks fire
 every `check_every=1000` steps; both criteria must be
 satisfied:
@@ -218,7 +218,7 @@ The sweep and plot entry points take no argparse arguments; configuration lives 
 
 ```bash
 python -m skyrmion_simulator.phase_diagram.sweep                 # local
-sbatch studies/saf_racetrack/scripts/submit_sweep_array.sh              # SLURM array
+sbatch studies/saf_racetrack/scripts/cluster/submit_sweep_array.sh              # SLURM array
 python -m skyrmion_simulator.phase_diagram.aggregate             # merge partials
 ```
 

@@ -125,6 +125,10 @@ def llgs_rhs(m, H_eff, p, t, mask=None):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Spin-orbit torque
     # Time-varying current density evaluated at the substage time t.
+    if p.pulse is None:
+        raise RuntimeError(
+            'llgs_rhs: p.pulse is None. Set the drive explicitly, '
+            'e.g. p.pulse = ConstantPulse(0.0) for no current.')
     J_t = p.pulse(t)
     # Skip the SOT branch entirely when J(t) = 0 (relaxation,
     # outside-the-window of a SquarePulse, deep tails of a Gaussian).

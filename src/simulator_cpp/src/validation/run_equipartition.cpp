@@ -88,7 +88,7 @@ int main() {
     p.t_Co = t_co; p.A_ex = a_ex;
     p.H_ext = {0.0, 0.0, b_z};
     p.K_top = 0.0; p.K_bot = 0.0; p.H_RKKY = 0.0;
-    p.J_current = 0.0; p.D = 0.0;
+    p.D = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     precompute(p);
     // Match the Python gate exactly: bare exchange prefactor, no DMI,
@@ -96,7 +96,6 @@ int main() {
     p.C_ex = 2.0 * a_ex / (ms * a * a);
     p.C_dmi = 0.0;
     p.C_anis_top = 0.0; p.C_anis_bot = 0.0;
-    p.H_DL = 0.0; p.H_FL = 0.0;
     stochastic::attach_thermal(p, t_kelvin, 0.0, seed);
 
     const std::vector<double> H_k =

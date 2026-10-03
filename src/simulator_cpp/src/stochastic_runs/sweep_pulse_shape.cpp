@@ -195,7 +195,7 @@ int main() {
     // threshold is bracketed rather than assumed, with a small ensemble
     // (5 members resolve 0/5 vs 5/5 survival). Production: the currents
     // the stability maps clear, with a full ensemble.
-    // Reference for the production list, docs/stability_box_size_hk36:
+    // Reference for the production list, the 36 mT stability maps:
     // 2e11 stays compact at every T up to 100 K; 3e11 is the last
     // surviving current at 100 K; 4e11 is entirely labyrinth there.
     // Pilot: one uniform ladder for every cell, deliberately run past

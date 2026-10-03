@@ -1,7 +1,7 @@
 """Shared machinery for the finite-temperature pulsed-drive sweeps.
 
 The per-sweep scripts
-(`studies/saf_racetrack/scripts/sweep_pulse_shape_finiteT.py` and the
+(`studies/saf_racetrack/scripts/sweeps/sweep_pulse_shape_finiteT.py` and the
 `studies/saf_racetrack/scripts/sweep_S4*_finiteT.py` family) each own their
 grid and their configuration; everything they have in common lives here so
 they do not carry four copies of it:

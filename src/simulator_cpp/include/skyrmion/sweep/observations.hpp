@@ -1,7 +1,7 @@
 /// \file
 /// Per-frame scalar observables for sweep traces. Mirrors
 /// src/sweeps/observers.py::observe_state -- one consistent payload for
-/// every S41-S49 analysis. Top-layer polarity +1, bottom layer -1.
+/// every sweep analysis. Top-layer polarity +1, bottom layer -1.
 #pragma once
 
 #include "skyrmion/parameters.hpp"
@@ -12,7 +12,7 @@ namespace sweep {
 
 /// Scalar observables extracted from one two-layer frame.
 ///
-/// Every S41-S49 sweep records this same payload, so traces from
+/// Every sweep records this same payload, so traces from
 /// different analyses stay directly comparable.
 struct Observations {
     Real cx_top, cy_top, cx_bot, cy_bot;   ///< Centroids (m), PBC-safe

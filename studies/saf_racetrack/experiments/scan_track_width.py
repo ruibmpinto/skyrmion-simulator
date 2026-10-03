@@ -12,13 +12,13 @@ relative to the fixed track width.
 Set-A (D = 0.85e-3) has quality factor Q approximately 1, so the
 local-anisotropy model cannot confine the skyrmion (it expands
 to the box). The skyrmion is only stable with full NEWELL FFT
-demag, exactly as the S47 deformation sweep. The equilibrium is
+demag, exactly as the deformation sweep. The equilibrium is
 therefore relaxed ONCE with the deterministic convergence-stop
 `relax()` under newell demag, written to `m_eq.npz`, and every
 trajectory is seeded from that field and driven with newell
 demag in the stochastic stepper.
 
-Box from the stored S47 deformation data: equilibrium diameter
+Box from the stored deformation data: equilibrium diameter
 ~187 nm, maximum coherent (intact) deformation D_1 ~ 245 nm,
 D_2 ~ 174 nm. Rounded up to D_1 = 250 nm, D_2 = 175 nm gives
 a rectangular box L_x = 700 nm (nx = 350, along motion) by
@@ -294,7 +294,7 @@ def main():
     dmi             = 0.47e-3
     demag_accuracy  = 4.0
     demag_tol_conv  = 0.02
-    # Deterministic equilibrium relaxation (matches S47).
+    # Deterministic equilibrium relaxation (matches the deformation sweep).
     relax_max_steps = 200000
     relax_alpha     = 1.0
     relax_tol_torque = 1.0e-5

@@ -24,6 +24,7 @@ import math
 import numpy as np
 # Local
 from skyrmion_simulator.simulator.initial_conditions import uniform_state
+from skyrmion_simulator.simulator.pulses import ConstantPulse
 from skyrmion_simulator.simulator.validation._helpers import (
     integrate_single_fm,
     make_single_fm_params,
@@ -104,7 +105,7 @@ def main():
     p = make_single_fm_params(
         A_ex=A_ex, D=D, K_eff=K_eff, Ms=Ms,
         alpha=alpha, gamma=gamma, H_ext=H_ext,
-        nx=nx, ny=ny, a=a, dt=dt)
+        nx=nx, ny=ny, a=a, dt=dt, pulse=ConstantPulse(0.0))
     times, m_trace = integrate_single_fm(
         m_top=m0, p=p, n_steps=n_steps,
         sample_every=sample_every)

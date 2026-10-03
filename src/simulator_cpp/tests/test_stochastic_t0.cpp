@@ -21,7 +21,6 @@ int main() {
     TestRunner r;
 
     Params p = test_common::build_params_from_ref(ref);
-    p.pulse = std::make_shared<ConstantPulse>(p.J_current);
     precompute(p);
 
     const int N = static_cast<int>(ref.scalar<int64_t>("heun_t0_N"));

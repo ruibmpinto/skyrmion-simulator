@@ -22,9 +22,7 @@ int main() {
     const int n_steps = static_cast<int>(ref.scalar<int64_t>("simulation_n_steps"));
 
     // Phase 0: relax (J=0)
-    const double J_save = p.J_current;
-    p.H_DL = 0.0;
-    p.H_FL = 0.0;
+    const auto pulse_save = p.pulse;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     {
         RHSLocalKeff rhs(p, /*mask=*/nullptr);
@@ -42,10 +40,7 @@ int main() {
             test_common::array(m_bot.data.data(), exp_b.data.data(), m_bot.data.size()));
 
     // Phase 1: drive
-    p.J_current = J_save;
-    p.H_DL = p.DL_SOT * J_save;
-    p.H_FL = p.FL_SOT * J_save;
-    p.pulse = std::make_shared<ConstantPulse>(J_save);
+    p.pulse = pulse_save;
     {
         RHSLocalKeff rhs(p, /*mask=*/nullptr);
         double t = 0.0;

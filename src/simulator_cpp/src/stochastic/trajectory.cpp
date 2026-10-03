@@ -88,7 +88,6 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
 
     Params p = make_default_params();
     p.nx = cfg.nx; p.ny = cfg.ny; p.dt = cfg.dt;
-    p.J_current = cfg.j_current;
     if (cfg.skyrmion_R > 0.0)  p.skyrmion_R = cfg.skyrmion_R;
     if (cfg.skyrmion_dw > 0.0) p.skyrmion_dw = cfg.skyrmion_dw;
     if (cfg.D > 0.0)           p.D = cfg.D;
@@ -146,7 +145,6 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     // relaxed frames are snapshotted in this phase.
     auto pulse_save = p.pulse;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
-    p.H_DL = 0.0; p.H_FL = 0.0;
     if (snaps) dump(m_top, m_bot, 0, 0.0, 0);
     int n_relax_used = 0;
     bool equil_converged = false;
@@ -180,8 +178,6 @@ StochasticPayload run_trajectory(const StochasticConfig& cfg,
     if (snaps) dump(m_top, m_bot, n_relax_used,
                     n_relax_used * p.dt, 0);
     p.pulse = pulse_save;
-    p.H_DL = p.DL_SOT * cfg.j_current;
-    p.H_FL = p.FL_SOT * cfg.j_current;
 
     // -------- Phase 1: drive (sampling) --------------------------------------
     const int n_samples = (cfg.n_drive + cfg.sample_every - 1) / cfg.sample_every;

@@ -1,28 +1,33 @@
-"""Newell-style demag tensor via numerical surface-charge integration.
+"""Newell demag tensor for finite rectangular prism cells.
 
 Treats each lattice cell as a uniformly magnetized rectangular
 prism of size (a, a, t_Co). The cell-cell tensor is the dest-
-volume-averaged field per unit source magnetization, computed
-by Gauss-Legendre quadrature of the surface-charge formulation
-(Maxwell). Integration density is mumax3-adaptive: maxSize =
-edge_to_edge_distance / accuracy, with one quadrature point per
-maxSize length along each axis. The source surface integration
-uses a stagger factor of 2 (mumax3 default) to improve accuracy
-at touching cells.
+volume-averaged field per unit source magnetization. Two
+constructions are available (module switch `_METHOD`):
 
-The self-cell at relative displacement (0, 0, 0) is overridden
-with Aharoni's (1998) closed-form demag factors, because the
-quadrature converges slowly near the source-coincides-dest
-singularity. Off-diagonals at the self-cell vanish by symmetry.
+- 'closed' (default): the Newell-Williams-Dunlop (1993) closed
+  form, a 27-corner difference of the f/g auxiliary functions
+  (OOMMF demagcoef.cc). Exact to double precision. Beyond a
+  crossover radius of 40 cells the corner difference cancels
+  catastrophically, so the point-dipole tensor is used there.
+- 'quadrature': mumax3-style adaptive Gauss-Legendre integration
+  of the surface-charge formulation (maxSize =
+  edge_to_edge_distance / accuracy, source stagger factor 2).
+  Kept for side-by-side validation.
 
-The mumax3 source-charge convention stores N such that H_dest = +N * M_src;
-our slab kernel stores N such that H_dest = -mu0 * Ms * N * m_src.
-The negation is applied at the end so the returned kernel
-matches the slab dict schema.
+With either method the self-cell at relative displacement
+(0, 0, 0) uses Aharoni's (1998) closed-form demag factors;
+off-diagonals at the self-cell vanish by symmetry. Periodic
+kernels add the image sum over the +/- `pbc_images` neighbouring
+box copies, evaluated with the closed-form/dipole hybrid.
+
+The kernels are stored in the depolarizing-positive convention
+H_dest = -mu0 * Ms * N * m_src, matching the slab dict schema.
 
 A convergence assertion compares the kernel at the user-supplied
 accuracy and at double that accuracy; if the relative difference
 of any component exceeds `tol_conv`, a RuntimeError is raised.
+The closed form ignores `accuracy`, so the check passes exactly.
 
 Functions
 ---------
@@ -1150,9 +1155,8 @@ def precompute_demag_kernels_newell(p, accuracy, tol_conv):
     -------
     kernels : dict
         k-space demag kernel dict matching the slab kernel
-        schema, with two extra components (Nxz_inter,
-        Nyz_inter) for the inter-layer cross terms that the
-        slab formula treats as zero. The dict returned is the
+        schema, including the inter-layer cross terms
+        (Nxz_inter, Nyz_inter). The dict returned is the
         higher-accuracy (2 * accuracy) one.
     """
     _validate_kernel_inputs(

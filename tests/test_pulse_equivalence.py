@@ -7,9 +7,7 @@ round-off).
 
 Path A
 ------
-The new pulse-aware integrator with `p.pulse =
-ConstantPulse(p.J_current)`. This is the default `default_params`
-configuration after the refactor.
+The pulse-aware integrator with `p.pulse = ConstantPulse(J0)`.
 
 Path B
 ------
@@ -100,8 +98,7 @@ def test_constant_vs_squarepulse_equivalent():
     substage and must produce the same trajectory as
     ConstantPulse(J0).
     """
-    p_ref = default_params()
-    J0 = float(p_ref.J_current)
+    J0 = 4.0e11
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     m_top_const, m_bot_const = _run_trajectory(
         pulse_factory=lambda: ConstantPulse(J0),
@@ -143,8 +140,6 @@ def test_zero_pulse_does_not_diverge():
     p.nx = 32
     p.ny = 32
     p.pulse = ConstantPulse(0.0)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     m_top, m_bot = saf_skyrmion(
         p.nx, p.ny, a=p.a, R=p.skyrmion_R, dw=p.skyrmion_dw,
     )

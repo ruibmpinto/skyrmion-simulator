@@ -112,7 +112,7 @@ Phase contract:
 After a run, generate an mp4 of the m_z field:
 
 ```bash
-python studies/saf_racetrack/scripts/animate_simulation.py
+python studies/saf_racetrack/scripts/animation/animate_simulation.py
 ```
 
 (see the Python scripts' headers for configuration variables).
@@ -157,22 +157,15 @@ time.
 
 ## Sweep analyses
 
-One executable per `studies/saf_racetrack/scripts/sweep_*.py` analysis, built alongside the
-main simulator:
-
-```
-sweep_S41_v_time  sweep_D_S41        sweep_D_S41_local  sweep_S42_J
-sweep_S43a_FWHM   sweep_S43b_J_two_D sweep_S44_deformation
-sweep_S46a_HRKKY  sweep_S46b_FWHM    sweep_S47_J_config sweep_S48_inertia
-sweep_S49_TSH     sweep_breathing
-```
+Every source file in `src/sweeps/` builds one executable of the same
+name, alongside the main simulator. The public repository ships no sweep
+sources; study-specific sweeps are kept locally.
 
 Each binary has its grid + run config as named variables at the top of
 `main()` (no argparse). It writes the same output layout as the Python
-sweeps (`output/sweeps_S41_S49/<analysis>/…npz`), so the existing
-`studies/saf_racetrack/scripts/analyze_*.py` and `studies/saf_racetrack/scripts/plot_*.py` read the results
-unchanged (after the one-line `studies/saf_racetrack/orchestrator/io.py::load_trace` patch that
-accepts the C++ uint8-bytes metadata).
+sweeps, so the Python analysis scripts read the results unchanged (after
+the one-line `studies/saf_racetrack/orchestrator/io.py::load_trace`
+patch that accepts the C++ uint8-bytes metadata).
 
 Each grid point emits:
 
@@ -181,25 +174,25 @@ Each grid point emits:
 - `<grid_id>_snapshots.npz` — field snapshots for animation (same
   schema as the simulator's `snapshots.npz`), **only when**
   `dump_snapshots = true` in the binary's config. Replay with
-  `studies/saf_racetrack/scripts/animate_simulation.py`.
+  `studies/saf_racetrack/scripts/animation/animate_simulation.py`.
 
 Run one grid point or the whole grid:
 
 ```bash
 # Whole grid, serial:
-./build/sweep_S42_J
+./build/<sweep>
 
 # One grid point (SLURM array, or local):
-SLURM_ARRAY_TASK_ID=3 ./build/sweep_S42_J
+SLURM_ARRAY_TASK_ID=3 ./build/<sweep>
 
 # Local parallelism across points:
-seq 0 8 | xargs -P 4 -I {} env SLURM_ARRAY_TASK_ID={} ./build/sweep_S42_J
+seq 0 8 | xargs -P 4 -I {} env SLURM_ARRAY_TASK_ID={} ./build/<sweep>
 ```
 
 The default field model is full FFT demag (Newell kernel) with a
 convergence-stop relaxation, matching the Python `use_full_demag=True`
-default. Set `use_full_demag = false` (or, for `sweep_D_S41`,
-`use_demag = false`) for the faster local-K_eff path. The S49 analytic
+default. Set `use_full_demag = false` (or `use_demag = false`, where a
+sweep names it so) for the faster local-K_eff path. The analytic
 Thiele curves and the `unwrap_trajectory` post-processing remain on the
 Python side. Stochastic-LLG sweeps are a planned follow-up (the
 `sweep::Stepper` interface already accommodates a Heun stochastic

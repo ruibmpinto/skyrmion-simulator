@@ -24,10 +24,6 @@ int main() {
             test_common::scalar(p.C_anis_top, ref.scalar<double>("precompute_C_anis_top")));
     r.check("precompute_C_anis_bot",
             test_common::scalar(p.C_anis_bot, ref.scalar<double>("precompute_C_anis_bot")));
-    r.check("precompute_H_DL",
-            test_common::scalar(p.H_DL, ref.scalar<double>("precompute_H_DL")));
-    r.check("precompute_H_FL",
-            test_common::scalar(p.H_FL, ref.scalar<double>("precompute_H_FL")));
     r.check("precompute_gamma_p",
             test_common::scalar(p.gamma_p, ref.scalar<double>("precompute_gamma_p")));
 

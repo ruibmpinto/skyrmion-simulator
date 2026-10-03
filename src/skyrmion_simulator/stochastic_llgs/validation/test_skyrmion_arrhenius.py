@@ -117,9 +117,9 @@ def main():
     # ======================= End User Configuration =========================
     print('test_skyrmion_arrhenius (Neel-Arrhenius collapse '
           'vs Rohart 2016 form):')
-    # Prefer the single aggregate NPZ (produced on the cluster
-    # by studies/saf_racetrack/scripts/aggregate_skyrmion_arrhenius.sh, so
-    # only one file is pulled); fall back to the per-trajectory glob.
+    # Prefer the single aggregate NPZ (produced by
+    # aggregate_skyrmion_arrhenius, so only one file is pulled);
+    # fall back to the per-trajectory glob.
     agg_path = in_dir + '_agg.npz'
     by_T = {}
     t_max = None

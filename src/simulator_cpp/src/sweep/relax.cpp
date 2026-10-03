@@ -90,12 +90,8 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
 
     const double alpha_save = p.alpha;
     const double gamma_p_save = p.gamma_p;
-    const Real H_DL_save = p.H_DL;
-    const Real H_FL_save = p.H_FL;
     auto pulse_save = p.pulse;
 
-    p.H_DL = 0.0;
-    p.H_FL = 0.0;
     p.pulse = std::make_shared<ConstantPulse>(0.0);
     // alpha_relax < 0 means "no override" (mirrors Python's None);
     // exactly 0 is rejected: zero damping cannot relax anything.
@@ -184,15 +180,11 @@ RelaxResult relax(Field3 m_top, Field3 m_bot, Params& p,
     } catch (...) {
         p.alpha = alpha_save;
         p.gamma_p = gamma_p_save;
-        p.H_DL = H_DL_save;
-        p.H_FL = H_FL_save;
         p.pulse = pulse_save;
         throw;
     }
     p.alpha = alpha_save;
     p.gamma_p = gamma_p_save;
-    p.H_DL = H_DL_save;
-    p.H_FL = H_FL_save;
     p.pulse = pulse_save;
 
     res.m_top = std::move(m_top);

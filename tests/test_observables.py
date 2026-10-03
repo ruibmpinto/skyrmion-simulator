@@ -127,8 +127,10 @@ def test_tsh_off_equivalence():
     # nominally "on" vs "off", but with `lambda_sq = 0` so the
     # TSH branch should be skipped in both cases.
     p_baseline = default_params()
+    p_baseline.pulse = ConstantPulse(4.0e11)
     p_baseline.nx = p_baseline.ny = 32
     p_with_tsh = default_params()
+    p_with_tsh.pulse = ConstantPulse(4.0e11)
     p_with_tsh.nx = p_with_tsh.ny = 32
     # Even with lambda_sq = 0 (the default), the if-guard in
     # llgs_rhs should keep the dynamics identical to baseline.

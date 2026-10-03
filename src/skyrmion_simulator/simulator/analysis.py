@@ -240,8 +240,7 @@ def dw_angle(m, a, core_polarity, mz_thresh=0.5):
     Restricts to DW sites (|m_z| < mz_thresh) on the +x side of
     the skyrmion (x > centroid_x) and returns the population-
     weighted angle of the in-plane component, measured with
-    respect to the -x axis as in Pham et al. 2024 (Fig.~S44C
-    inset).
+    respect to the -x axis as in Pham et al. 2024.
 
     For a pure Neel skyrmion with outward-pointing in-plane
     magnetization, the right DW has m_xy parallel to +x, so
@@ -331,12 +330,7 @@ def run_analysis():
     # =========================================================
     print('=== Phase 1: Relaxation (J=0, 500 ps) ===')
     p = default_params()
-    # Zero current and SOT fields to find the true zero-drive equilibrium.
-    # The pulse is also swapped to ConstantPulse(0) because the
-    # integrator reads p.pulse(t) — not p.H_DL/p.H_FL — at every substep.
-    p.J_current = 0.0
-    p.H_DL = 0.0
-    p.H_FL = 0.0
+    # Zero drive to find the true zero-current equilibrium.
     p.pulse = ConstantPulse(0.0)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     m_top, m_bot = saf_skyrmion(
@@ -365,8 +359,10 @@ def run_analysis():
     # =========================================================
     print('=== Phase 2: Current drive (1 ns) ===')
     p2 = default_params()
-    print(f'J = {p2.J_current:.2e} A/m^2')
-    print(f'H_DL = {p2.H_DL:.4e} T')
+    p2.pulse = ConstantPulse(4.0e11)
+    J0 = p2.pulse(0.0)
+    print(f'J = {J0:.2e} A/m^2')
+    print(f'H_DL = {p2.DL_SOT * J0:.4e} T')
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Copy so the relaxed state is preserved as the initial drive frame.
     m_top_d = m_top.copy()
@@ -376,8 +372,8 @@ def run_analysis():
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     n_drive = 20000  # 20000 * 50 fs = 1 ns
     track = []
-    # Phase 2 starts at t = 0 so the default ConstantPulse(p.J_current)
-    # is on from the first substep onwards.
+    # Phase 2 starts at t = 0 so the constant drive is on from the
+    # first substep onwards.
     t = 0.0
     for step in range(1, n_drive + 1):
         m_top_d, m_bot_d = rk4_step(
@@ -414,7 +410,7 @@ def run_analysis():
         print(f'Equilibrium diameter:')
         print(f'  Sim:   {d_eq * 1e9:.0f} nm')
         print(f'  Paper: 197 nm')
-        print(f'Velocity @ J={p2.J_current:.0e}:')
+        print(f'Velocity @ J={J0:.0e}:')
         print(f'  Sim:   {v:.0f} m/s (vx={vx:.0f}, vy={vy:.0f})')
         print(f'  Paper: ~400 m/s (mumag)')
         print(f'Hall angle:')

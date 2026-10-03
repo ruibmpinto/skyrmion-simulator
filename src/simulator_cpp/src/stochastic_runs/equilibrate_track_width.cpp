@@ -140,7 +140,6 @@ int main() {
         // Equilibration is at J = 0: zero the current-driven fields.
         p.pulse = std::make_shared<ConstantPulse>(0.0);
         precompute(p);
-        p.H_DL = 0.0; p.H_FL = 0.0;
         // Thermal noise at this temperature (no Joule heating, J = 0).
         const long long seed = seed_base + 1000LL * c.ens
                                + 1000000LL * c.t_idx

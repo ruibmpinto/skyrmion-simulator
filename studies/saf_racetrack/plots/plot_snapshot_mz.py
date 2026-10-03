@@ -2,9 +2,9 @@
 
 Lightweight matplotlib helper that takes a single layer spin
 array (ny, nx, 3) and renders the m_z component as a heatmap
-with a symmetric color scale in [-1, 1]. Used for the
-S47 E-G snapshot panels and any other quick visual check of
-the simulation state.
+with a symmetric color scale in [-1, 1]. Used for snapshot
+panels and any other quick visual check of the simulation
+state.
 
 Functions
 ---------

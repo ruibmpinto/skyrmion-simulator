@@ -1,7 +1,8 @@
 """Thiele v_SOT(R/Delta) validation against Pham 2024 Fig. S49.
 
 Reproduces the methodology of the production sweep
-`studies/saf_racetrack/scripts/sweep_S49_TSH.py`, which mirrors Figure S49 of
+`studies/saf_racetrack/scripts/reproduction_S41_S49/sweeps/sweep_S49_TSH.py`,
+which mirrors Figure S49 of
 
     Pham et al., "Fast current-induced skyrmion motion in
     synthetic antiferromagnets" (2024), supplementary sec. 1.7.

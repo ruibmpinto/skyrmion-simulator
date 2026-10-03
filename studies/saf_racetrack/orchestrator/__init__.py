@@ -1,7 +1,6 @@
 """Sweep orchestration utilities for SAF skyrmion simulations.
 
-Shared helpers used by the per-figure sweep scripts that
-reproduce Pham et al. (2024) supplementary figures S41-S49.
+Shared helpers used by the pulsed-drive sweep scripts.
 
 Modules
 -------

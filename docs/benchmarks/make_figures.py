@@ -71,6 +71,8 @@ from skyrmion_simulator.simulator.validation.test_thiele_v_sot import (
     _make_set_B_params, _rhs_saf_demag)
 from skyrmion_simulator.stochastic_llgs.validation.test_skyrmion_arrhenius \
     import censored_tau
+from skyrmion_simulator.stochastic_llgs.validation \
+    .test_skyrmion_arrhenius_dtrend import _fit_dE
 
 #
 #                                                          Authorship & Credits
@@ -316,7 +318,7 @@ def fig_bh_profile():
         p = make_single_fm_params(
             A_ex=A_ex, D=D, K_eff=K_eff, Ms=Ms, alpha=0.14,
             gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=2.0e-14)
+            nx=nx, ny=ny, a=a, dt=2.0e-14, pulse=ConstantPulse(0.0))
         m0 = skyrmion_profile(
             nx=nx, ny=ny, a=a, R=10.0e-9, dw=5.6e-9, polarity=+1)
         m, _tau, _n = relax_single_fm(
@@ -511,7 +513,7 @@ def fig_fmr():
         p = make_single_fm_params(
             A_ex=A_ex, D=0.0, K_eff=K_eff, Ms=Ms, alpha=0.005,
             gamma=gamma, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=1.0e-13)
+            nx=nx, ny=ny, a=a, dt=1.0e-13, pulse=ConstantPulse(0.0))
         m0 = uniform_state(nx=nx, ny=ny, direction=np.array(
             [0.05, 0.0, math.sqrt(1.0 - 0.05 ** 2)]))
         times, trace = integrate_single_fm(
@@ -700,10 +702,35 @@ def fig_arrhenius():
 
 # -----------------------------------------------------------------------------
 def fig_arrhenius_dtrend():
-    """#8b Rohart Fig.5b: reported collapse barrier vs DMI."""
+    """#8b Rohart Fig.5b: fitted collapse barrier vs DMI.
+
+    Fits Delta_E per DMI value from the DMI-sweep aggregate with the
+    same censored-MLE Arrhenius fit and selection thresholds as
+    `test_skyrmion_arrhenius_dtrend`.
+    """
     print('fig_arrhenius_dtrend (#8b)')
-    D = np.array([2.95, 3.00, 3.05, 3.10])
-    dE = np.array([5.7, 12.9, 21.5, 31.5])
+    n_events_min = 10
+    n_T_min = 3
+    r2_min = 0.85
+    z = np.load(os.path.join(
+        OUT_VAL, 'stochastic_llgs', 'validation',
+        'skyrmion_arrhenius_dsweep_agg.npz'))
+    t_max = float(z['n_drive']) * float(z['dt'])
+    by_DT = {}
+    for Dv, T, tc in zip(z['D'], z['T_sub'], z['t_collapse']):
+        by_DT.setdefault(float(Dv), {}).setdefault(
+            float(T), []).append(float(tc))
+    D_used, dE_used = [], []
+    for Dv in sorted(by_DT):
+        dE_meV, _tau0, r2, _n_used = _fit_dE(
+            by_DT[Dv], t_max, n_events_min, n_T_min, r2_min)
+        if np.isfinite(dE_meV) and r2 >= r2_min:
+            D_used.append(Dv * 1e3)
+            dE_used.append(dE_meV)
+    D = np.array(D_used)
+    dE = np.array(dE_used)
+    print('    ' + ', '.join(
+        f'D={d:.2f}: {e:.1f} meV' for d, e in zip(D, dE)))
     fig, ax = _square_ax()
     ax.plot(D, dE, 'o-', color='C0', ms=7, lw=1.5)
     ax.set_xlabel(r'$D$ (mJ/m$^2$)')
@@ -938,7 +965,7 @@ def fig_arrhenius_config():
         p = make_single_fm_params(
             A_ex=A, D=D, K_eff=K, Ms=Ms, alpha=1.0,
             gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-            nx=nx, ny=ny, a=a, dt=2.0e-14)
+            nx=nx, ny=ny, a=a, dt=2.0e-14, pulse=ConstantPulse(0.0))
         m = skyrmion_profile(
             nx=nx, ny=ny, a=a, R=10.0e-9, dw=Delta, polarity=+1)
         m, _t, _n = relax_single_fm(
@@ -1009,7 +1036,8 @@ def fig_tomasello_config():
             p = make_single_fm_params(
                 A_ex=A, D=D, K_eff=K_eff, Ms=Ms, alpha=1.0,
                 gamma=1.760e11, H_ext=np.array([0.0, 0.0, 0.0]),
-                nx=nx, ny=ny, a=a, dt=5.0e-14)
+                nx=nx, ny=ny, a=a, dt=5.0e-14,
+                pulse=ConstantPulse(0.0))
             m = skyrmion_profile(
                 nx=nx, ny=ny, a=a, R=20.0e-9,
                 dw=math.sqrt(A / max(K_eff, 1.0)), polarity=+1)

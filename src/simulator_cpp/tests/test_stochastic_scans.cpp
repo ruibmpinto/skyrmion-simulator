@@ -106,7 +106,6 @@ int main() {
         Params p = make_default_params();
         p.nx = nx;
         p.ny = ny;
-        p.J_current = 0.0;
         p.skyrmion_R = 8.0e-9;
         p.skyrmion_dw = 3.0e-9;
         p.pulse = std::make_shared<ConstantPulse>(0.0);

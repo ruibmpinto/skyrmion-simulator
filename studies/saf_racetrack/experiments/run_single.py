@@ -332,14 +332,9 @@ def trajectory_worker(config):
     overrides = dict(config['param_overrides'])
     overrides['nx'] = nx
     overrides['ny'] = ny
-    overrides['J_current'] = j
+    overrides['pulse'] = ConstantPulse(j)
     p = make_params(**overrides)
     p.dt = dt
-    # make_params re-derives p.H_DL/p.H_FL from J_current but does
-    # NOT update p.pulse; the refactored llgs_rhs reads
-    # p.pulse(t) directly, so any J_current override must be
-    # mirrored into a new pulse object.
-    p.pulse = ConstantPulse(j)
     attach_thermal(p, T=T_eff, R_th=R_th, seed=seed)
     # Demag kernels per the selected formulation; None disables.
     if use_demag:
@@ -372,14 +367,8 @@ def trajectory_worker(config):
     # Relaxation phase (J = 0): swap p.pulse to ConstantPulse(0)
     # so llgs_rhs sees J(t) = 0 at every substep; restore after.
     # `equil` selects fixed-duration (None) or equilibrate-to-plateau.
-    # The H_DL/H_FL diagnostic scalars are zeroed alongside for
-    # consistency with the other drivers (llgs_rhs never reads them).
     pulse_save = p.pulse
-    H_DL_save = p.H_DL
-    H_FL_save = p.H_FL
     p.pulse = ConstantPulse(0.0)
-    p.H_DL = 0.0
-    p.H_FL = 0.0
     if equil is None:
         for step in range(n_relax):
             if sigma > 0.0:

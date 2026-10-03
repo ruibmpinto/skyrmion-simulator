@@ -25,7 +25,7 @@ from matplotlib.colors import Normalize
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 # Local
-from studies.saf_racetrack.scripts.plot_track_width import _load_anim
+from studies.saf_racetrack.scripts.figures.plot_track_width import _load_anim
 
 #
 #                                                          Authorship & Credits
