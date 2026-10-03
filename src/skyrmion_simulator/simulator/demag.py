@@ -65,8 +65,8 @@ __status__ = 'Development'
 def precompute_demag_kernels(p, kind, accuracy, tol_conv):
     """Build self- and inter-layer demag kernels in k-space.
 
-    Dispatcher: routes to either the analytic slab kernel or
-    the numerical Newell kernel based on `kind`.
+    Dispatcher: routes to the analytic slab kernel or one of
+    the Newell finite-prism kernels based on `kind`.
 
     Parameters
     ----------
@@ -75,18 +75,23 @@ def precompute_demag_kernels(p, kind, accuracy, tol_conv):
         `t_Co`, `d_Ru`, `Ms`, and `mu0`. A missing attribute
         raises `AttributeError` at access time so silent
         defaulting does not corrupt the kernels.
-    kind : str
-        Demag formulation: 'slab' or 'newell'.
-        'slab' uses the analytic thin-film shape factor;
-        'newell' uses the mumax3-style finite-prism numerical
-        integration. Required, no default.
+    kind : {'none', 'slab', 'newell', 'newell_freebc', 'racetrack'}
+        Demag formulation. Required, no default.
+        'none' returns a sentinel; demag_field then gives zero.
+        'slab' uses the analytic thin-film shape factor.
+        'newell' uses the finite-prism Newell tensor with
+        periodic boundaries and image sums.
+        'newell_freebc' zero-pads both in-plane directions
+        (isolated finite magnet).
+        'racetrack' zero-pads across the width only (periodic
+        along x, free across y).
     accuracy : {float, None}
-        Mumax3 accuracy parameter for the Newell kernel
-        (typical 4-8). Pass None for kind='slab'.
+        Mumax3 accuracy parameter for the Newell kernels
+        (typical 4-8). Pass None for kind='none' or 'slab'.
     tol_conv : {float, None}
         Maximum relative difference between accuracy and
         2*accuracy kernels for the Newell convergence check.
-        Pass None for kind='slab'.
+        Pass None for kind='none' or 'slab'.
 
     Returns
     -------
@@ -94,8 +99,8 @@ def precompute_demag_kernels(p, kind, accuracy, tol_conv):
         Dictionary holding the four self-layer tensor
         components and four inter-layer components on a 2D
         FFT grid of shape (ny, nx), plus the inter-layer
-        cross terms `Nxz_inter` and `Nyz_inter` (zero for
-        slab, non-zero for newell), the bulk coefficients
+        cross terms `Nxz_inter` and `Nyz_inter` (analytic for
+        slab, numerical for newell), the bulk coefficients
         `mu0_Ms`, and the geometry `t_Co`, `d_Ru`, `shape`.
 
     Notes
@@ -335,7 +340,7 @@ def demag_field(m_top, m_bot, kernels):
     Nyy_i = kernels['Nyy_inter']
     Nxy_i = kernels['Nxy_inter']
     Nzz_i = kernels['Nzz_inter']
-    # Inter-layer cross terms (Newell only; zero for slab).
+    # Inter-layer cross terms (slab and Newell kernels).
     # These couple in-plane M of one layer to out-of-plane H
     # of the other and vice versa. They are odd in the z
     # displacement: the kernel is built for source-to-dest
